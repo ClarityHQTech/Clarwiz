@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  image     String?
+  role      String     @default("user")
+  payment   Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id             String                  @id @default(cuid())
+  userId         String
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  targetSegment  String?
+  goals          String?
+  startDate      DateTime?
+  status         String                  @default("draft")
+  sentCount      Int                     @default(0)
+  openRate       Float                   @default(0)
+  replyRate      Float                   @default(0)
+  qualifiedLeads Int                     @default(0)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  prospects      Prospect[]
+  templates      CommunicationTemplate[]
+
+  @@index([userId])
+}
+
+model Prospect {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name        String
+  company     String?
+  jobTitle    String?
+  phone       String?
+  whatsapp    String?
+  email       String?
+  linkedinUrl String?
+  createdAt   DateTime @default(now())
+
+  @@index([campaignId])
+}
+
+model CommunicationTemplate {
+  id                 String   @id @default(cuid())
+  campaignId         String
+  campaign           Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  channel            String
+  stage              Int      @default(1)
+  subject            String?
+  body               String
+  cta                String
+  whatsappTemplateId String?
+  createdAt          DateTime @default(now())
+
+  @@index([campaignId])
+}

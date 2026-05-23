@@ -1,10 +1,13 @@
-import DashboardLayout from '@/components/layout/DashboardLayout'
-import React from 'react'
+"use client";
 
-const page = () => {
+import DashboardLayout from "@/components/layout/DashboardLayout";
+
+const Page = () => {
   return (
-    <div>page</div>
-  )
-}
+    <div className="p-8">
+      <h1 className="text-2xl font-semibold">Dashboard</h1>
+    </div>
+  );
+};
 
-export default DashboardLayout()(page);
+export default DashboardLayout()(Page);

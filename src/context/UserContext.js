@@ -6,48 +6,57 @@ import { usePathname, useRouter } from "next/navigation";
 
 const UserContext = createContext(null);
 
+const PROTECTED_PREFIXES = ["/dashboard", "/campaigns", "/settings", "/pricing"];
+
 export const UserProvider = ({ children }) => {
   const { status } = useSession();
   const [user, setUser] = useState(undefined);
   const router = useRouter();
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin");
+  const isProtectedRoute = PROTECTED_PREFIXES.some(
+    (p) => pathname === p || pathname?.startsWith(`${p}/`)
+  );
 
   useEffect(() => {
-    if(status){
-      if (status === "loading") return; // Still loading session, do nothing
-      if (status === "authenticated") {
-        // fetch("/api/profile")
-        //   .then(res => res.json())
-        //   .then(data => setUser(data))
-        //   .catch(() => setUser(null));
+    if (!status) return;
 
-        const fetchUser = async () => {
-          try {
-            const response = await fetch('/api/profile');
-            if (!response.ok) {
-              setUser(null);
-              if (!isAdminRoute) router.push('/');
-              return;
-            }
-            const data = await response.json();
-            setUser(data);
-            if (isAdminRoute && data.role !== "admin") {
-              router.replace("/dashboard");
-            }
-          } catch (error) {
-            console.error(error);
+    if (status === "loading") return;
+
+    if (status === "authenticated") {
+      const fetchUser = async () => {
+        try {
+          const response = await fetch("/api/profile");
+          if (!response.ok) {
             setUser(null);
+            if (isProtectedRoute || isAdminRoute) {
+              router.replace("/");
+            }
+            return;
+          }
+          const data = await response.json();
+          setUser(data);
+          if (isAdminRoute && data.role !== "admin") {
+            router.replace("/dashboard");
+          }
+        } catch (error) {
+          console.error(error);
+          setUser(null);
+          if (isProtectedRoute || isAdminRoute) {
+            router.replace("/");
           }
         }
+      };
 
-        fetchUser();
-      } else {
-        setUser(null);
-        router.push('/');
-      }
+      fetchUser();
+      return;
     }
-  }, [status, isAdminRoute, router]);
+
+    setUser(null);
+    if (isProtectedRoute || isAdminRoute) {
+      router.replace("/");
+    }
+  }, [status, isAdminRoute, isProtectedRoute, router]);
 
   return (
     <UserContext.Provider value={user}>

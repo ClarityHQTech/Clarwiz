@@ -1,6 +1,5 @@
 import GoogleProvider from "next-auth/providers/google";
-// import { User } from "@/models/User";
-// import { connectDB } from "@/libs/db";
+import { prisma } from "@/lib/prisma";
 
 const authOptions = {
   providers: [
@@ -13,23 +12,16 @@ const authOptions = {
   callbacks: {
     async signIn({ user }) {
       try {
-
-        // await connectDB();
-
-        // const existingUser = await User.findOne({
-        //   email: user.email
-        // });
-
-        // if (!existingUser) {
-        //   await User.create({
-        //     name: user.name,
-        //     email: user.email,
-        //     image: user.image
-        //   });
-        // }
-
-        // return true;
-
+        await prisma.user.upsert({
+          where: { email: user.email },
+          update: { name: user.name, image: user.image },
+          create: {
+            name: user.name,
+            email: user.email,
+            image: user.image,
+          },
+        });
+        return true;
       } catch (error) {
         console.error("SignIn Error:", error);
         return false;

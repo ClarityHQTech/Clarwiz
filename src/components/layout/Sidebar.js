@@ -8,8 +8,8 @@ import { useDisclosure } from '@chakra-ui/react';
 import { useUser } from '@/context/UserContext';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Profile from '../dialogs/ProfileModal';
-import ConfirmBox from '../dialogs/ConfirmBox';
+import Profile from '../dialog/ProfileModal';
+import ConfirmBox from '../dialog/ConfirmBox';
 import { signOut } from 'next-auth/react';
 // import ContactUs from '../dialogs/ContactUs';
 
