@@ -13,8 +13,17 @@ export const CHANNEL_LABELS = {
   whatsapp: "WhatsApp",
 };
 
-export const TEMPLATE_VARIABLES =
-  "{{first_name}}, {{company}}, {{job_title}}, {{pain_point}}";
+export { TEMPLATE_VARIABLE_LIST, TEMPLATE_VARIABLES } from "@/lib/templateVariables";
+
+/** Excel / CSV column names recognized on prospect import (any casing). */
+export const PROSPECT_IMPORT_COLUMNS = [
+  "Name (or firstName + lastName)",
+  "companyName / company",
+  "jobTitle",
+  "companyIndustry → {{pain_point}}",
+  "email, phone, whatsapp",
+  "linkedinUrl / linkedinPublicUrl",
+];
 
 export const MAX_TEMPLATE_STAGE = 20;
 

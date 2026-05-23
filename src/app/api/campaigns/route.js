@@ -133,8 +133,10 @@ export async function POST(request) {
         data: prospects.map((p) => ({
           campaignId: created.id,
           name: p.name.trim(),
+          firstName: p.firstName?.trim() || null,
           company: p.company?.trim() || null,
           jobTitle: p.jobTitle?.trim() || null,
+          painPoint: p.painPoint?.trim() || null,
           phone: p.phone?.trim() || null,
           whatsapp: p.whatsapp?.trim() || null,
           email: p.email?.trim() || null,

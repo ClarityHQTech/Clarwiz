@@ -19,18 +19,19 @@ import {
   HiOutlineArrowRight,
   HiOutlineArrowUpTray,
   HiOutlinePlus,
-  HiOutlineTrash,
 } from "react-icons/hi2";
 import { toast } from "sonner";
+import TemplateEditorCard from "@/components/campaigns/TemplateEditorCard";
 import {
   CAMPAIGN_CHANNELS,
   CHANNEL_LABELS,
   CTA_OPTIONS,
   MAX_TEMPLATE_STAGE,
-  TEMPLATE_VARIABLES,
+  PROSPECT_IMPORT_COLUMNS,
   createTemplate,
   validateTemplate,
 } from "@/lib/campaignConstants";
+import { TEMPLATE_VARIABLES } from "@/lib/templateVariables";
 import { parseProspectExcel } from "@/lib/parseProspectExcel";
 
 const STEPS = ["Campaign", "Prospects", "Templates", "Review"];
@@ -86,105 +87,6 @@ function Field({ label, required, children, hint }) {
   );
 }
 
-function TemplateCard({ template, onChange, onRemove }) {
-  const { channel } = template;
-
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <Field label="Stage">
-            <Select
-              size="sm"
-              w="28"
-              value={template.stage}
-              onChange={(e) => onChange({ stage: Number(e.target.value) })}
-            >
-              {Array.from({ length: MAX_TEMPLATE_STAGE }, (_, i) => i + 1).map(
-                (n) => (
-                  <option key={n} value={n}>
-                    Stage {n}
-                  </option>
-                )
-              )}
-            </Select>
-          </Field>
-          <span className="text-xs text-gray-400 mt-5">
-            Variables: {TEMPLATE_VARIABLES}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
-          aria-label="Remove template"
-        >
-          <HiOutlineTrash className="h-4 w-4" />
-        </button>
-      </div>
-
-      {channel === "email" && (
-        <Field label="Subject" required>
-          <Input
-            size="sm"
-            value={template.subject ?? ""}
-            onChange={(e) => onChange({ subject: e.target.value })}
-            placeholder="Quick idea for {{company}}"
-          />
-        </Field>
-      )}
-
-      {channel === "whatsapp" && (
-        <Field
-          label="WhatsApp template ID"
-          required
-          hint="Approved Meta template name / ID — not created here."
-        >
-          <Input
-            size="sm"
-            value={template.whatsappTemplateId ?? ""}
-            onChange={(e) => onChange({ whatsappTemplateId: e.target.value })}
-            placeholder="e.g. outreach_intro_v2"
-          />
-        </Field>
-      )}
-
-      <Field
-        label={
-          channel === "whatsapp" ? "Template message preview" : "Message body"
-        }
-        required
-      >
-        <Textarea
-          size="sm"
-          rows={3}
-          value={template.body}
-          onChange={(e) => onChange({ body: e.target.value })}
-          placeholder={
-            channel === "whatsapp"
-              ? "Body text matching your approved WhatsApp template..."
-              : "Hi {{first_name}}, I noticed {{company}}..."
-          }
-        />
-      </Field>
-
-      <Field label="CTA" required>
-        <Select
-          size="sm"
-          value={template.cta}
-          onChange={(e) => onChange({ cta: e.target.value })}
-        >
-          {CTA_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
-    </div>
-  );
-}
-
 function ChannelTemplatesSection({ channel, templates, onAdd, onUpdate, onRemove }) {
   const channelTemplates = templates
     .filter((t) => t.channel === channel)
@@ -218,7 +120,7 @@ function ChannelTemplatesSection({ channel, templates, onAdd, onUpdate, onRemove
           </p>
         ) : (
           channelTemplates.map((t) => (
-            <TemplateCard
+            <TemplateEditorCard
               key={t.id}
               template={t}
               onChange={(patch) => onUpdate(t.id, patch)}
@@ -443,8 +345,12 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                 <p className="text-sm font-medium text-gray-900 mt-2">
                   Upload prospect list (.xlsx, .xls, .csv)
                 </p>
-                <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-                  Columns: name, company, job title, phone, whatsapp no., email, linkedinUrl
+                <p className="text-xs text-gray-500 mt-1 max-w-lg mx-auto">
+                  Recognized columns (any casing):{" "}
+                  {PROSPECT_IMPORT_COLUMNS.join(" · ")}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Maps to template variables: {TEMPLATE_VARIABLES}
                 </p>
                 <label className="mt-4 inline-block">
                   <input
@@ -488,8 +394,10 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                       <thead>
                         <tr className="text-left text-gray-500 border-b border-gray-100">
                           <th className="px-3 py-2 font-medium">Name</th>
+                          <th className="px-3 py-2 font-medium">First</th>
                           <th className="px-3 py-2 font-medium">Company</th>
                           <th className="px-3 py-2 font-medium">Title</th>
+                          <th className="px-3 py-2 font-medium">Industry</th>
                           <th className="px-3 py-2 font-medium">Email</th>
                         </tr>
                       </thead>
@@ -497,8 +405,10 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                         {prospects.slice(0, 8).map((p, i) => (
                           <tr key={i}>
                             <td className="px-3 py-1.5 text-gray-900">{p.name}</td>
+                            <td className="px-3 py-1.5 text-gray-600">{p.firstName || "—"}</td>
                             <td className="px-3 py-1.5 text-gray-600">{p.company || "—"}</td>
                             <td className="px-3 py-1.5 text-gray-600">{p.jobTitle || "—"}</td>
+                            <td className="px-3 py-1.5 text-gray-600">{p.painPoint || "—"}</td>
                             <td className="px-3 py-1.5 text-gray-600">{p.email || "—"}</td>
                           </tr>
                         ))}

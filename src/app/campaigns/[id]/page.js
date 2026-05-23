@@ -1,13 +1,20 @@
 "use client";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import ExecutionTestModal from "@/components/campaigns/ExecutionTestModal";
+import ProspectCommThread from "@/components/campaigns/ProspectCommThread";
+import CampaignTemplatesModal from "@/components/campaigns/CampaignTemplatesModal";
+import { useDisclosure } from "@chakra-ui/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import {
   HiOutlineArrowLeft,
+  HiOutlineChevronDown,
+  HiOutlineChevronRight,
   HiOutlinePlay,
   HiOutlinePause,
+  HiOutlinePlus,
 } from "react-icons/hi2";
 import { toast } from "sonner";
 
@@ -28,7 +35,7 @@ function formatDate(iso) {
 }
 
 function formatPercent(value) {
-  if (value == null || value === 0) return "0%";
+  if (value == null || Number.isNaN(value)) return "0%";
   return `${Number(value).toFixed(1)}%`;
 }
 
@@ -42,16 +49,32 @@ function StatusBadge({ status }) {
   );
 }
 
-function MetricCard({ label, value, sub }) {
+function MetricCard({ label, value, sub, highlight }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+    <div
+      className={`rounded-lg border px-4 py-3 ${
+        highlight
+          ? "border-emerald-200 bg-emerald-50/50"
+          : "border-gray-200 bg-white"
+      }`}
+    >
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
         {label}
       </p>
-      <p className="mt-1 text-xl font-semibold text-gray-900 tabular-nums">
+      <p
+        className={`mt-1 text-xl font-semibold tabular-nums ${
+          highlight ? "text-emerald-800" : "text-gray-900"
+        }`}
+      >
         {value}
       </p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      {sub && (
+        <p
+          className={`text-xs mt-0.5 ${highlight ? "text-emerald-700/80" : "text-gray-400"}`}
+        >
+          {sub}
+        </p>
+      )}
     </div>
   );
 }
@@ -80,6 +103,13 @@ const Page = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+  const [executionModalOpen, setExecutionModalOpen] = useState(false);
+  const {
+    isOpen: templatesModalOpen,
+    onOpen: openTemplatesModal,
+    onClose: closeTemplatesModal,
+  } = useDisclosure();
 
   const fetchCampaign = useCallback(async () => {
     if (!id) return;
@@ -122,6 +152,10 @@ const Page = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const toggleExpand = (prospectId) => {
+    setExpandedId((prev) => (prev === prospectId ? null : prospectId));
   };
 
   const filteredProspects =
@@ -172,7 +206,6 @@ const Page = () => {
         Campaigns
       </Link>
 
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -209,14 +242,24 @@ const Page = () => {
           {canStart && (
             <button
               type="button"
-              disabled={actionLoading || metrics.prospectCount === 0}
-              onClick={() => runAction("start")}
+              disabled={metrics.prospectCount === 0}
+              onClick={() => setExecutionModalOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
             >
               <HiOutlinePlay className="h-4 w-4" />
               {campaign.status === "paused"
                 ? "Resume drip"
-                : "Start drip campaign"}
+                : "Launch drip campaign"}
+            </button>
+          )}
+          {isRunning && (
+            <button
+              type="button"
+              onClick={() => setExecutionModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-600 bg-sky-50 px-3.5 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
+            >
+              <HiOutlinePlay className="h-4 w-4" />
+              Execution test
             </button>
           )}
           {campaign.status === "completed" && (
@@ -231,27 +274,40 @@ const Page = () => {
         </div>
       )}
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <MetricCard label="Prospects" value={metrics.prospectCount.toLocaleString()} />
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        <MetricCard
+          label="Prospects"
+          value={metrics.prospectCount.toLocaleString()}
+        />
         <MetricCard
           label="Sent"
           value={metrics.sent.toLocaleString()}
-          sub={`of ${metrics.prospectCount}`}
+          sub={`of ${metrics.prospectCount} enrolled`}
+        />
+        <MetricCard
+          label="Replies"
+          value={metrics.replyCount}
+          sub={`${metrics.repliedProspects} prospect${metrics.repliedProspects === 1 ? "" : "s"}`}
+          highlight={metrics.replyCount > 0}
+        />
+        <MetricCard
+          label="Reply rate"
+          value={formatPercent(metrics.replyRate)}
+          sub={
+            metrics.sent > 0
+              ? "of contacted prospects"
+              : "No outreach sent yet"
+          }
+          highlight={metrics.replyRate > 0}
         />
         <MetricCard label="Open rate" value={formatPercent(metrics.openRate)} />
-        <MetricCard label="Reply rate" value={formatPercent(metrics.replyRate)} />
-        <MetricCard label="Qualified leads" value={metrics.qualifiedLeads} />
+        <MetricCard label="Qualified" value={metrics.qualifiedLeads} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        {/* Progress */}
         <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-white p-4 space-y-4">
           <h2 className="text-sm font-semibold text-gray-900">Progress</h2>
-          <ProgressBar
-            label="Outreach sent"
-            percent={progress.sentPercent}
-          />
+          <ProgressBar label="Outreach sent" percent={progress.sentPercent} />
           <div className="grid sm:grid-cols-3 gap-3 pt-1">
             <div className="rounded-md bg-gray-50 px-3 py-2">
               <p className="text-xs text-gray-500">Templates</p>
@@ -290,11 +346,20 @@ const Page = () => {
           </div>
         </div>
 
-        {/* Templates summary */}
         <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">
-            Comm templates
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-900">
+              Comm templates
+            </h2>
+            <button
+              type="button"
+              onClick={openTemplatesModal}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <HiOutlinePlus className="h-3.5 w-3.5" />
+              Manage
+            </button>
+          </div>
           {campaign.templates.length === 0 ? (
             <p className="text-xs text-gray-500">No templates configured yet.</p>
           ) : (
@@ -318,12 +383,16 @@ const Page = () => {
         </div>
       </div>
 
-      {/* Prospects table */}
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50/80">
-          <h2 className="text-sm font-semibold text-gray-900">
-            Prospects ({campaign.prospects.length})
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">
+              Prospects ({campaign.prospects.length})
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Click a row to expand — conversations grouped by channel (Email, LinkedIn, WhatsApp)
+            </p>
+          </div>
           <input
             type="search"
             placeholder="Search name, company, email…"
@@ -336,6 +405,7 @@ const Page = () => {
           <table className="w-full min-w-[1000px] text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-white">
+                <th className="w-8 px-2 py-2.5" aria-hidden />
                 <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
                   Name
                 </th>
@@ -348,71 +418,145 @@ const Page = () => {
                 <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
                   Email
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Phone
+                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
+                  Msgs
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  WhatsApp
-                </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  LinkedIn
+                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
+                  Reply
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredProspects.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-sm text-gray-500"
+                  >
                     {search ? "No prospects match your search." : "No prospects."}
                   </td>
                 </tr>
               ) : (
-                filteredProspects.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50/80">
-                    <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">
-                      {p.name}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-600">{p.company || "—"}</td>
-                    <td className="px-4 py-2.5 text-gray-600">{p.jobTitle || "—"}</td>
-                    <td className="px-4 py-2.5 text-gray-600">
-                      {p.email ? (
-                        <a
-                          href={`mailto:${p.email}`}
-                          className="text-sky-700 hover:underline"
-                        >
-                          {p.email}
-                        </a>
-                      ) : (
-                        "—"
+                filteredProspects.map((p) => {
+                  const expanded = expandedId === p.id;
+                  return (
+                    <Fragment key={p.id}>
+                      <tr
+                        onClick={() => toggleExpand(p.id)}
+                        className={`cursor-pointer transition-colors ${
+                          expanded ? "bg-sky-50/60" : "hover:bg-gray-50/80"
+                        }`}
+                      >
+                        <td className="px-2 py-2.5 text-gray-400">
+                          {expanded ? (
+                            <HiOutlineChevronDown className="h-4 w-4 mx-auto" />
+                          ) : (
+                            <HiOutlineChevronRight className="h-4 w-4 mx-auto" />
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">
+                          {p.name}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-600">
+                          {p.company || "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-600">
+                          {p.jobTitle || "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-600">
+                          {p.email ? (
+                            <a
+                              href={`mailto:${p.email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-sky-700 hover:underline"
+                            >
+                              {p.email}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-center text-gray-600 tabular-nums">
+                          {p.messageCount}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {p.hasReply ? (
+                            <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="bg-gray-50/50">
+                          <td colSpan={7} className="px-4 py-3 border-t border-gray-100">
+                            <div className="grid lg:grid-cols-[1fr_280px] gap-4">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                                  Conversation
+                                </p>
+                                <ProspectCommThread communications={p.communications} />
+                              </div>
+                              <div className="text-xs text-gray-500 space-y-1 lg:border-l lg:border-gray-200 lg:pl-4">
+                                <p>
+                                  <span className="font-medium text-gray-700">Phone:</span>{" "}
+                                  {p.phone || "—"}
+                                </p>
+                                <p>
+                                  <span className="font-medium text-gray-700">WhatsApp:</span>{" "}
+                                  {p.whatsapp || "—"}
+                                </p>
+                                <p>
+                                  <span className="font-medium text-gray-700">LinkedIn:</span>{" "}
+                                  {p.linkedinUrl ? (
+                                    <a
+                                      href={p.linkedinUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sky-700 hover:underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      Profile
+                                    </a>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
-                      {p.phone || "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
-                      {p.whatsapp || "—"}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {p.linkedinUrl ? (
-                        <a
-                          href={p.linkedinUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sky-700 hover:underline text-xs truncate max-w-[160px] inline-block"
-                        >
-                          Profile
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))
+                    </Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      <CampaignTemplatesModal
+        isOpen={templatesModalOpen}
+        onClose={closeTemplatesModal}
+        campaignId={campaign.id}
+        templates={campaign.templates}
+        onUpdated={setCampaign}
+      />
+
+      <ExecutionTestModal
+        isOpen={executionModalOpen}
+        onClose={() => setExecutionModalOpen(false)}
+        campaignId={campaign.id}
+        campaignName={campaign.name}
+        prospects={campaign.prospects}
+        onCampaignUpdate={(data) => {
+          setCampaign(data);
+          fetchCampaign();
+        }}
+      />
     </div>
   );
 };

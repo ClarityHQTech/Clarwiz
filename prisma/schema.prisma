@@ -17,6 +17,8 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   campaigns Campaign[]
+  commLogs  CommunicationLog[]
+  signals   ProspectSignal[]
 }
 
 model Campaign {
@@ -37,6 +39,8 @@ model Campaign {
   updatedAt      DateTime                @updatedAt
   prospects      Prospect[]
   templates      CommunicationTemplate[]
+  commLogs       CommunicationLog[]
+  signals        ProspectSignal[]
 
   @@index([userId])
 }
@@ -46,15 +50,74 @@ model Prospect {
   campaignId  String
   campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   name        String
+  firstName   String?
   company     String?
   jobTitle    String?
+  painPoint   String?
   phone       String?
   whatsapp    String?
   email       String?
   linkedinUrl String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime         @default(now())
+  commLogs    CommunicationLog[]
+  signals     ProspectSignal[]
 
   @@index([campaignId])
+}
+
+model ProspectSignal {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prospectId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  type       String
+  source     String
+  content    String
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([campaignId])
+  @@index([prospectId])
+  @@index([campaignId, prospectId])
+}
+
+model CommunicationLog {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId      String
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prospectId      String
+  prospect        Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  channel         String
+  templateId      String?
+  stage           Int?
+  subject         String?
+  message         String
+  ctaType         String?
+  status          String    @default("planned")
+  sentAt          DateTime  @default(now())
+  deliveredAt     DateTime?
+  openedAt        DateTime?
+  ctaClickedAt    DateTime?
+  responseType    String?
+  responseAt      DateTime?
+  responseContent String?
+  signalRef       String?
+  decisionReason  String?
+  modelUsed       String?
+  providerUsage   Json?
+  providerCost    Json?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, sentAt])
+  @@index([campaignId])
+  @@index([prospectId])
+  @@index([campaignId, prospectId])
 }
 
 model CommunicationTemplate {
