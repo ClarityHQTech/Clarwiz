@@ -278,6 +278,14 @@ Responses feed back into execution engine.
 
 ---
 
+## Token / Cost Tracking
+
+Model used per comm log
+Tokens used per comm log (separate for LinkupAPI)
+Cost per comm log
+
+---
+
 ## Pixel / UTM Tracking
 
 Website URLs include:
