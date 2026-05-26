@@ -6,6 +6,7 @@ import {
 import {
   addCampaignLeads,
   createCampaign,
+  extractReplyBodyFromInboxRow,
   findCampaignLeadRow,
   findInboxRowByEmail,
   findSentMessageForLeadEmail,
@@ -16,10 +17,12 @@ import {
   getCampaignLeads,
   getInboxReplies,
   getInboxSent,
+  leadIdFromAddLeadsResult,
   leadRowSendState,
   linkCampaignEmailAccounts,
   replyEmailThread,
   updateCampaignLead,
+  wasLeadAddedToCampaign,
   setCampaignSchedule,
   setCampaignSequences,
   setCampaignStatus,
@@ -100,6 +103,7 @@ export function mapEngagementFromSmartlead(message, { engagementHint } = {}) {
   const status = normalizeEmailStatus(
     message.email_status ??
       message.emailStatus ??
+      message.lead_status ??
       (Array.isArray(engagementHint) ? engagementHint[0] : engagementHint)
   );
   const last = message.last_message ?? {};
@@ -117,14 +121,14 @@ export function mapEngagementFromSmartlead(message, { engagementHint } = {}) {
     message.has_new_unread_email === true;
 
   if (isReply) {
+    const replyBody = extractReplyBodyFromInboxRow(message);
     return {
       activity: "reply",
       emailStatus: status || "Replied",
       openedAt: lastOpenTime ?? null,
       repliedAt: lastReplyTime ?? null,
       responseContent:
-        last.body?.slice(0, 2000) ??
-        message.message_history?.find((m) => m.direction === "inbound")?.body?.slice(0, 2000) ??
+        replyBody ??
         (lastReplyTime ? "Prospect replied via email (Smartlead)" : null),
       deliveryMeta: buildDeliveryMeta(message),
     };
@@ -160,6 +164,16 @@ export function mapEngagementFromSmartlead(message, { engagementHint } = {}) {
 export function buildDeliveryMeta(message) {
   if (!message) return null;
   const last = message.last_message ?? {};
+  const history = message.email_history ?? message.message_history ?? [];
+  const latestReply = Array.isArray(history)
+    ? [...history]
+        .reverse()
+        .find(
+          (e) =>
+            String(e.type ?? e.direction ?? "").toUpperCase() === "REPLY" ||
+            String(e.direction ?? "").toLowerCase() === "inbound"
+        )
+    : null;
   return {
     smartleadMessageId: message.id ?? message.email_lead_id ?? null,
     campaignLeadMapId:
@@ -167,6 +181,7 @@ export function buildDeliveryMeta(message) {
       message.email_lead_map_id ??
       null,
     emailStatsId:
+      latestReply?.stats_id ??
       last.email_stats_id ??
       last.stats_id ??
       message.email_stats_id ??
@@ -339,6 +354,20 @@ export async function resolveSmartleadDeliveryStatus({
     await sleep(Math.min(SMARTLEAD_POLL_MS, deadline - Date.now()));
   } while (Date.now() < deadline);
 
+  if (!lastRow) {
+    return {
+      status: "failed",
+      leadState: "not_found",
+      leadRow: null,
+      deliveryMeta: {
+        smartleadCampaignId,
+        campaignSentCount: lastAnalytics?.sent_count ?? null,
+      },
+      message:
+        "Lead was not added to this Smartlead campaign (often because the contact already exists in another campaign). Re-run execution after the fix or add the lead manually in Smartlead.",
+    };
+  }
+
   return {
     status: "queued",
     leadState: leadRowSendState(lastRow),
@@ -347,7 +376,7 @@ export async function resolveSmartleadDeliveryStatus({
       smartleadCampaignId,
       campaignLeadMapId: lastRow?.campaign_lead_map_id ?? null,
       smartleadLeadId: lastRow?.lead?.id ?? null,
-      leadStatus: lastRow?.status ?? "STARTED",
+      leadStatus: lastRow?.status ?? null,
       campaignSentCount: lastAnalytics?.sent_count ?? null,
     },
     message:
@@ -388,7 +417,6 @@ export async function sendPlannedEmailViaSmartlead({
       email_stats_id: String(emailStatsId),
       email_body: message,
       to_email: prospect.email.trim(),
-      ...splitName(prospect.name),
       add_signature: true,
     });
     return {
@@ -423,9 +451,22 @@ export async function sendPlannedEmailViaSmartlead({
 
   const addResult = await addCampaignLeads(smartleadCampaignId, [leadPayload]);
 
-  const existingLeadId = addResult?.emailToLeadIdMap?.existingLeads?.[toEmail];
-  const newLeadId = addResult?.emailToLeadIdMap?.newlyAddedLeads?.[toEmail];
-  const leadIdFromMap = newLeadId ?? existingLeadId ?? null;
+  if (!wasLeadAddedToCampaign(addResult, toEmail)) {
+    const inOther =
+      addResult?.emailToLeadIdMap?.existingLeadsInOtherCampaigns?.[toEmail] ??
+      addResult?.emailToLeadIdMap?.existingLeadsInOtherCampaigns?.[
+        toEmail.toLowerCase()
+      ];
+    const reason = inOther
+      ? `Lead ${toEmail} exists in another Smartlead campaign and was not imported into campaign ${smartleadCampaignId}.`
+      : `Smartlead did not add ${toEmail} to campaign ${smartleadCampaignId} (upload_count=${addResult?.upload_count ?? 0}, total_leads=${addResult?.total_leads ?? 0}).`;
+    throw new Error(reason);
+  }
+
+  const leadIdFromMap = leadIdFromAddLeadsResult(addResult, toEmail);
+  const existingLeadId =
+    addResult?.emailToLeadIdMap?.existingLeads?.[toEmail] ??
+    addResult?.emailToLeadIdMap?.existingLeads?.[toEmail.toLowerCase()];
 
   if (existingLeadId) {
     await updateCampaignLead(smartleadCampaignId, existingLeadId, leadPayload);
@@ -503,17 +544,7 @@ export async function fetchSmartleadEngagementForProspect({
   const search = prospectEmail?.trim().slice(0, 30);
   if (!search) return null;
 
-  // Replies — inbox-replies + sent filter (opens are not in inbox-replies)
-  const replyFromSent = await querySentEngagement({
-    prospectEmail,
-    emailAccountId,
-    smartleadCampaignId,
-    emailStatus: "Replied",
-    engagementHint: "Replied",
-    fetchMessageHistory: true,
-  });
-  if (replyFromSent) return replyFromSent;
-
+  // Replies — inbox-replies includes email_history with reply bodies (sent rows do not)
   const replies = await getInboxReplies(
     {
       offset: 0,
@@ -545,6 +576,16 @@ export async function fetchSmartleadEngagementForProspect({
       return { message: replyMessage, engagement, source: "inbox" };
     }
   }
+
+  const replyFromSent = await querySentEngagement({
+    prospectEmail,
+    emailAccountId,
+    smartleadCampaignId,
+    emailStatus: "Replied",
+    engagementHint: "Replied",
+    fetchMessageHistory: true,
+  });
+  if (replyFromSent) return replyFromSent;
 
   // Opens / clicks — must query sent mailbox with emailStatus (not on default row shape)
   const openFromSent = await querySentEngagement({

@@ -2,6 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
 import { decideNextActionForProspect } from "@/lib/execution/decideNextAction";
 import {
+  EXECUTION_RULES_DOC,
+  canPushLinkedInMessage,
+  isLinkedInConnectionRequest,
+} from "@/lib/execution/executionRules";
+import {
   pushEmailIfConnected,
   pushLinkedInConnectionRequest,
   pushLinkedInMessage,
@@ -87,7 +92,14 @@ async function maybePushOutboundMessage({
   }
 
   if (decision.channel === "linkedin") {
-    const isConnection = decision.ctaType === "connect_linkedin";
+    const isConnection = isLinkedInConnectionRequest(decision);
+    if (!isConnection && !canPushLinkedInMessage(commHistory)) {
+      return {
+        skippedSend: true,
+        reason: "linkedin_connection_not_accepted",
+        rulesDoc: EXECUTION_RULES_DOC,
+      };
+    }
     const pushResult = isConnection
       ? await pushLinkedInConnectionRequest({
           userId: campaign.userId,

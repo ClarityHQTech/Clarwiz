@@ -121,6 +121,8 @@ Tracked using:
 
 Picks or generates communication templates dynamically.
 
+> **Implementation rules (canonical):** [execution-layer-rules.md](./execution-layer-rules.md) — update that doc first when changing execution behavior; code references it via `src/lib/execution/executionRules.js`.
+
 ---
 
 ## Context Inputs

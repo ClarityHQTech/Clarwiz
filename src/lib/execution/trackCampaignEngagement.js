@@ -1,3 +1,4 @@
+/** Engagement tracking rules: docs/execution-layer-rules.md §8 */
 import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
 import { checkEmailEngagementForProspect } from "@/lib/execution/checkEmailEngagement";

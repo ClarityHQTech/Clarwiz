@@ -226,12 +226,52 @@ export async function addCampaignLeads(campaignId, leadList, settings = {}) {
     body: {
       lead_list: leadList,
       settings: {
-        ignore_duplicate_leads_in_other_campaign: true,
+        // false = import leads even when they exist in another Smartlead campaign
+        // (true only adds net-new emails; cross-campaign leads land in existingLeadsInOtherCampaigns with total_leads 0)
+        ignore_duplicate_leads_in_other_campaign: false,
         return_lead_ids: true,
         ...settings,
       },
     },
   });
+}
+
+/** Lead id from POST /campaigns/{id}/leads when return_lead_ids is enabled. */
+export function leadIdFromAddLeadsResult(addResult, email) {
+  const map = addResult?.emailToLeadIdMap;
+  if (!map || !email) return null;
+  const key = email.trim().toLowerCase();
+  const buckets = [
+    map.newlyAddedLeads,
+    map.existingLeads,
+    map.existingLeadsInOtherCampaigns,
+  ];
+  for (const bucket of buckets) {
+    if (!bucket || typeof bucket !== "object") continue;
+    for (const [mapEmail, id] of Object.entries(bucket)) {
+      if (mapEmail.trim().toLowerCase() === key && id != null) return id;
+    }
+  }
+  return null;
+}
+
+/** Whether the lead was actually attached to this campaign (not only reported in upload_count). */
+export function wasLeadAddedToCampaign(addResult, email) {
+  if (!addResult?.ok) return false;
+  const total = Number(addResult.total_leads ?? 0);
+  const already = Number(addResult.already_added_to_campaign ?? 0);
+  if (total > 0 || already > 0) return true;
+
+  const map = addResult?.emailToLeadIdMap;
+  if (!map || !email) return false;
+  const key = email.trim().toLowerCase();
+  for (const bucket of [map.newlyAddedLeads, map.existingLeads]) {
+    if (!bucket || typeof bucket !== "object") continue;
+    for (const mapEmail of Object.keys(bucket)) {
+      if (mapEmail.trim().toLowerCase() === key) return true;
+    }
+  }
+  return false;
 }
 
 export async function getCampaignLeads(campaignId, { limit = 100, offset = 0 } = {}) {
@@ -277,7 +317,42 @@ export function normalizeInboxRows(data) {
 }
 
 export function getLeadEmailFromInboxRow(row) {
-  return (row?.lead?.email ?? row?.lead_email ?? "").trim().toLowerCase();
+  return (row?.lead?.email ?? row?.lead_email ?? row?.email ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+/** Strip HTML and collapse whitespace for reply preview text. */
+export function plainTextFromEmailBody(htmlOrText) {
+  if (!htmlOrText) return "";
+  return String(htmlOrText)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Latest inbound reply body from master-inbox rows (email_history or legacy shapes). */
+export function extractReplyBodyFromInboxRow(message) {
+  if (!message) return null;
+
+  const history = message.email_history ?? message.message_history ?? [];
+  if (Array.isArray(history) && history.length) {
+    const replyEvents = history.filter(
+      (e) =>
+        String(e.type ?? e.direction ?? "").toUpperCase() === "REPLY" ||
+        String(e.direction ?? "").toLowerCase() === "inbound"
+    );
+    const latest = replyEvents[replyEvents.length - 1] ?? null;
+    const body = plainTextFromEmailBody(
+      latest?.email_body ?? latest?.body ?? latest?.text
+    );
+    if (body) return body.slice(0, 2000);
+  }
+
+  const last = message.last_message ?? {};
+  const legacy = plainTextFromEmailBody(last.body ?? last.email_body);
+  return legacy ? legacy.slice(0, 2000) : null;
 }
 
 export function findInboxRowByEmail(rows, leadEmail) {

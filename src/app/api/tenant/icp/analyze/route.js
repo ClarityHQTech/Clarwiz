@@ -5,8 +5,8 @@ import {
   runIcpAnalysisStep,
 } from "@/lib/tenantIcpContext";
 
-/** One GTM Core tool per request — can take up to ~10 min */
-export const maxDuration = 600;
+/** One GTM Core tool per request — can take up to ~10 min (Vercel hobby caps at 300s) */
+export const maxDuration = Number(process.env.SERVERLESS_MAX_DURATION) || 300;
 export const runtime = "nodejs";
 
 export async function POST(request) {

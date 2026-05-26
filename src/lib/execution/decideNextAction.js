@@ -1,5 +1,11 @@
 import { getOpenAIClient } from "@/lib/openaiClient";
 import { CAMPAIGN_CHANNELS } from "@/lib/campaignConstants";
+import {
+  ACTIVE_EXECUTION_CHANNELS,
+  EXECUTION_RULES_DOC,
+  availableProspectChannels,
+  enforceChannelRules,
+} from "@/lib/execution/executionRules";
 import { applyTemplateVariables } from "@/lib/execution/renderMessage";
 import { selectModel } from "@/lib/execution/modelRouter";
 import { buildProviderMetadata } from "@/lib/execution/openaiUsage";
@@ -16,7 +22,7 @@ const DECISION_SCHEMA = {
   properties: {
     channel: {
       type: "string",
-      enum: ["email", "linkedin", "whatsapp", "call"],
+      enum: ["email", "linkedin", "whatsapp"],
     },
     stage: { type: "integer", minimum: 1, maximum: 20 },
     templateId: { type: ["string", "null"] },
@@ -87,13 +93,9 @@ function serializeTemplates(templates) {
   }));
 }
 
+/** @see EXECUTION_RULES_DOC */
 function availableChannels(prospect) {
-  const channels = [];
-  if (prospect.email) channels.push("email");
-  if (prospect.linkedinUrl) channels.push("linkedin");
-  if (prospect.whatsapp) channels.push("whatsapp");
-  if (prospect.phone) channels.push("call");
-  return channels;
+  return availableProspectChannels(prospect);
 }
 
 export async function decideNextActionForProspect({
@@ -155,9 +157,11 @@ REPLY THREAD MODE (prospect has responded — this overrides template reuse):
 
 Given tenant context, campaign templates, communication history, and prospect profile, decide the single best next outbound message.
 
-Rules:
+Rules (full spec: ${EXECUTION_RULES_DOC}):
+- Active channels only: ${ACTIVE_EXECUTION_CHANNELS.join(", ")}. Never use "call" (deferred).
 - Prefer channels the prospect has contact info for: ${channels.join(", ")}.
-- Allowed campaign template channels: ${CAMPAIGN_CHANNELS.join(", ")} plus "call" if phone exists.
+- Allowed campaign template channels: ${CAMPAIGN_CHANNELS.join(", ")}.
+- LinkedIn: send connection request (cta connect_linkedin) before any DM; DMs only after the request is accepted (see history responseType connected).
 - For whatsapp: you MUST set templateId to one of the campaign whatsapp template ids from templates (channel=whatsapp). Never invent template ids. If no whatsapp templates exist, set skip=true with skipReason explaining missing templates.
 - Do not repeat the same channel+stage combination already sent unless a reply warrants a follow-up.
 - If the prospect replied positively (demo interest, meeting), you may set skip=true only when no outbound is needed; otherwise send a concise human reply advancing the conversation.
@@ -320,21 +324,27 @@ ${signalRules}
     });
   }
 
-  if (!channels.includes(channel) && channel !== "call") {
-    channel = channels[0];
+  const enforced = enforceChannelRules(
+    {
+      skip: false,
+      channel,
+      stage,
+      templateId: replyFollowUp ? null : matchedTemplate?.id ?? decision.templateId,
+      subject,
+      message,
+      ctaType,
+      decisionReason: decision.decisionReason,
+      modelUsed: model,
+      modelTier: tier,
+      ...providerMeta,
+    },
+    channels,
+    commHistory
+  );
+
+  if (enforced.skip) {
+    return enforced;
   }
 
-  return {
-    skip: false,
-    channel,
-    stage,
-    templateId: replyFollowUp ? null : matchedTemplate?.id ?? decision.templateId,
-    subject,
-    message,
-    ctaType,
-    decisionReason: decision.decisionReason,
-    modelUsed: model,
-    modelTier: tier,
-    ...providerMeta,
-  };
+  return { ...enforced, skip: false };
 }
