@@ -4,8 +4,6 @@ import { getSessionUser } from "@/lib/authSession";
 import { fetchCommLogsForUser } from "@/lib/commLogs";
 import {
   runExecutionForCampaign,
-  simulateProspectReply,
-  simulateProspectSignal,
   serializeCommLog,
 } from "@/lib/execution/runCampaignExecution";
 
@@ -27,106 +25,36 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  let body;
+  let body = {};
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    body = {};
+  }
+
+  if (body.mode && body.mode !== "run") {
+    return NextResponse.json(
+      { error: `Unknown mode: ${body.mode}. Use mode "run".` },
+      { status: 400 }
+    );
   }
 
   try {
-    if (body.mode === "simulate_reply") {
-      if (!body.prospectId) {
-        return NextResponse.json(
-          { error: "prospectId is required for simulate_reply" },
-          { status: 400 }
-        );
-      }
+    const execution = await runExecutionForCampaign(campaign.id, {
+      prospectIds: body.prospectIds,
+    });
 
-      const prospect = await prisma.prospect.findFirst({
-        where: { id: body.prospectId, campaignId: campaign.id },
-      });
-      if (!prospect) {
-        return NextResponse.json({ error: "Prospect not found" }, { status: 404 });
-      }
+    const commLogs = await fetchCommLogsForUser(user.id, {
+      campaignId: campaign.id,
+      limit: 50,
+    });
 
-      const result = await simulateProspectReply({
-        campaignId: campaign.id,
-        prospectId: body.prospectId,
-        content: body.content,
-      });
-
-      const commLogs = await fetchCommLogsForUser(user.id, {
-        campaignId: campaign.id,
-        limit: 50,
-      });
-
-      return NextResponse.json({
-        mode: "simulate_reply",
-        replyRecordedOn: result.replyRecordedOn,
-        replyContent: result.replyContent,
-        results: result.execution.results,
-        plannedCount: result.execution.plannedCount,
-        commLogs: commLogs.map(serializeCommLog),
-      });
-    }
-
-    if (body.mode === "simulate_signal") {
-      if (!body.prospectId) {
-        return NextResponse.json(
-          { error: "prospectId is required for simulate_signal" },
-          { status: 400 }
-        );
-      }
-
-      const prospect = await prisma.prospect.findFirst({
-        where: { id: body.prospectId, campaignId: campaign.id },
-      });
-      if (!prospect) {
-        return NextResponse.json({ error: "Prospect not found" }, { status: 404 });
-      }
-
-      const result = await simulateProspectSignal({
-        campaignId: campaign.id,
-        prospectId: body.prospectId,
-        type: body.type,
-        source: body.source,
-        content: body.content,
-      });
-
-      const commLogs = await fetchCommLogsForUser(user.id, {
-        campaignId: campaign.id,
-        limit: 50,
-      });
-
-      return NextResponse.json({
-        mode: "simulate_signal",
-        signal: result.signal,
-        results: result.execution.results,
-        plannedCount: result.execution.plannedCount,
-        commLogs: commLogs.map(serializeCommLog),
-      });
-    }
-
-    if (body.mode === "run" || !body.mode) {
-      const execution = await runExecutionForCampaign(campaign.id, {
-        prospectIds: body.prospectIds,
-      });
-
-      const commLogs = await fetchCommLogsForUser(user.id, {
-        campaignId: campaign.id,
-        limit: 50,
-      });
-
-      return NextResponse.json({
-        mode: "run",
-        results: execution.results,
-        plannedCount: execution.plannedCount,
-        commLogs: commLogs.map(serializeCommLog),
-      });
-    }
-
-    return NextResponse.json({ error: "Unknown mode" }, { status: 400 });
+    return NextResponse.json({
+      mode: "run",
+      results: execution.results,
+      plannedCount: execution.plannedCount,
+      commLogs: commLogs.map(serializeCommLog),
+    });
   } catch (err) {
     console.error("[execute]", err);
     const message =

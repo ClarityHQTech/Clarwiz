@@ -20,6 +20,36 @@ model User {
   commLogs            CommunicationLog[]
   signals             ProspectSignal[]
   linkedInIntegration LinkedInIntegration?
+  emailIntegration    EmailIntegration?
+  whatsappIntegration WhatsAppIntegration?
+  tenantIcpContext    TenantIcpContext?
+}
+
+/// Per-tenant ICP workbook and GTM Core tool outputs for execution-layer context
+model TenantIcpContext {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName      String?
+  companyDomain    String?
+  /// Company knowledge / RAG content (website copy, CRM notes, product docs)
+  relevantData     String?   @db.Text
+  userQuery        String?
+  /// Raw account data for account_signal_extractor (transcripts, CRM notes)
+  accountData      String?   @db.Text
+  /// draft | analyzing | complete | error
+  status           String    @default("draft")
+  /// Pipeline step currently running or last completed
+  currentStep      String?
+  icpGapAnalysis   String?   @db.Text
+  marketResearch   String?   @db.Text
+  valueProposition String?   @db.Text
+  icpWorkbook      String?   @db.Text
+  accountSignals   String?   @db.Text
+  lastError        String?
+  analyzedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model LinkedInIntegration {
@@ -39,6 +69,54 @@ model LinkedInIntegration {
 
 }
 
+model EmailIntegration {
+  id                        String    @id @default(cuid())
+  userId                    String    @unique
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// smartlead_inbox | maildoso_domain (future)
+  mode                      String    @default("smartlead_inbox")
+  status                    String    @default("pending")
+  fromEmail                 String?
+  fromName                  String?
+  sendingDomain             String?
+  providerType              String?
+  /// AES-256-GCM ciphertext of Smartlead email account id
+  encryptedSmartleadAccountId String?
+  customTrackingDomain      String?
+  isSmtpSuccess              Boolean?
+  isImapSuccess             Boolean?
+  warmupEnabled             Boolean   @default(true)
+  warmupStatus              String?
+  warmupReputation          String?
+  connectedAt               DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+}
+
+model WhatsAppIntegration {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// meta | interakt
+  mode                  String
+  status                String    @default("pending")
+  /// AES-256-GCM: Meta access token or Interakt API key
+  encryptedAccessToken  String
+  /// Meta Cloud API phone number ID (meta mode)
+  phoneNumberId         String?
+  /// WhatsApp Business Account ID — used to list templates
+  wabaId                String?
+  /// Optional Meta token when mode=interakt (template sync via Graph API)
+  encryptedMetaToken    String?
+  businessPhone         String?
+  businessName          String?
+  templatesCache        Json?
+  templatesCachedAt     DateTime?
+  connectedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
 model Campaign {
   id             String                  @id @default(cuid())
   userId         String
@@ -53,6 +131,8 @@ model Campaign {
   openRate       Float                   @default(0)
   replyRate      Float                   @default(0)
   qualifiedLeads Int                     @default(0)
+  /// Smartlead campaign used for outbound email in execution / drip test
+  smartleadCampaignId Int?
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
   prospects      Prospect[]
@@ -129,6 +209,9 @@ model CommunicationLog {
   modelUsed       String?
   providerUsage   Json?
   providerCost    Json?
+  /// e.g. smartlead — when set, deliveryMeta holds provider ids for tracking
+  deliveryProvider String?
+  deliveryMeta     Json?
   createdAt       DateTime  @default(now())
 
   @@index([userId])
@@ -147,8 +230,10 @@ model CommunicationTemplate {
   subject            String?
   body               String
   cta                String
-  whatsappTemplateId String?
-  createdAt          DateTime @default(now())
+  whatsappTemplateId       String?
+  /// Maps {{1}}, {{2}}… to campaign fields: { "body": ["first_name","company"], "header": [] }
+  whatsappVariableMapping  Json?
+  createdAt                DateTime @default(now())
 
   @@index([campaignId])
 }

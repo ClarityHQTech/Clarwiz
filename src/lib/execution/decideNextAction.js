@@ -9,6 +9,7 @@ import {
   getLatestProspectReply,
   isReplyFollowUp,
 } from "@/lib/execution/humanizeOutboundMessage";
+import { buildExecutionTenantContext } from "@/lib/tenantIcpContext";
 
 const DECISION_SCHEMA = {
   type: "object",
@@ -40,13 +41,17 @@ const DECISION_SCHEMA = {
   additionalProperties: false,
 };
 
-function buildTenantContext(campaign) {
+function buildTenantContext(campaign, tenantIcp) {
+  return buildExecutionTenantContext(campaign, tenantIcp);
+}
+
+function trimDeliveryMetaForLlm(meta) {
+  if (!meta || typeof meta !== "object") return null;
   return {
-    campaignName: campaign.name,
-    description: campaign.description,
-    targetSegment: campaign.targetSegment,
-    goals: campaign.goals,
-    brandTone: "professional, concise, value-led",
+    invitationState: meta.invitationState ?? null,
+    emailStatus: meta.emailStatus ?? null,
+    messageStatus: meta.messageStatus ?? null,
+    lastTrackedAt: meta.lastTrackedAt ?? null,
   };
 }
 
@@ -58,10 +63,14 @@ function serializeCommHistory(logs) {
     subject: l.subject,
     message: l.message?.slice(0, 500),
     ctaType: l.ctaType,
+    status: l.status,
     sentAt: l.sentAt?.toISOString?.() ?? l.sentAt,
+    deliveredAt: l.deliveredAt?.toISOString?.() ?? l.deliveredAt ?? null,
+    openedAt: l.openedAt?.toISOString?.() ?? l.openedAt ?? null,
     responseType: l.responseType,
     responseContent: l.responseContent?.slice(0, 300),
     responseAt: l.responseAt?.toISOString?.() ?? l.responseAt,
+    deliveryMeta: trimDeliveryMetaForLlm(l.deliveryMeta),
   }));
 }
 
@@ -74,6 +83,7 @@ function serializeTemplates(templates) {
     bodyPreview: t.body?.slice(0, 200),
     cta: t.cta,
     whatsappTemplateId: t.whatsappTemplateId,
+    whatsappVariableMapping: t.whatsappVariableMapping ?? null,
   }));
 }
 
@@ -92,6 +102,7 @@ export async function decideNextActionForProspect({
   templates,
   commHistory,
   liveSignals = [],
+  tenantIcp = null,
 }) {
   const channels = availableChannels(prospect);
   if (channels.length === 0) {
@@ -147,18 +158,19 @@ Given tenant context, campaign templates, communication history, and prospect pr
 Rules:
 - Prefer channels the prospect has contact info for: ${channels.join(", ")}.
 - Allowed campaign template channels: ${CAMPAIGN_CHANNELS.join(", ")} plus "call" if phone exists.
-- For whatsapp: prefer selecting an existing templateId from the template list when possible; include whatsapp template reference in decisionReason.
+- For whatsapp: you MUST set templateId to one of the campaign whatsapp template ids from templates (channel=whatsapp). Never invent template ids. If no whatsapp templates exist, set skip=true with skipReason explaining missing templates.
 - Do not repeat the same channel+stage combination already sent unless a reply warrants a follow-up.
 - If the prospect replied positively (demo interest, meeting), you may set skip=true only when no outbound is needed; otherwise send a concise human reply advancing the conversation.
 - If history shows exhaustion of sequence with no reply, set skip=true.
 - Personalize message body using prospect and tenant context — never generic brochure copy.
+- When tenantContext.icp is present, align messaging with the ICP workbook, value proposition, and persona definitions.
 - All message text must be send-ready: no placeholders, no instructions to the user, no signature templates.
 ${replyRules}
 ${signalRules}
 - Output valid JSON matching the schema only.`;
 
   const userPayload = {
-    tenantContext: buildTenantContext(campaign),
+    tenantContext: buildTenantContext(campaign, tenantIcp),
     prospect: {
       id: prospect.id,
       name: prospect.name,
@@ -230,9 +242,41 @@ ${signalRules}
     };
   }
 
-  const matchedTemplate = decision.templateId
+  const whatsappTemplates = templates.filter((t) => t.channel === "whatsapp");
+
+  let matchedTemplate = decision.templateId
     ? templates.find((t) => t.id === decision.templateId)
     : null;
+
+  if (decision.channel === "whatsapp") {
+    if (whatsappTemplates.length === 0) {
+      return {
+        skip: true,
+        skipReason: "No WhatsApp templates configured for this campaign",
+        modelUsed: model,
+        modelTier: tier,
+        channel: "whatsapp",
+        stage: decision.stage,
+        ...providerMeta,
+      };
+    }
+    if (
+      matchedTemplate &&
+      matchedTemplate.channel !== "whatsapp"
+    ) {
+      matchedTemplate = null;
+    }
+    if (!matchedTemplate && decision.templateId) {
+      matchedTemplate =
+        whatsappTemplates.find((t) => t.id === decision.templateId) ?? null;
+    }
+    if (!matchedTemplate && !replyFollowUp) {
+      const byStage = whatsappTemplates.find(
+        (t) => t.stage === (decision.stage ?? 1)
+      );
+      matchedTemplate = byStage ?? whatsappTemplates[0];
+    }
+  }
 
   let message = decision.message;
   let subject = decision.subject ?? matchedTemplate?.subject ?? null;

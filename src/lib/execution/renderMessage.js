@@ -17,7 +17,8 @@ export function applyTemplateVariables(text, { prospect, campaign }) {
 
   return text
     .replace(/\{\{first_name\}\}/gi, firstName)
-    .replace(/\{\{company\}\}/gi, prospect.company || "your company")
-    .replace(/\{\{job_title\}\}/gi, prospect.jobTitle || "your role")
-    .replace(/\{\{pain_point\}\}/gi, painPoint);
+    .replace(/\{\{company\}\}/gi, prospect?.company || "your company")
+    .replace(/\{\{job_title\}\}/gi, prospect?.jobTitle || "your role")
+    .replace(/\{\{pain_point\}\}/gi, painPoint)
+    .replace(/\{\{prospect_id\}\}/gi, prospect?.id ?? "");
 }

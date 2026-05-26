@@ -22,6 +22,8 @@ import {
 } from "react-icons/hi2";
 import { toast } from "sonner";
 import TemplateEditorCard from "@/components/campaigns/TemplateEditorCard";
+import WhatsAppCampaignTemplatesSection from "@/components/campaigns/WhatsAppCampaignTemplatesSection";
+import { commTemplatesFromWhatsAppSelection } from "@/lib/whatsappCampaignTemplates";
 import {
   CAMPAIGN_CHANNELS,
   CHANNEL_LABELS,
@@ -179,8 +181,15 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
     );
   };
 
+  const updateWhatsAppTemplate = (id, patch) => updateTemplate(id, patch);
+
   const removeTemplate = (id) => {
     setTemplates((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const addWhatsAppTemplates = (waTemplates) => {
+    const rows = commTemplatesFromWhatsAppSelection(waTemplates, templates);
+    setTemplates((prev) => [...prev, ...rows]);
   };
 
   const templatesForSubmit = () =>
@@ -428,10 +437,17 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
           {step === 2 && (
             <div className="space-y-4">
               <p className="text-xs text-gray-500">
-                Templates are optional. Use <strong>Add template</strong> per channel to
-                create stage-1, stage-2, and follow-ups. AI calling is not available yet.
+                Templates are optional. For WhatsApp, select from your approved provider
+                templates. For email and LinkedIn, add stage templates manually. AI calling
+                is not available yet.
               </p>
-              {CAMPAIGN_CHANNELS.map((channel) => (
+              <WhatsAppCampaignTemplatesSection
+                templates={templates}
+                onAddTemplates={addWhatsAppTemplates}
+                onUpdateTemplate={updateWhatsAppTemplate}
+                onRemove={removeTemplate}
+              />
+              {CAMPAIGN_CHANNELS.filter((ch) => ch !== "whatsapp").map((channel) => (
                 <ChannelTemplatesSection
                   key={channel}
                   channel={channel}
@@ -491,7 +507,9 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                           {CHANNEL_LABELS[t.channel]} · Stage {t.stage}
                         </p>
                         {t.channel === "whatsapp" && (
-                          <p className="text-gray-500">ID: {t.whatsappTemplateId}</p>
+                          <p className="text-gray-500">
+                            Template: {t.whatsappTemplateId}
+                          </p>
                         )}
                         {t.channel === "email" && (
                           <p className="text-gray-500">Subject: {t.subject}</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Input, Select } from "@chakra-ui/react";
+import { Select } from "@chakra-ui/react";
 import { HiOutlineTrash } from "react-icons/hi2";
 import VariableTextField from "@/components/campaigns/VariableTextField";
 import {
@@ -103,21 +103,6 @@ export default function TemplateEditorCard({
           onChange={(v) => onChange({ subject: v })}
           placeholder="Quick idea for {{company}}"
         />
-      )}
-
-      {channel === "whatsapp" && (
-        <Field
-          label="WhatsApp template ID"
-          required
-          hint="Approved Meta template name / ID — not created here."
-        >
-          <Input
-            size="sm"
-            value={template.whatsappTemplateId ?? ""}
-            onChange={(e) => onChange({ whatsappTemplateId: e.target.value })}
-            placeholder="e.g. outreach_intro_v2"
-          />
-        </Field>
       )}
 
       <VariableTextField

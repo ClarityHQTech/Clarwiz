@@ -1,332 +1,250 @@
 "use client";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import EmailIntegrationSection from "@/components/settings/EmailIntegrationSection";
+import LinkedInIntegrationSection from "@/components/settings/LinkedInIntegrationSection";
+import WhatsAppIntegrationSection from "@/components/settings/WhatsAppIntegrationSection";
+import IcpContextSection from "@/components/settings/IcpContextSection";
+import IntegrationStatusBadge, {
+  getEmailDisplayStatus,
+  getLinkedInDisplayStatus,
+  getWhatsAppDisplayStatus,
+} from "@/components/settings/IntegrationStatusBadge";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerHeader,
+  DrawerOverlay,
+  useDisclosure,
+} from "@chakra-ui/react";
 import { useCallback, useEffect, useState } from "react";
 import { FaLinkedin } from "react-icons/fa";
 import {
+  HiOutlineChevronRight,
   HiOutlineEnvelope,
   HiOutlinePhone,
-  HiOutlineSparkles,
 } from "react-icons/hi2";
 import { SiWhatsapp } from "react-icons/si";
 import { toast } from "sonner";
 
-const PROXY_COUNTRIES = [
-  { code: "US", label: "United States" },
-  { code: "UK", label: "United Kingdom" },
-  { code: "FR", label: "France" },
-  { code: "DE", label: "Germany" },
-  { code: "NL", label: "Netherlands" },
-  { code: "IT", label: "Italy" },
-  { code: "IL", label: "Israel" },
-  { code: "CA", label: "Canada" },
-  { code: "BR", label: "Brazil" },
-  { code: "ES", label: "Spain" },
-  { code: "IN", label: "India" },
+const INTEGRATIONS = [
+  {
+    id: "linkedin",
+    title: "LinkedIn",
+    description: "Profile visits, messages, and connection requests via LinkupAPI.",
+    icon: <FaLinkedin className="h-4 w-4 text-[#0A66C2]" />,
+    available: true,
+  },
+  {
+    id: "email",
+    title: "Email",
+    description: "Smartlead for warmup, outreach, and tracking.",
+    icon: <HiOutlineEnvelope className="h-4 w-4 text-sky-700" />,
+    available: true,
+  },
+  {
+    id: "whatsapp",
+    title: "WhatsApp",
+    description: "Meta Cloud API or Interakt for templates and outreach.",
+    icon: <SiWhatsapp className="h-4 w-4 text-[#25D366]" />,
+    available: true,
+  },
+  {
+    id: "ai_calling",
+    title: "AI Calling",
+    description: "Voice outreach and call follow-ups.",
+    icon: <HiOutlinePhone className="h-4 w-4 text-gray-600" />,
+    available: false,
+  },
 ];
 
-function StatusBadge({ status }) {
-  const styles = {
-    connected: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-    checkpoint_required: "bg-amber-50 text-amber-700 ring-amber-600/20",
-    pending: "bg-gray-50 text-gray-600 ring-gray-500/20",
-  };
-  const labels = {
-    connected: "Connected",
-    checkpoint_required: "Verification required",
-    pending: "Pending",
-  };
-  const key = status in styles ? status : "pending";
+function getIntegrationStatus(id, linkedin, email, whatsapp) {
+  if (id === "linkedin") return getLinkedInDisplayStatus(linkedin);
+  if (id === "email") return getEmailDisplayStatus(email);
+  if (id === "whatsapp") return getWhatsAppDisplayStatus(whatsapp);
+  return "coming_soon";
+}
+
+function getIntegrationSubtitle(id, linkedin, email, whatsapp) {
+  if (id === "linkedin" && linkedin?.status === "connected") {
+    return linkedin.accountName || linkedin.email;
+  }
+  if (id === "linkedin" && linkedin?.email) {
+    return linkedin.email;
+  }
+  if (id === "email" && email?.fromEmail) {
+    return `${email.fromName ? `${email.fromName} · ` : ""}${email.fromEmail}`;
+  }
+  if (id === "whatsapp" && whatsapp?.status === "connected") {
+    const label = whatsapp.mode === "meta" ? "Meta" : "Interakt";
+    const detail = whatsapp.businessPhone || whatsapp.businessName;
+    const templates =
+      whatsapp.templateCount > 0 ? `${whatsapp.templateCount} templates` : null;
+    return [label, detail, templates].filter(Boolean).join(" · ");
+  }
+  return null;
+}
+
+function IntegrationListRow({ item, status, subtitle, onConfigure }) {
+  const clickable = item.available;
+
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${styles[key]}`}
+    <button
+      type="button"
+      onClick={clickable ? onConfigure : undefined}
+      disabled={!clickable}
+      className={`flex w-full items-center gap-4 rounded-lg border bg-white p-4 text-left shadow-sm transition-colors ${
+        clickable
+          ? "border-gray-200 hover:border-sky-200 hover:bg-sky-50/30 cursor-pointer"
+          : "border-gray-100 opacity-80 cursor-default"
+      }`}
     >
-      {labels[key]}
-    </span>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-600">
+        {item.icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>
+          <IntegrationStatusBadge status={status} />
+        </div>
+        <p className="mt-0.5 text-sm text-gray-500 leading-snug">{item.description}</p>
+        {subtitle ? (
+          <p className="mt-1 text-xs text-gray-400 truncate">{subtitle}</p>
+        ) : null}
+      </div>
+      {clickable ? (
+        <HiOutlineChevronRight className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+      ) : null}
+    </button>
   );
 }
 
-function IntegrationCard({ icon, title, description, status = "coming_soon", children }) {
-  const isSoon = status === "coming_soon";
+function ComingSoonPanel({ title, description }) {
   return (
-    <div
-      className={`rounded-lg border bg-white p-4 shadow-sm ${
-        isSoon ? "border-gray-100 opacity-75" : "border-gray-200"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gray-50 text-gray-600">
-            {icon}
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-            <p className="mt-0.5 text-sm leading-snug text-gray-500">{description}</p>
-          </div>
-        </div>
-        {isSoon ? (
-          <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
-            Soon
-          </span>
-        ) : null}
-      </div>
-      {children ? <div className="mt-3 border-t border-gray-100 pt-3">{children}</div> : null}
+    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
+      <p className="text-sm font-medium text-gray-700">{title}</p>
+      <p className="mt-2 text-sm text-gray-500">{description}</p>
+      <p className="mt-4 text-xs text-gray-400">This integration is not available yet.</p>
     </div>
   );
 }
 
-function LinkedInSection({ integration, onRefresh }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [country, setCountry] = useState("US");
-  const [code, setCode] = useState("");
-  const [checkpointMessage, setCheckpointMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
-
-  const isConnected = integration?.status === "connected";
-  const needsCheckpoint = integration?.status === "checkpoint_required";
-  const isAppChallenge = integration?.challengeType === "app_challenge";
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch("/api/integrations/linkedin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, country }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
-
-      setPassword("");
-      if (data.integration?.status === "checkpoint_required") {
-        setCheckpointMessage(data.message || "");
-        toast.info(data.message || "Verification required — enter your code below.");
-      } else {
-        setCheckpointMessage("");
-        toast.success("LinkedIn account connected.");
-      }
-      onRefresh();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCheckpoint = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch("/api/integrations/linkedin/checkpoint", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isAppChallenge ? {} : { code }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Verification failed");
-
-      setCode("");
-      setCheckpointMessage("");
-      toast.success("LinkedIn account connected.");
-      onRefresh();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    setDisconnecting(true);
-    try {
-      const res = await fetch("/api/integrations/linkedin", { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to disconnect");
-      }
-      setEmail("");
-      setPassword("");
-      setCode("");
-      setCheckpointMessage("");
-      toast.success("LinkedIn disconnected.");
-      onRefresh();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setDisconnecting(false);
-    }
-  };
-
-  if (isConnected) {
-    return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status="connected" />
-          <span className="text-sm text-gray-500">
-            {integration.accountName || integration.email}
-          </span>
-        </div>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-          <div>
-            <dt className="text-gray-400">Proxy region</dt>
-            <dd className="text-gray-700">{integration.country}</dd>
-          </div>
-          {integration.connectedAt ? (
-            <div>
-              <dt className="text-gray-400">Connected</dt>
-              <dd className="text-gray-700">
-                {new Date(integration.connectedAt).toLocaleString()}
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-        <button
-          type="button"
-          onClick={handleDisconnect}
-          disabled={disconnecting}
-          className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
-        >
-          {disconnecting ? "Disconnecting…" : "Disconnect account"}
-        </button>
-      </div>
-    );
-  }
-
-  if (needsCheckpoint) {
-    return (
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status="checkpoint_required" />
-          <span className="text-sm text-gray-500">{integration.email}</span>
-        </div>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          {checkpointMessage ||
-            (isAppChallenge
-              ? "Approve the sign-in request in your LinkedIn mobile app, then confirm below."
-              : "Enter the verification code from your email, SMS, or authenticator app.")}
-        </p>
-        <form onSubmit={handleCheckpoint} className="space-y-3">
-          {!isAppChallenge ? (
-            <div className="max-w-xs">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
-                Verification code
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="123456"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              />
-            </div>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={loading || (!isAppChallenge && !code.trim())}
-              className="rounded-md bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
-            >
-              {loading ? "Verifying…" : isAppChallenge ? "I've approved in the app" : "Verify & connect"}
-            </button>
-            <button
-              type="button"
-              onClick={handleDisconnect}
-              disabled={disconnecting}
-              className="rounded-md border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleLogin} className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            LinkedIn email
-          </label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@company.com"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Password
-          </label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Proxy region
-          </label>
-          <select
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          >
-            {PROXY_COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <p className="text-xs text-gray-400 leading-relaxed max-w-2xl">
-        Credentials are sent securely to LinkupAPI for connection. We store only the account ID and status.
-      </p>
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-md bg-[#0A66C2] px-3.5 py-2 text-sm font-medium text-white hover:bg-[#004182] disabled:opacity-50"
-      >
-        {loading ? "Connecting…" : "Connect LinkedIn"}
-      </button>
-    </form>
-  );
-}
-
 const SettingsPage = () => {
-  const [integration, setIntegration] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [linkedinIntegration, setLinkedinIntegration] = useState(null);
+  const [emailIntegration, setEmailIntegration] = useState(null);
+  const [whatsappIntegration, setWhatsappIntegration] = useState(null);
+  const [loadingLinkedin, setLoadingLinkedin] = useState(true);
+  const [loadingEmail, setLoadingEmail] = useState(true);
+  const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
+  const [activeIntegrationId, setActiveIntegrationId] = useState(null);
 
-  const fetchIntegration = useCallback(async () => {
+  const drawer = useDisclosure();
+
+  const fetchLinkedin = useCallback(async () => {
     try {
       const res = await fetch("/api/integrations/linkedin");
-      if (!res.ok) throw new Error("Failed to load integrations");
+      if (!res.ok) throw new Error("Failed to load LinkedIn integration");
       const data = await res.json();
-      setIntegration(data.integration);
+      setLinkedinIntegration(data.integration);
     } catch (err) {
       toast.error(err.message);
-      setIntegration(null);
+      setLinkedinIntegration(null);
     } finally {
-      setLoading(false);
+      setLoadingLinkedin(false);
+    }
+  }, []);
+
+  const fetchEmail = useCallback(async (refresh = false) => {
+    try {
+      const res = await fetch(
+        `/api/integrations/email${refresh ? "?refresh=true" : ""}`
+      );
+      if (!res.ok) throw new Error("Failed to load email integration");
+      const data = await res.json();
+      setEmailIntegration(data.integration);
+    } catch (err) {
+      toast.error(err.message);
+      setEmailIntegration(null);
+    } finally {
+      setLoadingEmail(false);
+    }
+  }, []);
+
+  const fetchWhatsapp = useCallback(async (refresh = false) => {
+    try {
+      const res = await fetch(
+        `/api/integrations/whatsapp${refresh ? "?refresh=true" : ""}`
+      );
+      if (!res.ok) throw new Error("Failed to load WhatsApp integration");
+      const data = await res.json();
+      setWhatsappIntegration(data.integration);
+    } catch (err) {
+      toast.error(err.message);
+      setWhatsappIntegration(null);
+    } finally {
+      setLoadingWhatsapp(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchIntegration();
-  }, [fetchIntegration]);
+    fetchLinkedin();
+    fetchEmail();
+    fetchWhatsapp();
+  }, [fetchLinkedin, fetchEmail, fetchWhatsapp]);
+
+  const openIntegration = (id) => {
+    setActiveIntegrationId(id);
+    drawer.onOpen();
+  };
+
+  const closeDrawer = () => {
+    drawer.onClose();
+    setActiveIntegrationId(null);
+  };
+
+  const activeItem = INTEGRATIONS.find((i) => i.id === activeIntegrationId);
+
+  const renderDrawerContent = () => {
+    if (!activeItem) return null;
+
+    if (activeItem.id === "linkedin") {
+      if (loadingLinkedin) {
+        return <p className="text-sm text-gray-500">Loading LinkedIn configuration…</p>;
+      }
+      return (
+        <LinkedInIntegrationSection
+          integration={linkedinIntegration}
+          onRefresh={fetchLinkedin}
+        />
+      );
+    }
+
+    if (activeItem.id === "email") {
+      return (
+        <EmailIntegrationSection
+          integration={emailIntegration}
+          loading={loadingEmail}
+          onRefresh={fetchEmail}
+        />
+      );
+    }
+
+    if (activeItem.id === "whatsapp") {
+      return (
+        <WhatsAppIntegrationSection
+          integration={whatsappIntegration}
+          loading={loadingWhatsapp}
+          onRefresh={fetchWhatsapp}
+        />
+      );
+    }
+
+    return (
+      <ComingSoonPanel title={activeItem.title} description={activeItem.description} />
+    );
+  };
 
   return (
     <div className="p-5 lg:p-7 w-full space-y-8">
@@ -337,57 +255,80 @@ const SettingsPage = () => {
         </p>
       </header>
 
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-          Integrations
-        </h2>
-        <div className="space-y-3">
-          <IntegrationCard
-            icon={<FaLinkedin className="h-4 w-4 text-[#0A66C2]" />}
-            title="LinkedIn"
-            description="Connect via LinkupAPI for profile visits, messages, and connection requests."
-            status="active"
-          >
-            {loading ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : (
-              <LinkedInSection integration={integration} onRefresh={fetchIntegration} />
-            )}
-          </IntegrationCard>
-
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            <IntegrationCard
-              icon={<SiWhatsapp className="h-4 w-4 text-[#25D366]" />}
-              title="WhatsApp"
-              description="Business messaging for multi-channel sequences."
-            />
-
-            <IntegrationCard
-              icon={<HiOutlineEnvelope className="h-4 w-4" />}
-              title="Email"
-              description="Smartlead and Maildoso for cold email delivery."
-            />
-
-            <IntegrationCard
-              icon={<HiOutlinePhone className="h-4 w-4" />}
-              title="AI Calling"
-              description="Voice outreach and call follow-ups."
-            />
-          </div>
+      <section className="max-w-3xl">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Integrations
+          </h2>
+          <p className="text-xs text-gray-400">Click an integration to configure</p>
         </div>
+        <ul className="space-y-2">
+          {INTEGRATIONS.map((item) => (
+            <li key={item.id}>
+              <IntegrationListRow
+                item={item}
+                status={getIntegrationStatus(
+                  item.id,
+                  linkedinIntegration,
+                  emailIntegration,
+                  whatsappIntegration
+                )}
+                subtitle={getIntegrationSubtitle(
+                  item.id,
+                  linkedinIntegration,
+                  emailIntegration,
+                  whatsappIntegration
+                )}
+                onConfigure={() => openIntegration(item.id)}
+              />
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section>
+      <section className="max-w-3xl">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
           Workspace
         </h2>
-        <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-4">
-          <div className="flex items-center gap-2 text-gray-400">
-            <HiOutlineSparkles className="h-4 w-4" />
-            <p className="text-sm">More workspace settings coming soon.</p>
-          </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <IcpContextSection />
         </div>
       </section>
+
+      <Drawer isOpen={drawer.isOpen} placement="right" onClose={closeDrawer} size="md">
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerHeader borderBottomWidth="1px" className="pr-12">
+            {activeItem ? (
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50">
+                  {activeItem.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-semibold text-gray-900">{activeItem.title}</p>
+                  <p className="mt-0.5 text-sm font-normal text-gray-500 leading-snug">
+                    {activeItem.description}
+                  </p>
+                  {activeItem.available ? (
+                    <div className="mt-2">
+                      <IntegrationStatusBadge
+                        status={getIntegrationStatus(
+                          activeItem.id,
+                          linkedinIntegration,
+                          emailIntegration,
+                          whatsappIntegration
+                        )}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </DrawerHeader>
+          <DrawerCloseButton />
+          <DrawerBody py={6}>{renderDrawerContent()}</DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };

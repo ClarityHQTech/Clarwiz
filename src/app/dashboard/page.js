@@ -135,7 +135,7 @@ const Page = () => {
           <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
             {!data?.recentReplies?.length ? (
               <p className="px-4 py-8 text-sm text-gray-500 text-center">
-                No replies yet. Run a campaign and simulate or receive replies to
+                No replies yet. Run a campaign and track engagement to capture replies
                 see them here.
               </p>
             ) : (

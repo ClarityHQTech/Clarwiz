@@ -1,3 +1,8 @@
+import {
+  countWhatsAppNumberedVariables,
+  validateWhatsAppVariableMapping,
+} from "@/lib/whatsappTemplateVariables";
+
 export const CAMPAIGN_CHANNELS = ["email", "linkedin", "whatsapp"];
 
 export const CTA_OPTIONS = [
@@ -59,6 +64,21 @@ export function validateTemplate(template) {
   }
   if (template.channel === "whatsapp" && !template.whatsappTemplateId?.trim()) {
     return `${label}: WhatsApp template ID is required.`;
+  }
+  if (template.channel === "whatsapp") {
+    const bodyCount =
+      template.whatsappBodyVariableCount ??
+      countWhatsAppNumberedVariables(template.body);
+    const headerCount = template.whatsappHeaderVariableCount ?? 0;
+    const mappingErr = validateWhatsAppVariableMapping(
+      template.whatsappVariableMapping,
+      {
+        bodyCount,
+        headerCount,
+        templateName: template.whatsappTemplateId,
+      }
+    );
+    if (mappingErr) return `${label}: ${mappingErr}`;
   }
   if (!template.body?.trim()) {
     return `${label}: message body is required.`;

@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { CHANNEL_LABELS, CTA_OPTIONS } from "@/lib/campaignConstants";
 import {
+  countWhatsAppNumberedVariables,
+  defaultWhatsAppVariableMapping,
+} from "@/lib/whatsappTemplateVariables";
+import {
   computeCampaignMetrics,
   serializeCommLogForUi,
 } from "@/lib/campaignMetrics";
@@ -80,6 +84,19 @@ export function serializeCampaignDetail(campaign) {
         cta: t.cta,
         ctaLabel: ctaLabel(t.cta),
         whatsappTemplateId: t.whatsappTemplateId,
+        whatsappVariableMapping:
+          t.whatsappVariableMapping ??
+          (t.channel === "whatsapp" &&
+          countWhatsAppNumberedVariables(t.body) > 0
+            ? defaultWhatsAppVariableMapping({
+                body: t.body,
+                variableCount: countWhatsAppNumberedVariables(t.body),
+              })
+            : null),
+        whatsappBodyVariableCount:
+          t.channel === "whatsapp"
+            ? countWhatsAppNumberedVariables(t.body)
+            : 0,
       })),
     prospects: campaign.prospects.map((p) => {
       const communications = logsByProspect[p.id] ?? [];

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/authSession";
 import { CAMPAIGN_CHANNELS } from "@/lib/campaignConstants";
+import {
+  countWhatsAppNumberedVariables,
+  normalizeWhatsAppVariableMapping,
+  validateWhatsAppVariableMapping,
+} from "@/lib/whatsappTemplateVariables";
 
 const CTA_VALUES = ["book_demo", "reply_email", "connect_linkedin", "visit_website"];
 
@@ -105,6 +110,21 @@ export async function POST(request) {
     if (template.channel === "whatsapp" && !template.whatsappTemplateId?.trim()) {
       return NextResponse.json({ error: "WhatsApp template ID is required" }, { status: 400 });
     }
+    if (template.channel === "whatsapp") {
+      const bodyCount = countWhatsAppNumberedVariables(template.body);
+      const headerCount = template.whatsappHeaderVariableCount ?? 0;
+      const mappingErr = validateWhatsAppVariableMapping(
+        template.whatsappVariableMapping,
+        {
+          bodyCount,
+          headerCount,
+          templateName: template.whatsappTemplateId,
+        }
+      );
+      if (mappingErr) {
+        return NextResponse.json({ error: mappingErr }, { status: 400 });
+      }
+    }
   }
 
   let parsedStartDate = null;
@@ -155,6 +175,10 @@ export async function POST(request) {
             cta: t.cta,
             whatsappTemplateId:
               t.channel === "whatsapp" ? t.whatsappTemplateId?.trim() : null,
+            whatsappVariableMapping:
+              t.channel === "whatsapp"
+                ? normalizeWhatsAppVariableMapping(t.whatsappVariableMapping)
+                : null,
           })),
         });
       }

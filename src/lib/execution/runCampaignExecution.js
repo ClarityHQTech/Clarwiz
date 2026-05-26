@@ -1,7 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
 import { decideNextActionForProspect } from "@/lib/execution/decideNextAction";
-import { DEFAULT_TEST_SIGNAL } from "@/lib/execution/signals";
+import {
+  pushEmailIfConnected,
+  pushLinkedInConnectionRequest,
+  pushLinkedInMessage,
+  pushWhatsAppTemplateForDecision,
+} from "@/lib/push";
+import { getTenantIcpContextForExecution } from "@/lib/tenantIcpContext";
 
 async function loadCampaignExecutionContext(campaignId) {
   return prisma.campaign.findUnique({
@@ -36,6 +42,81 @@ async function createCommLog(data) {
   return prisma.communicationLog.create({ data });
 }
 
+async function applyPushResultToCommLog(logId, pushResult) {
+  if (!pushResult || pushResult.skippedSend) {
+    return {
+      skippedSend: true,
+      reason: pushResult?.reason ?? "integration_not_connected",
+    };
+  }
+
+  await prisma.communicationLog.update({
+    where: { id: logId },
+    data: {
+      status: pushResult.status,
+      deliveryProvider: pushResult.deliveryProvider,
+      deliveryMeta: pushResult.deliveryMeta,
+      ...(pushResult.status === "sent" ? { deliveredAt: new Date() } : {}),
+    },
+  });
+
+  return {
+    sent: pushResult.status === "sent",
+    queued: pushResult.status === "queued",
+    delivery: pushResult,
+    error: pushResult.error ?? null,
+  };
+}
+
+async function maybePushOutboundMessage({
+  campaign,
+  prospect,
+  decision,
+  commHistory,
+  logId,
+}) {
+  if (decision.channel === "email") {
+    const pushResult = await pushEmailIfConnected({
+      campaign,
+      prospect,
+      subject: decision.subject,
+      message: decision.message,
+      commHistory,
+    });
+    return applyPushResultToCommLog(logId, pushResult);
+  }
+
+  if (decision.channel === "linkedin") {
+    const isConnection = decision.ctaType === "connect_linkedin";
+    const pushResult = isConnection
+      ? await pushLinkedInConnectionRequest({
+          userId: campaign.userId,
+          prospect,
+          message: decision.message,
+        })
+      : await pushLinkedInMessage({
+          userId: campaign.userId,
+          prospect,
+          message: decision.message,
+        });
+    return applyPushResultToCommLog(logId, pushResult);
+  }
+
+  if (decision.channel === "whatsapp") {
+    const pushResult = await pushWhatsAppTemplateForDecision({
+      userId: campaign.userId,
+      prospect,
+      campaign,
+      templateId: decision.templateId,
+      renderedMessage: decision.message,
+      commLogId: logId,
+    });
+    return applyPushResultToCommLog(logId, pushResult);
+  }
+
+  return null;
+}
+
 export async function runExecutionForCampaign(
   campaignId,
   { prospectIds, triggerSignalId } = {}
@@ -48,6 +129,8 @@ export async function runExecutionForCampaign(
   const targets = prospectIds?.length
     ? campaign.prospects.filter((p) => prospectIds.includes(p.id))
     : campaign.prospects;
+
+  const tenantIcp = await getTenantIcpContextForExecution(campaign.userId);
 
   const results = [];
   let plannedCount = 0;
@@ -64,6 +147,7 @@ export async function runExecutionForCampaign(
         templates: campaign.templates,
         commHistory,
         liveSignals,
+        tenantIcp,
       });
 
       if (decision.skip) {
@@ -116,24 +200,51 @@ export async function runExecutionForCampaign(
         ...providerFields(decision),
       });
 
+      const channelDelivery = await maybePushOutboundMessage({
+        campaign,
+        prospect,
+        decision,
+        commHistory,
+        logId: log.id,
+      });
+
+      const refreshed =
+        channelDelivery?.sent || channelDelivery?.queued
+          ? await prisma.communicationLog.findUnique({ where: { id: log.id } })
+          : log;
+
       plannedCount += 1;
       results.push({
         prospectId: prospect.id,
         prospectName: prospect.name,
         skipped: false,
-        commLogId: log.id,
-        channel: log.channel,
-        stage: log.stage,
-        subject: log.subject,
-        message: log.message,
-        ctaType: log.ctaType,
-        decisionReason: log.decisionReason,
-        model: log.modelUsed,
-        modelUsed: log.modelUsed,
-        providerUsage: log.providerUsage,
-        providerCost: log.providerCost,
+        commLogId: refreshed.id,
+        channel: refreshed.channel,
+        stage: refreshed.stage,
+        subject: refreshed.subject,
+        message: refreshed.message,
+        ctaType: refreshed.ctaType,
+        decisionReason: refreshed.decisionReason,
+        status: refreshed.status,
+        deliveryProvider: refreshed.deliveryProvider,
+        deliveryMeta: refreshed.deliveryMeta,
+        channelSent: channelDelivery?.sent ?? false,
+        channelQueued: channelDelivery?.queued ?? false,
+        channelSendSkipped: channelDelivery?.skippedSend ?? false,
+        channelSendError: channelDelivery?.error ?? null,
+        deliveryMessage: channelDelivery?.delivery?.deliveryMessage ?? null,
+        smartleadSent:
+          refreshed.channel === "email" ? (channelDelivery?.sent ?? false) : undefined,
+        smartleadQueued:
+          refreshed.channel === "email" ? (channelDelivery?.queued ?? false) : undefined,
+        smartleadError:
+          refreshed.channel === "email" ? (channelDelivery?.error ?? null) : undefined,
+        model: refreshed.modelUsed,
+        modelUsed: refreshed.modelUsed,
+        providerUsage: refreshed.providerUsage,
+        providerCost: refreshed.providerCost,
         modelTier: decision.modelTier,
-        sentAt: log.sentAt.toISOString(),
+        sentAt: refreshed.sentAt.toISOString(),
       });
     } catch (err) {
       results.push({
@@ -152,98 +263,6 @@ export async function runExecutionForCampaign(
   return { results, plannedCount };
 }
 
-export async function simulateProspectReply({
-  campaignId,
-  prospectId,
-  content,
-}) {
-  const latest = await prisma.communicationLog.findFirst({
-    where: { campaignId, prospectId },
-    orderBy: { sentAt: "desc" },
-  });
-
-  if (!latest) {
-    throw new Error(
-      "No communication log for this prospect — run execution first"
-    );
-  }
-
-  const replyContent =
-    content?.trim() ||
-    "Thanks for reaching out — I'd like to learn more. Can we schedule a quick call next week?";
-
-  const updated = await prisma.communicationLog.update({
-    where: { id: latest.id },
-    data: {
-      responseType: "reply",
-      responseAt: new Date(),
-      responseContent: replyContent,
-    },
-  });
-
-  await syncCampaignMetrics(prisma, campaignId);
-
-  const execution = await runExecutionForCampaign(campaignId, {
-    prospectIds: [prospectId],
-  });
-
-  return {
-    replyRecordedOn: updated.id,
-    replyContent,
-    execution,
-  };
-}
-
-export async function simulateProspectSignal({
-  campaignId,
-  prospectId,
-  type = DEFAULT_TEST_SIGNAL.type,
-  source = DEFAULT_TEST_SIGNAL.source,
-  content = DEFAULT_TEST_SIGNAL.content,
-}) {
-  const campaign = await prisma.campaign.findUnique({
-    where: { id: campaignId },
-    select: { userId: true },
-  });
-  if (!campaign) {
-    throw new Error("Campaign not found");
-  }
-
-  const prospect = await prisma.prospect.findFirst({
-    where: { id: prospectId, campaignId },
-  });
-  if (!prospect) {
-    throw new Error("Prospect not found");
-  }
-
-  const signal = await prisma.prospectSignal.create({
-    data: {
-      userId: campaign.userId,
-      campaignId,
-      prospectId,
-      type,
-      source,
-      content: content?.trim() || DEFAULT_TEST_SIGNAL.content,
-    },
-  });
-
-  const execution = await runExecutionForCampaign(campaignId, {
-    prospectIds: [prospectId],
-    triggerSignalId: signal.id,
-  });
-
-  return {
-    signal: {
-      id: signal.id,
-      type: signal.type,
-      source: signal.source,
-      content: signal.content,
-      createdAt: signal.createdAt.toISOString(),
-    },
-    execution,
-  };
-}
-
 export function serializeCommLog(log) {
   return {
     id: log.id,
@@ -256,6 +275,9 @@ export function serializeCommLog(log) {
     ctaType: log.ctaType,
     status: log.status,
     sentAt: log.sentAt.toISOString(),
+    openedAt: log.openedAt?.toISOString?.() ?? null,
+    deliveryProvider: log.deliveryProvider ?? null,
+    deliveryMeta: log.deliveryMeta ?? null,
     responseType: log.responseType,
     responseAt: log.responseAt?.toISOString() ?? null,
     responseContent: log.responseContent,

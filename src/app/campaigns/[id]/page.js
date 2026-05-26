@@ -1,7 +1,7 @@
 "use client";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import ExecutionTestModal from "@/components/campaigns/ExecutionTestModal";
+import CampaignActionsModal from "@/components/campaigns/CampaignActionsModal";
 import ProspectCommThread from "@/components/campaigns/ProspectCommThread";
 import CampaignTemplatesModal from "@/components/campaigns/CampaignTemplatesModal";
 import { useDisclosure } from "@chakra-ui/react";
@@ -15,6 +15,8 @@ import {
   HiOutlinePlay,
   HiOutlinePause,
   HiOutlinePlus,
+  HiOutlineBolt,
+  HiOutlineArrowPath,
 } from "react-icons/hi2";
 import { toast } from "sonner";
 
@@ -102,6 +104,8 @@ const Page = () => {
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [runLoading, setRunLoading] = useState(false);
+  const [trackLoading, setTrackLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [executionModalOpen, setExecutionModalOpen] = useState(false);
@@ -158,6 +162,53 @@ const Page = () => {
     setExpandedId((prev) => (prev === prospectId ? null : prospectId));
   };
 
+  const runNextBestAction = async () => {
+    setRunLoading(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "run" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Execution failed");
+      toast.success(
+        data.plannedCount
+          ? `Planned ${data.plannedCount} next-best action(s)`
+          : "No new actions planned"
+      );
+      await fetchCampaign();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setRunLoading(false);
+    }
+  };
+
+  const trackEngagement = async () => {
+    setTrackLoading(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Tracking failed");
+      const updated = data.summary?.updated ?? 0;
+      toast.success(
+        updated > 0
+          ? `Updated ${updated} engagement event(s)`
+          : "No new engagement detected"
+      );
+      await fetchCampaign();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setTrackLoading(false);
+    }
+  };
+
   const filteredProspects =
     campaign?.prospects.filter((p) => {
       if (!search.trim()) return true;
@@ -191,6 +242,9 @@ const Page = () => {
   }
 
   const { metrics, progress } = campaign;
+  const whatsappTemplates = campaign.templates.filter(
+    (t) => t.channel === "whatsapp"
+  );
   const canStart =
     campaign.status === "draft" || campaign.status === "paused";
   const canPause = campaign.status === "active";
@@ -253,14 +307,26 @@ const Page = () => {
             </button>
           )}
           {isRunning && (
-            <button
-              type="button"
-              onClick={() => setExecutionModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-600 bg-sky-50 px-3.5 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100"
-            >
-              <HiOutlinePlay className="h-4 w-4" />
-              Execution test
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={runLoading || metrics.prospectCount === 0}
+                onClick={runNextBestAction}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+              >
+                <HiOutlineBolt className="h-4 w-4" />
+                {runLoading ? "Running…" : "Run next-best-action"}
+              </button>
+              <button
+                type="button"
+                disabled={trackLoading || metrics.prospectCount === 0}
+                onClick={trackEngagement}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <HiOutlineArrowPath className="h-4 w-4" />
+                {trackLoading ? "Tracking…" : "Track engagement"}
+              </button>
+            </>
           )}
           {campaign.status === "completed" && (
             <span className="text-xs text-gray-500 px-2">Campaign completed</span>
@@ -269,8 +335,23 @@ const Page = () => {
       </div>
 
       {isRunning && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
-          Drip is live — prospects are being enrolled in the outreach sequence.
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 space-y-1">
+          <p>
+            Campaign is active. Use Run next-best-action to send outreach and Track
+            engagement to sync replies, opens, and connection accepts into comm logs.
+          </p>
+          {whatsappTemplates.length > 0 ? (
+            <p className="text-xs text-emerald-900/90">
+              WhatsApp execution uses {whatsappTemplates.length} campaign template
+              {whatsappTemplates.length === 1 ? "" : "s"}:{" "}
+              {whatsappTemplates.map((t) => t.whatsappTemplateId).join(", ")}.
+            </p>
+          ) : (
+            <p className="text-xs text-amber-800">
+              No WhatsApp templates selected — add them via Manage under Comm templates
+              before running WhatsApp outreach.
+            </p>
+          )}
         </div>
       )}
 
@@ -372,10 +453,17 @@ const Page = () => {
                   <span className="font-medium text-gray-800">
                     {t.channelLabel} · S{t.stage}
                   </span>
+                  {t.channel === "whatsapp" && t.whatsappTemplateId && (
+                    <p className="text-gray-600 truncate mt-0.5">
+                      {t.whatsappTemplateId}
+                    </p>
+                  )}
                   {t.subject && (
                     <p className="text-gray-500 truncate">{t.subject}</p>
                   )}
-                  <p className="text-gray-400">{t.ctaLabel}</p>
+                  {t.channel !== "whatsapp" && (
+                    <p className="text-gray-400">{t.ctaLabel}</p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -546,12 +634,14 @@ const Page = () => {
         onUpdated={setCampaign}
       />
 
-      <ExecutionTestModal
+      <CampaignActionsModal
         isOpen={executionModalOpen}
         onClose={() => setExecutionModalOpen(false)}
         campaignId={campaign.id}
         campaignName={campaign.name}
+        campaignStatus={campaign.status}
         prospects={campaign.prospects}
+        templates={campaign.templates}
         onCampaignUpdate={(data) => {
           setCampaign(data);
           fetchCampaign();

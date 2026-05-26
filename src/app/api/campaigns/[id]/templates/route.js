@@ -6,6 +6,11 @@ import {
   fetchSerializedCampaign,
   getOwnedCampaignDetail,
 } from "@/lib/campaignDetail";
+import {
+  countWhatsAppNumberedVariables,
+  normalizeWhatsAppVariableMapping,
+  validateWhatsAppVariableMapping,
+} from "@/lib/whatsappTemplateVariables";
 
 const CTA_VALUES = CTA_OPTIONS.map((c) => c.value);
 
@@ -29,7 +34,37 @@ function validateTemplatePayload(template) {
   if (template.channel === "whatsapp" && !template.whatsappTemplateId?.trim()) {
     return "WhatsApp template ID is required";
   }
+  if (template.channel === "whatsapp") {
+    const bodyCount = countWhatsAppNumberedVariables(template.body);
+    const headerCount = template.whatsappHeaderVariableCount ?? 0;
+    const mappingErr = validateWhatsAppVariableMapping(
+      template.whatsappVariableMapping,
+      {
+        bodyCount,
+        headerCount,
+        templateName: template.whatsappTemplateId,
+      }
+    );
+    if (mappingErr) return mappingErr;
+  }
   return null;
+}
+
+function templateCreateData(campaignId, template) {
+  return {
+    campaignId,
+    channel: template.channel,
+    stage: Number(template.stage),
+    subject: template.channel === "email" ? template.subject?.trim() : null,
+    body: template.body.trim(),
+    cta: template.cta,
+    whatsappTemplateId:
+      template.channel === "whatsapp" ? template.whatsappTemplateId?.trim() : null,
+    whatsappVariableMapping:
+      template.channel === "whatsapp"
+        ? normalizeWhatsAppVariableMapping(template.whatsappVariableMapping)
+        : null,
+  };
 }
 
 export async function POST(request, { params }) {
@@ -50,26 +85,75 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const err = validateTemplatePayload(body);
-  if (err) {
-    return NextResponse.json({ error: err }, { status: 400 });
+  const payloads = Array.isArray(body.templates) ? body.templates : [body];
+
+  for (const template of payloads) {
+    const err = validateTemplatePayload(template);
+    if (err) {
+      return NextResponse.json({ error: err }, { status: 400 });
+    }
   }
 
-  await prisma.communicationTemplate.create({
-    data: {
-      campaignId: campaign.id,
-      channel: body.channel,
-      stage: Number(body.stage),
-      subject: body.channel === "email" ? body.subject?.trim() : null,
-      body: body.body.trim(),
-      cta: body.cta,
-      whatsappTemplateId:
-        body.channel === "whatsapp" ? body.whatsappTemplateId?.trim() : null,
-    },
+  await prisma.communicationTemplate.createMany({
+    data: payloads.map((template) => templateCreateData(campaign.id, template)),
   });
 
   const serialized = await fetchSerializedCampaign(params.id, user.id);
   return NextResponse.json(serialized, { status: 201 });
+}
+
+export async function PATCH(request, { params }) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const campaign = await getOwnedCampaignDetail(params.id, user.id);
+  if (!campaign) {
+    return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { templateId, whatsappVariableMapping } = body;
+  if (!templateId) {
+    return NextResponse.json({ error: "templateId is required" }, { status: 400 });
+  }
+
+  const template = campaign.templates.find((t) => t.id === templateId);
+  if (!template) {
+    return NextResponse.json({ error: "Template not found" }, { status: 404 });
+  }
+  if (template.channel !== "whatsapp") {
+    return NextResponse.json(
+      { error: "Variable mapping only applies to WhatsApp templates" },
+      { status: 400 }
+    );
+  }
+
+  const mapping = normalizeWhatsAppVariableMapping(whatsappVariableMapping);
+  const bodyCount = countWhatsAppNumberedVariables(template.body);
+  const mappingErr = validateWhatsAppVariableMapping(mapping, {
+    bodyCount,
+    headerCount: 0,
+    templateName: template.whatsappTemplateId,
+  });
+  if (mappingErr) {
+    return NextResponse.json({ error: mappingErr }, { status: 400 });
+  }
+
+  await prisma.communicationTemplate.update({
+    where: { id: templateId },
+    data: { whatsappVariableMapping: mapping },
+  });
+
+  const serialized = await fetchSerializedCampaign(params.id, user.id);
+  return NextResponse.json(serialized);
 }
 
 export async function DELETE(request, { params }) {

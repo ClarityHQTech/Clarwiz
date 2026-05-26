@@ -67,6 +67,7 @@ export function serializeCommLogForUi(log) {
     status: log.status,
     sentAt: log.sentAt?.toISOString?.() ?? log.sentAt,
     openedAt: log.openedAt?.toISOString?.() ?? log.openedAt ?? null,
+    deliveryProvider: log.deliveryProvider ?? null,
     responseType: log.responseType,
     responseAt: log.responseAt?.toISOString?.() ?? log.responseAt ?? null,
     responseContent: log.responseContent,

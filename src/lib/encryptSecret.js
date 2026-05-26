@@ -4,22 +4,23 @@ const ALGORITHM = "aes-256-gcm";
 const KEY_LENGTH = 32;
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
-const SCRYPT_SALT = "clarwiz-linkup-account-id";
+const SCRYPT_SALT_LINKUP = "clarwiz-linkup-account-id";
+const SCRYPT_SALT_SMARTLEAD = "clarwiz-smartlead-email-account-id";
+const SCRYPT_SALT_WHATSAPP = "clarwiz-whatsapp-access-token";
 
-function getEncryptionKey() {
+function deriveKey(salt) {
   const secret = process.env.SECRET?.trim();
   if (!secret) {
     throw new Error("SECRET is not configured");
   }
-  return scryptSync(secret, SCRYPT_SALT, KEY_LENGTH);
+  return scryptSync(secret, salt, KEY_LENGTH);
 }
 
-/** Encrypts a LinkupAPI account_id for storage (AES-256-GCM, key derived from SECRET). */
-export function encryptAccountId(plainText) {
+function encryptWithSalt(plainText, salt) {
   if (!plainText) {
-    throw new Error("Cannot encrypt empty account id");
+    throw new Error("Cannot encrypt empty value");
   }
-  const key = getEncryptionKey();
+  const key = deriveKey(salt);
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv);
   const encrypted = Buffer.concat([
@@ -30,10 +31,9 @@ export function encryptAccountId(plainText) {
   return Buffer.concat([iv, tag, encrypted]).toString("base64");
 }
 
-/** Decrypts a stored account_id. Supports legacy plaintext rows from before encryption. */
-export function decryptAccountId(stored) {
+function decryptWithSalt(stored, salt, legacyPlaintextPattern) {
   if (!stored) {
-    throw new Error("Missing stored account id");
+    throw new Error("Missing stored value");
   }
 
   try {
@@ -44,17 +44,58 @@ export function decryptAccountId(stored) {
     const iv = buf.subarray(0, IV_LENGTH);
     const tag = buf.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
     const encrypted = buf.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
-    const key = getEncryptionKey();
+    const key = deriveKey(salt);
     const decipher = createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(
       "utf8"
     );
   } catch {
-    // Pre-encryption rows stored the raw LinkupAPI account_id
-    if (/^[a-f0-9]{24}$/i.test(stored)) {
+    if (legacyPlaintextPattern?.test(stored)) {
       return stored;
     }
+    throw new Error("Failed to decrypt stored value");
+  }
+}
+
+/** Encrypts a LinkupAPI account_id for storage (AES-256-GCM, key derived from SECRET). */
+export function encryptAccountId(plainText) {
+  return encryptWithSalt(plainText, SCRYPT_SALT_LINKUP);
+}
+
+/** Decrypts a stored LinkupAPI account_id. Supports legacy plaintext rows. */
+export function decryptAccountId(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_LINKUP, /^[a-f0-9]{24}$/i);
+  } catch {
     throw new Error("Failed to decrypt LinkupAPI account id");
+  }
+}
+
+/** Encrypts a Smartlead email account id for storage. */
+export function encryptSmartleadAccountId(plainText) {
+  return encryptWithSalt(String(plainText), SCRYPT_SALT_SMARTLEAD);
+}
+
+/** Decrypts a stored Smartlead email account id. Supports legacy plaintext numeric ids. */
+export function decryptSmartleadAccountId(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_SMARTLEAD, /^\d+$/);
+  } catch {
+    throw new Error("Failed to decrypt Smartlead account id");
+  }
+}
+
+/** Encrypts a WhatsApp access token or Interakt API key for storage. */
+export function encryptWhatsAppToken(plainText) {
+  return encryptWithSalt(String(plainText), SCRYPT_SALT_WHATSAPP);
+}
+
+/** Decrypts a stored WhatsApp credential. */
+export function decryptWhatsAppToken(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_WHATSAPP, /^EAA[A-Za-z0-9]+$/);
+  } catch {
+    throw new Error("Failed to decrypt WhatsApp credential");
   }
 }

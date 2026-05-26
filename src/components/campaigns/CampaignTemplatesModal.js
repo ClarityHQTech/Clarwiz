@@ -10,16 +10,18 @@ import {
   ModalCloseButton,
   Button,
 } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HiOutlinePlus, HiOutlineTrash } from "react-icons/hi2";
 import { toast } from "sonner";
 import TemplateEditorCard from "@/components/campaigns/TemplateEditorCard";
+import WhatsAppCampaignTemplatesSection from "@/components/campaigns/WhatsAppCampaignTemplatesSection";
 import {
   CAMPAIGN_CHANNELS,
   CHANNEL_LABELS,
   createTemplate,
   validateTemplate,
 } from "@/lib/campaignConstants";
+import { commTemplatesFromWhatsAppSelection } from "@/lib/whatsappCampaignTemplates";
 
 export default function CampaignTemplatesModal({
   isOpen,
@@ -32,6 +34,11 @@ export default function CampaignTemplatesModal({
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [draft, setDraft] = useState(null);
+  const [localTemplates, setLocalTemplates] = useState(templates);
+
+  useEffect(() => {
+    setLocalTemplates(templates);
+  }, [templates]);
 
   const startCreate = (channel) => {
     const existingStages = templates
@@ -80,6 +87,67 @@ export default function CampaignTemplatesModal({
     }
   };
 
+  const updateWhatsAppMapping = async (templateId, patch) => {
+    const template = localTemplates.find((t) => t.id === templateId);
+    if (!template) return;
+
+    const next = { ...template, ...patch };
+    setLocalTemplates((prev) =>
+      prev.map((t) => (t.id === templateId ? next : t))
+    );
+
+    const err = validateTemplate(next);
+    if (err) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/templates`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId,
+          whatsappVariableMapping: next.whatsappVariableMapping,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update mapping");
+      onUpdated?.(data);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveWhatsAppTemplates = async (waTemplates) => {
+    const rows = commTemplatesFromWhatsAppSelection(waTemplates, templates);
+    if (rows.length === 0) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/templates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templates: rows.map(
+            ({ id, whatsappBodyVariableCount, whatsappHeaderVariableCount, ...rest }) =>
+              rest
+          ),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save templates");
+      toast.success(
+        `Added ${rows.length} WhatsApp template${rows.length === 1 ? "" : "s"}.`
+      );
+      onUpdated?.(data);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const deleteTemplate = async (templateId) => {
     setDeletingId(templateId);
     try {
@@ -105,6 +173,8 @@ export default function CampaignTemplatesModal({
     }
   };
 
+  const nonWhatsAppChannels = CAMPAIGN_CHANNELS.filter((ch) => ch !== "whatsapp");
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="6xl" scrollBehavior="inside">
       <ModalOverlay backdropFilter="blur(4px)" />
@@ -114,13 +184,21 @@ export default function CampaignTemplatesModal({
             Communication templates
           </p>
           <p className="text-xs font-normal text-gray-500 mt-0.5">
-            View existing templates or create new ones with variable placeholders.
+            Select WhatsApp templates from your provider account, or create email and
+            LinkedIn stage templates.
           </p>
         </ModalHeader>
         <ModalCloseButton isDisabled={saving} />
 
         <ModalBody py={5} px={{ base: 4, md: 6 }} className="space-y-5">
-          {CAMPAIGN_CHANNELS.map((channel) => {
+          <WhatsAppCampaignTemplatesSection
+            templates={localTemplates}
+            onAddTemplates={saveWhatsAppTemplates}
+            onUpdateTemplate={updateWhatsAppMapping}
+            onRemove={(templateId) => deleteTemplate(templateId)}
+          />
+
+          {nonWhatsAppChannels.map((channel) => {
             const channelTemplates = templates
               .filter((t) => t.channel === channel)
               .sort((a, b) => a.stage - b.stage);
@@ -174,7 +252,7 @@ export default function CampaignTemplatesModal({
             );
           })}
 
-          {creating && draft && (
+          {creating && draft && draft.channel !== "whatsapp" && (
             <div className="rounded-lg border-2 border-sky-200 bg-sky-50/30 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-gray-900">
