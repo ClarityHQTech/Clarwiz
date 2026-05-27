@@ -44,6 +44,28 @@ export function isLinkedInConnectionRequest(decision) {
 }
 
 /**
+ * LinkedIn connection-request note limit (Linkup / LinkedIn).
+ * Free accounts: 200 chars; paid up to 300. We cap at 200 for all accounts.
+ * @see docs/execution-layer-rules.md §7
+ */
+export const LINKEDIN_CONNECTION_NOTE_MAX_CHARS = 200;
+
+/** Truncate connection note before Linkup invite (avoids CUSTOM_MESSAGE_TOO_LONG). */
+export function truncateLinkedInConnectionNote(message) {
+  const trimmed = message?.trim();
+  if (!trimmed) return undefined;
+  const max = LINKEDIN_CONNECTION_NOTE_MAX_CHARS;
+  if (trimmed.length <= max) return trimmed;
+
+  let cut = trimmed.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  if (lastSpace > max * 0.5) {
+    cut = cut.slice(0, lastSpace);
+  }
+  return cut.trim();
+}
+
+/**
  * Block or remap invalid channel decisions (e.g. call, unavailable channel).
  */
 export function enforceChannelRules(decision, prospectChannels, commHistory = []) {

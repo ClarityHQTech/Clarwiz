@@ -3,8 +3,11 @@ import { CAMPAIGN_CHANNELS } from "@/lib/campaignConstants";
 import {
   ACTIVE_EXECUTION_CHANNELS,
   EXECUTION_RULES_DOC,
+  LINKEDIN_CONNECTION_NOTE_MAX_CHARS,
   availableProspectChannels,
   enforceChannelRules,
+  isLinkedInConnectionRequest,
+  truncateLinkedInConnectionNote,
 } from "@/lib/execution/executionRules";
 import { applyTemplateVariables } from "@/lib/execution/renderMessage";
 import { selectModel } from "@/lib/execution/modelRouter";
@@ -162,6 +165,7 @@ Rules (full spec: ${EXECUTION_RULES_DOC}):
 - Prefer channels the prospect has contact info for: ${channels.join(", ")}.
 - Allowed campaign template channels: ${CAMPAIGN_CHANNELS.join(", ")}.
 - LinkedIn: send connection request (cta connect_linkedin) before any DM; DMs only after the request is accepted (see history responseType connected).
+- LinkedIn connection note (connect_linkedin message): max ${LINKEDIN_CONNECTION_NOTE_MAX_CHARS} characters including spaces — LinkedIn rejects longer notes (Linkup CUSTOM_MESSAGE_TOO_LONG). Keep it short and punchy.
 - For whatsapp: you MUST set templateId to one of the campaign whatsapp template ids from templates (channel=whatsapp). Never invent template ids. If no whatsapp templates exist, set skip=true with skipReason explaining missing templates.
 - Do not repeat the same channel+stage combination already sent unless a reply warrants a follow-up.
 - If the prospect replied positively (demo interest, meeting), you may set skip=true only when no outbound is needed; otherwise send a concise human reply advancing the conversation.
@@ -322,6 +326,13 @@ ${signalRules}
       isReplyFollowUp: replyFollowUp,
       latestReply,
     });
+  }
+
+  if (
+    channel === "linkedin" &&
+    (ctaType === "connect_linkedin" || isLinkedInConnectionRequest({ channel, ctaType }))
+  ) {
+    message = truncateLinkedInConnectionNote(message) ?? message;
   }
 
   const enforced = enforceChannelRules(

@@ -142,6 +142,7 @@ When the prospect has **live signals** attached:
 - Message: any other CTA → `pushLinkedInMessage` (only if §2 satisfied).
 - Requires Linkup integration connected with `linkupAccountId`.
 - Requires normalized `linkedinUrl` on prospect.
+- **Connection request note length:** LinkedIn enforces a short note on invites (Linkup returns `CUSTOM_MESSAGE_TOO_LONG` when exceeded). ClarWiz caps notes at **200 characters** (safe for free LinkedIn accounts; paid accounts allow up to 300). The LLM is instructed to stay within this limit; `truncateLinkedInConnectionNote()` enforces it at decision time and again in `pushLinkedInConnectionRequest` before calling Linkup.
 
 ---
 
@@ -241,3 +242,4 @@ Execution **still records** the planned message when integration is missing; UI 
 | 2026-05-26 | Initial rules doc; call channel deferred; LinkedIn DM gated on accepted connection |
 | 2026-05-26 | Smartlead: import leads with `ignore_duplicate_leads_in_other_campaign: false`; reply thread omits `first_name`; inbox `email_history` for reply bodies |
 | 2026-05-27 | LinkedIn track: fix `list_inbox` params (`count`/`cursor`); DM replies via `get_conversation` by prospect profile URL |
+| 2026-05-27 | LinkedIn connection note capped at 200 chars (truncate + LLM rule) to avoid Linkup `CUSTOM_MESSAGE_TOO_LONG` |

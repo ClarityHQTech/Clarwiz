@@ -20,7 +20,7 @@ const Footer = () => {
             <a target="_blank"><FaFacebook size={30} color="white" /></a>
             <a target="_blank"><FaInstagram size={35} color="white" /></a>
           </div>
-          <p className="mt-8">GTM Engine helps you create account books and run outreach campaigns to grow your business faster.</p>
+          <p className="mt-8">ClarWiz helps you create account books and run outreach campaigns to grow your business faster.</p>
           <p className="mt-16">
             For support, email us at <br />
             <a href="mailto:nextscale.ai@gmail.com" className="text-violet-500">nextscale.ai@gmail.com</a>
@@ -42,7 +42,7 @@ const Footer = () => {
 
       <div className="max-w-6xl mx-auto flex justify-between mt-10 md:mt-0">
         <p className="text-[3.5rem] sm:text-[10rem] text-gray-600/80 font-bold -pb-[2rem]">
-          GTM Engine
+          ClarWiz
         </p>
       </div>
 

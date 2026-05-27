@@ -1,3 +1,4 @@
+import { truncateLinkedInConnectionNote } from "@/lib/execution/executionRules";
 import { linkupSendConnectionRequest } from "@/lib/linkupApi";
 import { getLinkedInIntegrationWithAccountId } from "@/lib/linkedinIntegration";
 import { normalizeLinkedInProfileUrl } from "@/lib/linkedinProfileUrl";
@@ -34,10 +35,11 @@ export async function pushLinkedInConnectionRequest({
   }
 
   try {
+    const note = truncateLinkedInConnectionNote(message);
     const apiResult = await linkupSendConnectionRequest({
       accountId: integration.linkupAccountIdPlain,
       profileUrl: linkedinUrl,
-      message: message?.trim() || undefined,
+      message: note,
     });
 
     const data = apiResult.data ?? {};
@@ -47,6 +49,9 @@ export async function pushLinkedInConnectionRequest({
       deliveryMeta: {
         action: "invite",
         profileUrl: linkedinUrl,
+        connectionNoteTruncated:
+          Boolean(message?.trim()) &&
+          message.trim().length > (note?.length ?? 0),
         invitationUrn: data.invitation_urn ?? null,
         profileUrn: data.profile_urn ?? null,
         publicIdentifier: data.public_identifier ?? null,
