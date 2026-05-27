@@ -2,10 +2,12 @@ import {
   linkupCheckInvitation,
   linkupGetConversation,
   linkupListConnections,
-  linkupListInbox,
 } from "@/lib/linkupApi";
 import { getLinkedInIntegrationWithAccountId } from "@/lib/linkedinIntegration";
-import { linkedInUrlsMatch } from "@/lib/linkedinProfileUrl";
+import {
+  linkedInUrlsMatch,
+  normalizeLinkedInProfileUrl,
+} from "@/lib/linkedinProfileUrl";
 import {
   applyLinkedInConnectedEngagement,
   applyLinkedInReplyEngagement,
@@ -40,27 +42,6 @@ async function fetchAllConnections(accountId) {
   return connections;
 }
 
-async function fetchInboxConversations(accountId) {
-  const conversations = [];
-  let nextCursor;
-
-  do {
-    const result = await linkupListInbox({
-      accountId,
-      totalResults: 50,
-      category: "INBOX",
-      nextCursor,
-    });
-    const batch = result.data?.conversations ?? [];
-    conversations.push(...batch);
-    nextCursor = result.data?.next_cursor ?? null;
-    if (batch.length === 0) break;
-    if (conversations.length >= 200) break;
-  } while (nextCursor);
-
-  return conversations;
-}
-
 function findConnectionForProspect(connections, prospect) {
   if (!prospect.linkedinUrl) return null;
   return (
@@ -70,33 +51,62 @@ function findConnectionForProspect(connections, prospect) {
   );
 }
 
-function findInboxForProspect(conversations, prospect) {
-  if (!prospect.linkedinUrl) return null;
-  return (
-    conversations.find((c) =>
-      linkedInUrlsMatch(c.participant?.profile_url, prospect.linkedinUrl)
-    ) ?? null
-  );
+/** Baseline time for "reply after our outbound" — prefer actual delivery time. */
+function outboundBaselineMs(log) {
+  const t = log.deliveredAt ?? log.sentAt;
+  return t ? new Date(t).getTime() : 0;
 }
 
-function prospectRepliedInInbox(inboxConv, logSentAt) {
-  const last = inboxConv?.last_message;
-  if (!last?.text || last.sender?.is_me) return null;
-  const msgTime = last.time ? Number(last.time) : null;
-  const sentMs = logSentAt ? new Date(logSentAt).getTime() : 0;
-  if (msgTime && msgTime <= sentMs) return null;
-  return last.text;
+function isInboundTextMessage(message, prospect) {
+  if (!message?.text?.trim()) return false;
+  if (message.message_type && message.message_type !== "TEXT") return false;
+
+  const senderUrl = message.sender_info?.profile_url;
+  if (senderUrl && linkedInUrlsMatch(senderUrl, prospect.linkedinUrl)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Most recent prospect reply after our outbound, via get_conversation (profile_url).
+ * @see https://docs.linkupapi.com/api-reference/v2/messages/get-conversation
+ */
+function findProspectReplyInMessages(messages, prospect, baselineMs) {
+  for (const message of messages ?? []) {
+    const ts = message.timestamp ? Number(message.timestamp) : 0;
+    if (ts && ts <= baselineMs) break;
+
+    if (isInboundTextMessage(message, prospect)) {
+      return { text: message.text.trim(), timestamp: ts || Date.now() };
+    }
+  }
+  return null;
+}
+
+async function fetchProspectConversation(accountId, prospect) {
+  const profileUrl = normalizeLinkedInProfileUrl(prospect.linkedinUrl);
+  if (!profileUrl) return null;
+
+  return linkupGetConversation({
+    accountId,
+    profileUrl,
+    count: 10,
+  });
 }
 
 /**
  * Track LinkedIn connection accepts and message replies for pending comm logs.
- * Uses batch list_connections + list_inbox; check_invitation as fallback.
+ * Connections: batch list_connections + check_invitation fallback.
+ * Replies: get_conversation per prospect (not list_inbox).
  */
 export async function checkLinkedInEngagementForCampaign({
   userId,
   campaignId,
   prospects,
   pendingLogsByProspect,
+  linkedInLogsByProspect,
 }) {
   const integration = await getLinkedInIntegrationWithAccountId(userId);
   if (
@@ -112,30 +122,49 @@ export async function checkLinkedInEngagementForCampaign({
   }
 
   const accountId = integration.linkupAccountIdPlain;
-  const hasLinkedInPending = prospects.some((p) => {
-    const logs = pendingLogsByProspect.get(p.id) ?? [];
-    return logs.some((l) => l.channel === "linkedin");
+  let connections = [];
+
+  const needsConnectionChecks = prospects.some((p) => {
+    const pending = (pendingLogsByProspect.get(p.id) ?? []).filter(
+      (l) => l.channel === "linkedin" && !l.responseType
+    );
+    if (!pending.some((l) => l.ctaType === "connect_linkedin")) return false;
+
+    const history = linkedInLogsByProspect?.get(p.id) ?? [];
+
+    const hasPriorOutbound =
+      history.some(
+        (l) =>
+          l.channel === "linkedin" &&
+          (l.sentAt ||
+            l.deliveredAt ||
+            l.status === "sent" ||
+            l.status === "delivered")
+      ) || pending.some((l) => l.sentAt || l.deliveredAt || l.status === "sent" || l.status === "delivered");
+    if (!hasPriorOutbound) return false;
+
+    const alreadyConnected = history.some((l) => {
+      if (l.responseType === "connected") return true;
+      const state = l.deliveryMeta?.invitationState;
+      return state === "ACCEPTED";
+    });
+    return !alreadyConnected;
   });
 
-  if (!hasLinkedInPending) {
-    return { results: [], skipped: false };
-  }
-
-  let connections = [];
-  let conversations = [];
-
-  try {
-    connections = await fetchAllConnections(accountId);
-    conversations = await fetchInboxConversations(accountId);
-  } catch (err) {
-    return {
-      results: [],
-      skipped: true,
-      reason: err.message,
-    };
+  if (needsConnectionChecks) {
+    try {
+      connections = await fetchAllConnections(accountId);
+    } catch (err) {
+      return {
+        results: [],
+        skipped: true,
+        reason: err.message,
+      };
+    }
   }
 
   const results = [];
+  const conversationCache = new Map();
 
   for (const prospect of prospects) {
     const pending = (pendingLogsByProspect.get(prospect.id) ?? []).filter(
@@ -143,9 +172,64 @@ export async function checkLinkedInEngagementForCampaign({
     );
     if (!pending.length || !prospect.linkedinUrl) continue;
 
+    const history = linkedInLogsByProspect?.get(prospect.id) ?? [];
+    const hasPriorOutbound =
+      history.some(
+        (l) =>
+          l.channel === "linkedin" &&
+          (l.sentAt ||
+            l.deliveredAt ||
+            l.status === "sent" ||
+            l.status === "delivered")
+      ) || pending.some((l) => l.sentAt || l.deliveredAt || l.status === "sent" || l.status === "delivered");
+    if (!hasPriorOutbound) continue;
+
+    const alreadyConnected = history.some((l) => {
+      if (l.responseType === "connected") return true;
+      const state = l.deliveryMeta?.invitationState;
+      return state === "ACCEPTED";
+    });
+    const alreadyReplied = history.some((l) => l.responseType === "reply");
+
+    const pendingConnectionLogs = pending.filter(
+      (l) => l.ctaType === "connect_linkedin"
+    );
+    const pendingDmLogs = pending.filter((l) => l.ctaType !== "connect_linkedin");
+
+    const shouldCheckConnection = pendingConnectionLogs.length > 0 && !alreadyConnected;
+    const shouldCheckConversation = pendingDmLogs.length > 0 && !alreadyReplied;
+
+    let conversationResult = null;
+
+    if (shouldCheckConversation) {
+      try {
+        if (!conversationCache.has(prospect.id)) {
+          conversationCache.set(
+            prospect.id,
+            await fetchProspectConversation(accountId, prospect)
+          );
+        }
+        conversationResult = conversationCache.get(prospect.id);
+      } catch (err) {
+        for (const log of pendingDmLogs) {
+          results.push({
+            prospectId: prospect.id,
+            channel: "linkedin",
+            activity: null,
+            commLogId: log.id,
+            error: err.message,
+          });
+        }
+      }
+    }
+
+    const messages = conversationResult?.data?.messages ?? [];
+
     for (const log of pending) {
       try {
         if (log.ctaType === "connect_linkedin") {
+          if (!shouldCheckConnection) continue;
+
           const conn = findConnectionForProspect(connections, prospect);
           if (conn) {
             const { updated, activity } = await applyLinkedInConnectedEngagement(
@@ -191,33 +275,34 @@ export async function checkLinkedInEngagementForCampaign({
           continue;
         }
 
-        const inboxConv = findInboxForProspect(conversations, prospect);
-        let replyText = prospectRepliedInInbox(inboxConv, log.sentAt);
+        if (!shouldCheckConversation) continue;
+        if (!conversationResult) continue;
 
-        if (!replyText && inboxConv?.unread > 0) {
-          const conv = await linkupGetConversation({
-            accountId,
-            profileUrl: prospect.linkedinUrl,
-            count: 5,
-          });
-          const messages = conv.data?.messages ?? [];
-          const sentMs = log.sentAt ? new Date(log.sentAt).getTime() : 0;
-          const inbound = messages.find((m) => {
-            const ts = m.timestamp ? Number(m.timestamp) : 0;
-            const fromProspect =
-              m.sender_info?.profile_url &&
-              linkedInUrlsMatch(m.sender_info.profile_url, prospect.linkedinUrl);
-            return fromProspect && ts > sentMs && m.text;
-          });
-          replyText = inbound?.text ?? null;
+        const baselineMs = outboundBaselineMs(log);
+        let reply = findProspectReplyInMessages(
+          messages,
+          prospect,
+          baselineMs
+        );
+
+        if (!reply && (conversationResult.data?.unread_count ?? 0) > 0) {
+          const latest = messages[0];
+          if (
+            latest?.text &&
+            isInboundTextMessage(latest, prospect) &&
+            Number(latest.timestamp) > baselineMs
+          ) {
+            reply = {
+              text: latest.text.trim(),
+              timestamp: Number(latest.timestamp) || Date.now(),
+            };
+          }
         }
 
-        if (replyText) {
+        if (reply) {
           const { updated, activity } = await applyLinkedInReplyEngagement(log, {
-            responseContent: replyText,
-            repliedAt: inboxConv?.last_message?.time
-              ? new Date(Number(inboxConv.last_message.time))
-              : new Date(),
+            responseContent: reply.text,
+            repliedAt: new Date(reply.timestamp),
           });
           if (updated) {
             results.push({

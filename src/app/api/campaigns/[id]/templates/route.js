@@ -72,6 +72,12 @@ export async function POST(request, { params }) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
+  }
 
   const campaign = await getOwnedCampaignDetail(params.id, user.id);
   if (!campaign) {
@@ -106,6 +112,12 @@ export async function PATCH(request, { params }) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
   }
 
   const campaign = await getOwnedCampaignDetail(params.id, user.id);
@@ -160,6 +172,12 @@ export async function DELETE(request, { params }) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
   }
 
   const { searchParams } = new URL(request.url);

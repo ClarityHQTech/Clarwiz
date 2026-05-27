@@ -8,6 +8,12 @@ export async function GET(request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
+  }
 
   const refresh = request.nextUrl.searchParams.get("refresh") === "true";
   const integration = await getWhatsAppIntegration(user.id, { refresh });
@@ -19,6 +25,12 @@ export async function DELETE() {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
   }
 
   await prisma.whatsAppIntegration.deleteMany({ where: { userId: user.id } });

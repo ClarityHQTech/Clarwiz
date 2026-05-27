@@ -33,6 +33,12 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
+  }
 
   const campaigns = await prisma.campaign.findMany({
     where: { userId: user.id },
@@ -47,6 +53,12 @@ export async function POST(request) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
   }
 
   let body;

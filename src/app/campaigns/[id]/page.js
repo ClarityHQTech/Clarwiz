@@ -4,14 +4,20 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import CampaignActionsModal from "@/components/campaigns/CampaignActionsModal";
 import ProspectCommThread from "@/components/campaigns/ProspectCommThread";
 import CampaignTemplatesModal from "@/components/campaigns/CampaignTemplatesModal";
-import { useDisclosure } from "@chakra-ui/react";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerCloseButton,
+  DrawerContent,
+  DrawerHeader,
+  DrawerOverlay,
+  useDisclosure,
+} from "@chakra-ui/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   HiOutlineArrowLeft,
-  HiOutlineChevronDown,
-  HiOutlineChevronRight,
   HiOutlinePlay,
   HiOutlinePause,
   HiOutlinePlus,
@@ -107,13 +113,18 @@ const Page = () => {
   const [runLoading, setRunLoading] = useState(false);
   const [trackLoading, setTrackLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState(null);
   const [executionModalOpen, setExecutionModalOpen] = useState(false);
   const {
     isOpen: templatesModalOpen,
     onOpen: openTemplatesModal,
     onClose: closeTemplatesModal,
   } = useDisclosure();
+  const {
+    isOpen: prospectDrawerOpen,
+    onOpen: openProspectDrawer,
+    onClose: closeProspectDrawer,
+  } = useDisclosure();
+  const [selectedProspect, setSelectedProspect] = useState(null);
 
   const fetchCampaign = useCallback(async () => {
     if (!id) return;
@@ -156,10 +167,6 @@ const Page = () => {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const toggleExpand = (prospectId) => {
-    setExpandedId((prev) => (prev === prospectId ? null : prospectId));
   };
 
   const runNextBestAction = async () => {
@@ -478,7 +485,7 @@ const Page = () => {
               Prospects ({campaign.prospects.length})
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Click a row to expand — conversations grouped by channel (Email, LinkedIn, WhatsApp)
+              Click a prospect to view details and conversations (drawer)
             </p>
           </div>
           <input
@@ -490,10 +497,9 @@ const Page = () => {
           />
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-sm">
+          <table className="w-full min-w-[980px] text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-white">
-                <th className="w-8 px-2 py-2.5" aria-hidden />
                 <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
                   Name
                 </th>
@@ -518,113 +524,162 @@ const Page = () => {
               {filteredProspects.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     {search ? "No prospects match your search." : "No prospects."}
                   </td>
                 </tr>
               ) : (
-                filteredProspects.map((p) => {
-                  const expanded = expandedId === p.id;
-                  return (
-                    <Fragment key={p.id}>
-                      <tr
-                        onClick={() => toggleExpand(p.id)}
-                        className={`cursor-pointer transition-colors ${
-                          expanded ? "bg-sky-50/60" : "hover:bg-gray-50/80"
-                        }`}
-                      >
-                        <td className="px-2 py-2.5 text-gray-400">
-                          {expanded ? (
-                            <HiOutlineChevronDown className="h-4 w-4 mx-auto" />
-                          ) : (
-                            <HiOutlineChevronRight className="h-4 w-4 mx-auto" />
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">
-                          {p.name}
-                        </td>
-                        <td className="px-4 py-2.5 text-gray-600">
-                          {p.company || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-gray-600">
-                          {p.jobTitle || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-gray-600">
-                          {p.email ? (
-                            <a
-                              href={`mailto:${p.email}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-sky-700 hover:underline"
-                            >
-                              {p.email}
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-center text-gray-600 tabular-nums">
-                          {p.messageCount}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          {p.hasReply ? (
-                            <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                              Yes
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </td>
-                      </tr>
-                      {expanded && (
-                        <tr className="bg-gray-50/50">
-                          <td colSpan={7} className="px-4 py-3 border-t border-gray-100">
-                            <div className="grid lg:grid-cols-[1fr_280px] gap-4">
-                              <div>
-                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                  Conversation
-                                </p>
-                                <ProspectCommThread communications={p.communications} />
-                              </div>
-                              <div className="text-xs text-gray-500 space-y-1 lg:border-l lg:border-gray-200 lg:pl-4">
-                                <p>
-                                  <span className="font-medium text-gray-700">Phone:</span>{" "}
-                                  {p.phone || "—"}
-                                </p>
-                                <p>
-                                  <span className="font-medium text-gray-700">WhatsApp:</span>{" "}
-                                  {p.whatsapp || "—"}
-                                </p>
-                                <p>
-                                  <span className="font-medium text-gray-700">LinkedIn:</span>{" "}
-                                  {p.linkedinUrl ? (
-                                    <a
-                                      href={p.linkedinUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sky-700 hover:underline"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      Profile
-                                    </a>
-                                  ) : (
-                                    "—"
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
+                filteredProspects.map((p) => (
+                  <tr
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedProspect(p);
+                      openProspectDrawer();
+                    }}
+                    className="cursor-pointer transition-colors hover:bg-gray-50/80"
+                  >
+                    <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">
+                      {p.name}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-600">
+                      {p.company || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-600">
+                      {p.jobTitle || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-600">
+                      {p.email ? (
+                        <a
+                          href={`mailto:${p.email}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sky-700 hover:underline"
+                        >
+                          {p.email}
+                        </a>
+                      ) : (
+                        "—"
                       )}
-                    </Fragment>
-                  );
-                })
+                    </td>
+                    <td className="px-4 py-2.5 text-center text-gray-600 tabular-nums">
+                      {p.messageCount}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {p.hasReply ? (
+                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      <Drawer
+        placement="right"
+        size="md"
+        isOpen={prospectDrawerOpen}
+        onClose={() => {
+          closeProspectDrawer();
+          setSelectedProspect(null);
+        }}
+      >
+        <DrawerOverlay />
+        <DrawerContent className="!max-w-[520px]">
+          <DrawerCloseButton />
+          <DrawerHeader className="text-sm font-semibold text-gray-900">
+            {selectedProspect?.name ?? "Prospect"}
+          </DrawerHeader>
+
+          <DrawerBody className="px-4 pb-6">
+            {!selectedProspect ? (
+              <p className="text-sm text-gray-500">No prospect selected.</p>
+            ) : (
+              <div className="space-y-5">
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {selectedProspect.company || "—"}
+                      </p>
+                      <p className="text-xs mt-1 text-gray-500 truncate">
+                        {selectedProspect.jobTitle || "—"}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-600 text-right whitespace-nowrap">
+                      <p className="font-medium text-gray-900">{selectedProspect.messageCount} msgs</p>
+                      <p className="mt-1">
+                        {selectedProspect.hasReply ? (
+                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                            Reply received
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">No reply yet</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
+                    <p className="truncate">
+                      <span className="font-medium text-gray-700">Email:</span>{" "}
+                      {selectedProspect.email ? (
+                        <a
+                          href={`mailto:${selectedProspect.email}`}
+                          className="text-sky-700 hover:underline"
+                        >
+                          {selectedProspect.email}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </p>
+                    <p className="truncate">
+                      <span className="font-medium text-gray-700">Phone:</span>{" "}
+                      {selectedProspect.phone || "—"}
+                    </p>
+                    <p className="truncate">
+                      <span className="font-medium text-gray-700">WhatsApp:</span>{" "}
+                      {selectedProspect.whatsapp || "—"}
+                    </p>
+                    <p className="truncate">
+                      <span className="font-medium text-gray-700">LinkedIn:</span>{" "}
+                      {selectedProspect.linkedinUrl ? (
+                        <a
+                          href={selectedProspect.linkedinUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sky-700 hover:underline"
+                        >
+                          Profile
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Conversations
+                  </p>
+                  <ProspectCommThread
+                    communications={selectedProspect.communications}
+                  />
+                </div>
+              </div>
+            )}
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
 
       <CampaignTemplatesModal
         isOpen={templatesModalOpen}

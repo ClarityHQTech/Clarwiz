@@ -48,11 +48,11 @@ const INITIAL_CAMPAIGN = {
 
 function StepIndicator({ current }) {
   return (
-    <div className="flex items-center gap-2 mb-6">
+    <div className="flex items-center gap-2.5 mb-6">
       {STEPS.map((label, i) => (
-        <div key={label} className="flex items-center gap-2">
+        <div key={label} className="flex items-center gap-2.5">
           <div
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
               i <= current
                 ? "bg-sky-700 text-white"
                 : "bg-gray-100 text-gray-500"
@@ -61,7 +61,7 @@ function StepIndicator({ current }) {
             {i + 1}
           </div>
           <span
-            className={`text-xs font-medium hidden sm:inline ${
+            className={`text-sm font-medium hidden sm:inline ${
               i === current ? "text-gray-900" : "text-gray-400"
             }`}
           >
@@ -79,12 +79,12 @@ function StepIndicator({ current }) {
 function Field({ label, required, children, hint }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-sm text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -282,28 +282,28 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      size="6xl"
+      size="full"
       scrollBehavior="inside"
       closeOnOverlayClick={!submitting}
     >
       <ModalOverlay backdropFilter="blur(4px)" />
-      <ModalContent mx={3} maxH="92vh" borderRadius="xl">
-        <ModalHeader borderBottomWidth="1px" py={4} pr={12}>
-          <p className="text-base font-semibold text-gray-900">New campaign</p>
-          <p className="text-xs font-normal text-gray-500 mt-0.5">
+      <ModalContent m={0} maxH="100vh" minH="100vh" borderRadius="none">
+        <ModalHeader borderBottomWidth="1px" py={5} px={{ base: 5, md: 6 }} pr={12}>
+          <p className="text-lg font-semibold text-gray-900">New campaign</p>
+          <p className="text-sm font-normal text-gray-500 mt-1">
             Configure campaign details, import prospects, and optionally add comm templates.
           </p>
         </ModalHeader>
         <ModalCloseButton isDisabled={submitting} />
 
-        <ModalBody py={5} px={{ base: 4, md: 6 }}>
+        <ModalBody py={6} px={{ base: 5, md: 8 }}>
           <StepIndicator current={step} />
 
           {step === 0 && (
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Campaign name" required>
                 <Input
-                  size="sm"
+                  size="md"
                   value={campaign.name}
                   onChange={(e) => updateCampaign({ name: e.target.value })}
                   placeholder="Summer 2025"
@@ -311,7 +311,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
               </Field>
               <Field label="Start date">
                 <Input
-                  size="sm"
+                  size="md"
                   type="date"
                   value={campaign.startDate}
                   onChange={(e) => updateCampaign({ startDate: e.target.value })}
@@ -320,8 +320,8 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
               <div className="sm:col-span-2">
                 <Field label="Description">
                   <Textarea
-                    size="sm"
-                    rows={2}
+                    size="md"
+                    rows={3}
                     value={campaign.description}
                     onChange={(e) => updateCampaign({ description: e.target.value })}
                     placeholder="Campaign overview and positioning..."
@@ -330,7 +330,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
               </div>
               <Field label="Target segment">
                 <Input
-                  size="sm"
+                  size="md"
                   value={campaign.targetSegment}
                   onChange={(e) => updateCampaign({ targetSegment: e.target.value })}
                   placeholder="Mid-market SaaS, US & UK"
@@ -338,7 +338,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
               </Field>
               <Field label="Goals">
                 <Input
-                  size="sm"
+                  size="md"
                   value={campaign.goals}
                   onChange={(e) => updateCampaign({ goals: e.target.value })}
                   placeholder="Book 20 demos, 50 qualified replies"
@@ -349,16 +349,16 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
 
           {step === 1 && (
             <div className="space-y-4">
-              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
+              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 p-7 text-center">
                 <HiOutlineArrowUpTray className="mx-auto h-8 w-8 text-gray-400" />
-                <p className="text-sm font-medium text-gray-900 mt-2">
+                <p className="text-base font-medium text-gray-900 mt-2">
                   Upload prospect list (.xlsx, .xls, .csv)
                 </p>
-                <p className="text-xs text-gray-500 mt-1 max-w-lg mx-auto">
+                <p className="text-sm text-gray-500 mt-1 max-w-lg mx-auto">
                   Recognized columns (any casing):{" "}
                   {PROSPECT_IMPORT_COLUMNS.join(" · ")}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-sm text-gray-400 mt-1">
                   Maps to template variables: {TEMPLATE_VARIABLES}
                 </p>
                 <label className="mt-4 inline-block">
@@ -371,12 +371,12 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                       e.target.value = "";
                     }}
                   />
-                  <span className="cursor-pointer inline-flex items-center rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  <span className="cursor-pointer inline-flex items-center rounded-lg bg-white border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                     Choose file
                   </span>
                 </label>
                 {fileName && (
-                  <p className="text-xs text-sky-700 mt-2 font-medium">{fileName}</p>
+                  <p className="text-sm text-sky-700 mt-2 font-medium">{fileName}</p>
                 )}
               </div>
 
@@ -526,10 +526,10 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
           )}
         </ModalBody>
 
-        <ModalFooter borderTopWidth="1px" gap={2} py={4}>
+        <ModalFooter borderTopWidth="1px" gap={2} py={4} px={{ base: 5, md: 6 }}>
           {step > 0 ? (
             <Button
-              size="sm"
+              size="md"
               variant="ghost"
               leftIcon={<HiOutlineArrowLeft />}
               onClick={goBack}
@@ -541,12 +541,12 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
             <div />
           )}
           <div className="flex-1" />
-          <Button size="sm" variant="outline" onClick={handleClose} isDisabled={submitting}>
+          <Button size="md" variant="outline" onClick={handleClose} isDisabled={submitting}>
             Cancel
           </Button>
           {step < STEPS.length - 1 ? (
             <Button
-              size="sm"
+              size="md"
               colorScheme="blue"
               rightIcon={<HiOutlineArrowRight />}
               onClick={goNext}
@@ -555,7 +555,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
             </Button>
           ) : (
             <Button
-              size="sm"
+              size="md"
               colorScheme="blue"
               onClick={handleSubmit}
               isLoading={submitting}

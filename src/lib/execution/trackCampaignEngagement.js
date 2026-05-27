@@ -31,6 +31,25 @@ async function loadTrackingContext(campaignId, prospectIds) {
     orderBy: { sentAt: "desc" },
   });
 
+  const linkedInLogs = await prisma.communicationLog.findMany({
+    where: {
+      campaignId,
+      channel: "linkedin",
+      ...(prospectIds?.length ? { prospectId: { in: prospectIds } } : {}),
+    },
+    select: {
+      id: true,
+      prospectId: true,
+      ctaType: true,
+      status: true,
+      sentAt: true,
+      deliveredAt: true,
+      responseType: true,
+      deliveryMeta: true,
+    },
+    orderBy: { sentAt: "desc" },
+  });
+
   const pendingLogsByProspect = new Map();
   for (const log of pendingLogs) {
     const list = pendingLogsByProspect.get(log.prospectId) ?? [];
@@ -38,7 +57,19 @@ async function loadTrackingContext(campaignId, prospectIds) {
     pendingLogsByProspect.set(log.prospectId, list);
   }
 
-  return { campaign, prospects: campaign.prospects, pendingLogsByProspect };
+  const linkedInLogsByProspect = new Map();
+  for (const log of linkedInLogs) {
+    const list = linkedInLogsByProspect.get(log.prospectId) ?? [];
+    list.push(log);
+    linkedInLogsByProspect.set(log.prospectId, list);
+  }
+
+  return {
+    campaign,
+    prospects: campaign.prospects,
+    pendingLogsByProspect,
+    linkedInLogsByProspect,
+  };
 }
 
 /**
@@ -48,7 +79,7 @@ export async function trackCampaignEngagement(
   campaignId,
   { userId, prospectIds } = {}
 ) {
-  const { campaign, prospects, pendingLogsByProspect } =
+  const { campaign, prospects, pendingLogsByProspect, linkedInLogsByProspect } =
     await loadTrackingContext(campaignId, prospectIds);
 
   if (!prospects.length) {
@@ -65,6 +96,7 @@ export async function trackCampaignEngagement(
     campaignId,
     prospects,
     pendingLogsByProspect,
+    linkedInLogsByProspect,
   });
   if (linkedIn.results?.length) allResults.push(...linkedIn.results);
 

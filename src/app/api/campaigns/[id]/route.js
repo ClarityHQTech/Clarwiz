@@ -11,6 +11,12 @@ export async function GET(_request, { params }) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
+  }
 
   const serialized = await fetchSerializedCampaign(params.id, user.id);
   if (!serialized) {
@@ -24,6 +30,12 @@ export async function PATCH(request, { params }) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!user.payment) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You don't have access to this." },
+      { status: 403 }
+    );
   }
 
   const campaign = await getOwnedCampaignDetail(params.id, user.id);

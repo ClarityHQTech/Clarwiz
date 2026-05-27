@@ -142,12 +142,12 @@ export async function linkupCheckInvitation({ accountId, profileUrl }) {
 /** POST /v2/messages — action list_inbox. */
 export async function linkupListInbox({
   accountId,
-  totalResults = 50,
+  count = 50,
   category = "INBOX",
-  nextCursor,
+  cursor,
 }) {
-  const params = { total_results: totalResults, category };
-  if (nextCursor) params.next_cursor = nextCursor;
+  const params = { count, category };
+  if (cursor) params.cursor = cursor;
 
   const result = await linkupAction("messages", {
     accountId,

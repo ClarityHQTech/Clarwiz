@@ -158,8 +158,17 @@ Entry: `trackCampaignEngagement()`.
 | Channel   | Detects |
 |-----------|---------|
 | Email     | Smartlead delivery status, opens, replies |
-| LinkedIn  | Connection accepted, DM replies (inbox / conversation API) |
+| LinkedIn  | Connection accepted (`list_connections` + `check_invitation`), DM replies (`get_conversation` per prospect) |
 | WhatsApp  | Delivered, read, inbound replies (webhooks + polling) |
+
+### LinkedIn credit-saving rules (LinkupAPI)
+
+- **Only track LinkedIn for a prospect if there is prior LinkedIn outreach** in comm logs for that prospect.
+  - “Prior outreach” means we have **actually sent** a LinkedIn connection request or message before (e.g., `sentAt` / `deliveredAt` exists, or status is `sent` / `delivered`).
+  - If a prospect only has **planned/queued** LinkedIn logs and no previously sent/delivered LinkedIn activity, **do not** call Linkup tracking endpoints (avoid burning credits).
+- **Stop tracking specific LinkedIn steps once it’s already resolved in comm logs** (save Linkup credits, without blocking other unresolved steps):
+  - If comm logs already show **connection accepted** (`responseType: "connected"` or `deliveryMeta.invitationState === "ACCEPTED"`), do not track connection acceptance again (skip Linkup `check_invitation` / connection-accept polling).
+  - If comm logs already show **a new inbound LinkedIn message received** (`responseType: "reply"`), do not poll conversations again for DM replies.
 
 ### Re-execution
 
@@ -231,3 +240,4 @@ Execution **still records** the planned message when integration is missing; UI 
 |------------|--------|
 | 2026-05-26 | Initial rules doc; call channel deferred; LinkedIn DM gated on accepted connection |
 | 2026-05-26 | Smartlead: import leads with `ignore_duplicate_leads_in_other_campaign: false`; reply thread omits `first_name`; inbox `email_history` for reply bodies |
+| 2026-05-27 | LinkedIn track: fix `list_inbox` params (`count`/`cursor`); DM replies via `get_conversation` by prospect profile URL |

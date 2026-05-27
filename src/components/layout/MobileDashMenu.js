@@ -43,7 +43,7 @@ const MobileDashMenu = () => {
         <div className="flex justify-between items-center">
             <Link className='flex items-center justify-start gap-2 w-full' href={'/'}>
             <img className='h-8' src="/logo_white.svg" alt="" />
-            <h1 className='text-gray-100 font-bold text-xl'>Services</h1>
+            <h1 className='text-gray-100 font-bold text-xl'>ClarWiz</h1>
             </Link>
             <DrawerCloseButton className="text-gray-400 border-2 border-gray-400" />
         </div>
