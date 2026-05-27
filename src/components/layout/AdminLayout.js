@@ -18,7 +18,7 @@ function AdminShell({ children }) {
       <div className="h-screen flex items-center justify-center bg-gray-50 p-6">
         <div className="max-w-md w-full rounded-lg border border-gray-200 bg-white p-6 text-center">
           <h1 className="text-lg font-semibold text-gray-900">
-            You don't have access to this.
+            You don&apos;t have access to this.
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Payment is required to access the admin area.
