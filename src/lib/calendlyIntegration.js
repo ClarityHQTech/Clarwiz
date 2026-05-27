@@ -4,10 +4,12 @@ import {
   encryptCalendlyToken,
 } from "@/lib/encryptSecret";
 import {
+  CALENDLY_CONNECTION_MODES,
   createCalendlyWebhookSubscription,
   deleteCalendlyWebhookSubscription,
   exchangeCalendlyCode,
   getCalendlyCurrentUser,
+  normalizeCalendlyConnectionMode,
   normalizeCalendlyUri,
   refreshCalendlyToken,
 } from "@/lib/calendlyApi";
@@ -17,13 +19,18 @@ export function serializeCalendlyIntegration(record) {
   const uris = Array.isArray(record.webhookSubscriptionUris)
     ? record.webhookSubscriptionUris
     : [];
+  const connectionMode = normalizeCalendlyConnectionMode(record.connectionMode);
   return {
     status: record.status,
+    connectionMode,
     ownerEmail: record.ownerEmail,
     organizationUri: record.organizationUri,
     userUri: record.userUri,
     connectedAt: record.connectedAt?.toISOString?.() ?? null,
-    webhooksActive: record.status === "connected" && uris.length > 0,
+    webhooksActive:
+      record.status === "connected" &&
+      connectionMode === CALENDLY_CONNECTION_MODES.WEBHOOKS &&
+      uris.length > 0,
     webhookCount: uris.length,
   };
 }
@@ -43,7 +50,10 @@ export async function getCalendlyAccessToken(userId) {
   return decryptCalendlyToken(record.encryptedAccessToken);
 }
 
-async function deleteExistingWebhooks(accessToken, uris) {
+async function deleteExistingWebhooks(accessToken, uris, connectionMode) {
+  if (normalizeCalendlyConnectionMode(connectionMode) !== CALENDLY_CONNECTION_MODES.WEBHOOKS) {
+    return;
+  }
   for (const uri of uris ?? []) {
     try {
       await deleteCalendlyWebhookSubscription(accessToken, uri);
@@ -53,8 +63,9 @@ async function deleteExistingWebhooks(accessToken, uris) {
   }
 }
 
-export async function connectCalendlyFromOAuth(userId, code) {
-  const tokenData = await exchangeCalendlyCode(code);
+export async function connectCalendlyFromOAuth(userId, code, connectionMode) {
+  const mode = normalizeCalendlyConnectionMode(connectionMode);
+  const tokenData = await exchangeCalendlyCode(code, mode);
   const accessToken = tokenData.access_token;
   const refreshToken = tokenData.refresh_token ?? null;
 
@@ -71,18 +82,24 @@ export async function connectCalendlyFromOAuth(userId, code) {
     const oldToken = existing.encryptedAccessToken
       ? decryptCalendlyToken(existing.encryptedAccessToken)
       : accessToken;
+    const oldMode = normalizeCalendlyConnectionMode(existing.connectionMode);
     await deleteExistingWebhooks(
       oldToken,
       Array.isArray(existing.webhookSubscriptionUris)
         ? existing.webhookSubscriptionUris
-        : []
+        : [],
+      oldMode
     );
   }
 
-  const subscription = await createCalendlyWebhookSubscription(accessToken, {
-    organizationUri,
-    userUri,
-  });
+  let webhookSubscriptionUris = [];
+  if (mode === CALENDLY_CONNECTION_MODES.WEBHOOKS) {
+    const subscription = await createCalendlyWebhookSubscription(accessToken, {
+      organizationUri,
+      userUri,
+    });
+    webhookSubscriptionUris = [subscription.uri];
+  }
 
   const record = await prisma.calendlyIntegration.upsert({
     where: { userId },
@@ -95,8 +112,9 @@ export async function connectCalendlyFromOAuth(userId, code) {
       organizationUri,
       userUri,
       ownerEmail,
+      connectionMode: mode,
       status: "connected",
-      webhookSubscriptionUris: [subscription.uri],
+      webhookSubscriptionUris,
       connectedAt: new Date(),
     },
     update: {
@@ -107,8 +125,9 @@ export async function connectCalendlyFromOAuth(userId, code) {
       organizationUri,
       userUri,
       ownerEmail,
+      connectionMode: mode,
       status: "connected",
-      webhookSubscriptionUris: [subscription.uri],
+      webhookSubscriptionUris,
       connectedAt: new Date(),
     },
   });
@@ -127,7 +146,11 @@ export async function disconnectCalendly(userId) {
     const uris = Array.isArray(record.webhookSubscriptionUris)
       ? record.webhookSubscriptionUris
       : [];
-    await deleteExistingWebhooks(accessToken, uris);
+    await deleteExistingWebhooks(
+      accessToken,
+      uris,
+      normalizeCalendlyConnectionMode(record.connectionMode)
+    );
   } catch (err) {
     console.warn("[calendly] disconnect cleanup:", err.message);
   }
@@ -139,14 +162,22 @@ export async function disconnectCalendly(userId) {
 export async function findCalendlyIntegrationByOrganizationUri(organizationUri) {
   if (!organizationUri) return null;
   return prisma.calendlyIntegration.findFirst({
-    where: { organizationUri, status: "connected" },
+    where: {
+      organizationUri,
+      status: "connected",
+      connectionMode: CALENDLY_CONNECTION_MODES.WEBHOOKS,
+    },
   });
 }
 
 export async function findCalendlyIntegrationByUserUri(userUri) {
   if (!userUri) return null;
   return prisma.calendlyIntegration.findFirst({
-    where: { userUri, status: "connected" },
+    where: {
+      userUri,
+      status: "connected",
+      connectionMode: CALENDLY_CONNECTION_MODES.WEBHOOKS,
+    },
   });
 }
 
@@ -161,7 +192,10 @@ export async function ensureCalendlyAccessToken(userId) {
   } catch {
     if (!record.encryptedRefreshToken) throw new Error("Calendly token invalid");
     const refresh = decryptCalendlyToken(record.encryptedRefreshToken);
-    const tokenData = await refreshCalendlyToken(refresh);
+    const tokenData = await refreshCalendlyToken(
+      refresh,
+      normalizeCalendlyConnectionMode(record.connectionMode)
+    );
     const accessToken = tokenData.access_token;
     await prisma.calendlyIntegration.update({
       where: { userId },

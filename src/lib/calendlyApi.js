@@ -17,21 +17,54 @@ export function getCalendlyRedirectUri() {
   );
 }
 
-/** Scopes required for /users/me, webhooks, and invitee event payloads. */
-export const CALENDLY_OAUTH_SCOPES = [
+/** Standard+ Calendly plan — webhooks + invitee payloads. */
+export const CALENDLY_CONNECTION_MODES = {
+  BOOKING_LINK: "booking_link",
+  WEBHOOKS: "webhooks",
+};
+
+export const CALENDLY_OAUTH_SCOPES_WEBHOOKS = [
   "users:read",
   "scheduled_events:read",
   "webhooks:write",
 ].join(" ");
 
-export function buildCalendlyAuthorizeUrl(state) {
-  const clientId = requireEnv("CALENDLY_CLIENT_ID");
+/** Free Calendly plan — identity only; POST /webhook_subscriptions requires Standard+. */
+export const CALENDLY_OAUTH_SCOPES_BOOKING_LINK = ["users:read"].join(" ");
+
+export function normalizeCalendlyConnectionMode(mode) {
+  if (mode === CALENDLY_CONNECTION_MODES.BOOKING_LINK) {
+    return CALENDLY_CONNECTION_MODES.BOOKING_LINK;
+  }
+  return CALENDLY_CONNECTION_MODES.WEBHOOKS;
+}
+
+export function getCalendlyOAuthConfig(connectionMode) {
+  const mode = normalizeCalendlyConnectionMode(connectionMode);
+  if (mode === CALENDLY_CONNECTION_MODES.BOOKING_LINK) {
+    return {
+      mode,
+      clientId: requireEnv("CALENDLY_FREE_CLIENT_ID"),
+      clientSecret: requireEnv("CALENDLY_FREE_CLIENT_SECRET"),
+      scopes: CALENDLY_OAUTH_SCOPES_BOOKING_LINK,
+    };
+  }
+  return {
+    mode,
+    clientId: requireEnv("CALENDLY_CLIENT_ID"),
+    clientSecret: requireEnv("CALENDLY_CLIENT_SECRET"),
+    scopes: CALENDLY_OAUTH_SCOPES_WEBHOOKS,
+  };
+}
+
+export function buildCalendlyAuthorizeUrl(state, connectionMode) {
+  const { clientId, scopes } = getCalendlyOAuthConfig(connectionMode);
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
     redirect_uri: getCalendlyRedirectUri(),
     state,
-    scope: CALENDLY_OAUTH_SCOPES,
+    scope: scopes,
   });
   return `${CALENDLY_AUTH_BASE}/oauth/authorize?${params.toString()}`;
 }
@@ -78,9 +111,8 @@ export function assertCalendlyWebhookCallbackUrl(url) {
   }
 }
 
-export async function exchangeCalendlyCode(code) {
-  const clientId = requireEnv("CALENDLY_CLIENT_ID");
-  const clientSecret = requireEnv("CALENDLY_CLIENT_SECRET");
+export async function exchangeCalendlyCode(code, connectionMode) {
+  const { clientId, clientSecret } = getCalendlyOAuthConfig(connectionMode);
   const res = await fetch(`${CALENDLY_AUTH_BASE}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -99,9 +131,8 @@ export async function exchangeCalendlyCode(code) {
   return data;
 }
 
-export async function refreshCalendlyToken(refreshToken) {
-  const clientId = requireEnv("CALENDLY_CLIENT_ID");
-  const clientSecret = requireEnv("CALENDLY_CLIENT_SECRET");
+export async function refreshCalendlyToken(refreshToken, connectionMode) {
+  const { clientId, clientSecret } = getCalendlyOAuthConfig(connectionMode);
   const res = await fetch(`${CALENDLY_AUTH_BASE}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

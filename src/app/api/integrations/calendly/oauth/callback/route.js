@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAppBaseUrl } from "@/lib/appUrl";
+import {
+  CALENDLY_CONNECTION_MODES,
+  normalizeCalendlyConnectionMode,
+} from "@/lib/calendlyApi";
 import { connectCalendlyFromOAuth } from "@/lib/calendlyIntegration";
 import { verifyOAuthState } from "@/lib/oauthState";
 
@@ -24,9 +28,15 @@ export async function GET(request) {
     return NextResponse.redirect(`${settingsUrl}error&reason=invalid_state`);
   }
 
+  const connectionMode = normalizeCalendlyConnectionMode(payload.connectionMode);
+
   try {
-    await connectCalendlyFromOAuth(payload.userId, code);
-    return NextResponse.redirect(`${settingsUrl}connected`);
+    await connectCalendlyFromOAuth(payload.userId, code, connectionMode);
+    const connectedParam =
+      connectionMode === CALENDLY_CONNECTION_MODES.WEBHOOKS
+        ? "connected"
+        : "connected_booking_link";
+    return NextResponse.redirect(`${settingsUrl}${connectedParam}`);
   } catch (err) {
     console.error("[calendly oauth callback]", err);
     return NextResponse.redirect(

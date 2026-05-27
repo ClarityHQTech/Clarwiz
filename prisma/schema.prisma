@@ -104,6 +104,8 @@ model CalendlyIntegration {
   userUri                  String?
   ownerEmail               String?
   status                   String    @default("pending")
+  /// booking_link = Free plan OAuth (no webhooks); webhooks = Standard+ auto-qualify on book
+  connectionMode           String    @default("webhooks")
   /// JSON array of Calendly webhook subscription resource URIs
   webhookSubscriptionUris  Json?
   connectedAt              DateTime?

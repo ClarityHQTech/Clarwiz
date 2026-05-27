@@ -3,11 +3,58 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import IntegrationStatusBadge from "@/components/settings/IntegrationStatusBadge";
+
+const MODES = {
+  BOOKING_LINK: "booking_link",
+  WEBHOOKS: "webhooks",
+};
+
+const CONNECTION_OPTIONS = [
+  {
+    mode: MODES.BOOKING_LINK,
+    title: "Calendly Free",
+    subtitle: "Tracked booking link & replies",
+    benefits: [
+      "Qualify when a prospect clicks your tracked booking link (stage 2+ outreach)",
+      "Qualify on positive email reply after they engaged",
+      "Paste your Calendly URL on each campaign — no webhook required",
+    ],
+    limitations: [
+      "Does not auto-qualify when someone completes a booking in Calendly",
+      "Requires a separate ClarWiz OAuth app (users:read only)",
+    ],
+    calendlyPlan: "Works with Calendly Free",
+    connectLabel: "Connect (Free plan)",
+  },
+  {
+    mode: MODES.WEBHOOKS,
+    title: "Calendly Standard+",
+    subtitle: "Auto-qualify on book",
+    benefits: [
+      "Everything in Free, plus instant qualify on invitee.created (meeting booked)",
+      "Logs invitee.canceled and rescheduled signals on matching prospects",
+      "Best when you want qualification only after a real calendar booking",
+    ],
+    limitations: [
+      "Your connected Calendly account must be on Standard or above",
+      "Uses ClarWiz Standard OAuth app (users:read, scheduled_events:read, webhooks:write)",
+      "Webhook callback must be public HTTPS (ngrok or deployed URL)",
+    ],
+    calendlyPlan: "Requires Calendly Standard, Teams, or Enterprise",
+    connectLabel: "Connect (Standard+)",
+    recommended: true,
+  },
+];
+
 function getCalendlyDisplayStatus(integration) {
   if (!integration) return "not_configured";
   if (integration.status === "connected") return "connected";
   if (integration.status === "error") return "failed";
   return "pending";
+}
+
+function modeLabel(mode) {
+  return mode === MODES.WEBHOOKS ? "Standard+ (webhooks)" : "Free (booking link)";
 }
 
 export default function CalendlyIntegrationSection({ integration, onRefresh }) {
@@ -19,7 +66,14 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
     if (!calendly) return;
 
     if (calendly === "connected") {
-      toast.success("Calendly connected — webhooks active for invitee.created & invitee.canceled");
+      toast.success(
+        "Calendly Standard+ connected — auto-qualify on book is active (invitee.created)"
+      );
+      onRefresh?.();
+    } else if (calendly === "connected_booking_link") {
+      toast.success(
+        "Calendly Free connected — use tracked booking links on campaigns for qualification"
+      );
       onRefresh?.();
     } else if (calendly === "error") {
       const reason = params.get("reason") || "Connection failed";
@@ -33,8 +87,8 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
     window.history.replaceState({}, "", path);
   }, [onRefresh]);
 
-  const connect = () => {
-    window.location.href = "/api/integrations/calendly/oauth/start";
+  const connect = (mode) => {
+    window.location.href = `/api/integrations/calendly/oauth/start?mode=${encodeURIComponent(mode)}`;
   };
 
   const disconnect = async () => {
@@ -59,12 +113,19 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
 
   const status = getCalendlyDisplayStatus(integration);
   const connected = status === "connected";
+  const activeMode = integration?.connectionMode;
+  const webhooksActive = integration?.webhooksActive;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
         <IntegrationStatusBadge status={status} />
-        {integration?.webhooksActive && (
+        {connected && activeMode && (
+          <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+            Mode: {modeLabel(activeMode)}
+          </span>
+        )}
+        {webhooksActive && (
           <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
             Webhooks: invitee.created, invitee.canceled
           </span>
@@ -78,37 +139,120 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
       )}
 
       <p className="text-sm text-gray-500 leading-relaxed">
-        Connect Calendly to automatically qualify prospects when they book a meeting.
-        ClarWiz subscribes to{" "}
-        <code className="text-xs bg-gray-100 px-1 rounded">invitee.created</code> and{" "}
-        <code className="text-xs bg-gray-100 px-1 rounded">invitee.canceled</code> via the
-        Calendly API when you connect.
+        Choose how ClarWiz qualifies prospects from Calendly. Your Calendly{" "}
+        <span className="font-medium text-gray-700">account plan</span> must match the option
+        you connect — Free accounts cannot register API webhooks (Calendly returns an upgrade
+        error for <code className="text-xs bg-gray-100 px-1 rounded">webhooks:write</code>).
+        You can disconnect and switch after upgrading.
       </p>
 
-      <div className="rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2.5">
-        <p className="text-xs font-medium text-gray-700">Webhook endpoint (registered on connect)</p>
-        <p className="text-xs text-gray-500 mt-1 break-all font-mono">{webhookUrl}</p>
-        <p className="text-xs text-gray-400 mt-1">
-          For local dev, set{" "}
-          <code className="bg-gray-100 px-0.5">CALENDLY_WEBHOOK_URL</code> to a public HTTPS URL
-          (e.g. ngrok). Calendly rejects localhost.
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Set <code className="bg-gray-100 px-0.5">CALENDLY_WEBHOOK_SIGNING_KEY</code> from the
-          subscription signing key to verify signatures.
-        </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {CONNECTION_OPTIONS.map((option) => {
+          const isActive = connected && activeMode === option.mode;
+          return (
+            <div
+              key={option.mode}
+              className={`rounded-xl border p-4 flex flex-col ${
+                isActive
+                  ? "border-sky-300 bg-sky-50/40 ring-1 ring-sky-200"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">{option.title}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{option.subtitle}</p>
+                </div>
+                {option.recommended && !isActive && (
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded">
+                    Recommended
+                  </span>
+                )}
+                {isActive && (
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                    Active
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-gray-500 mt-2">{option.calendlyPlan}</p>
+
+              <ul className="mt-3 space-y-1.5 text-xs text-gray-600 flex-1">
+                {option.benefits.map((item) => (
+                  <li key={item} className="flex gap-1.5">
+                    <span className="text-emerald-600 shrink-0">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {option.limitations?.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-gray-400">
+                  {option.limitations.map((item) => (
+                    <li key={item} className="flex gap-1.5">
+                      <span className="shrink-0">·</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {!connected && (
+                <button
+                  type="button"
+                  onClick={() => connect(option.mode)}
+                  className={`mt-4 w-full rounded-lg px-3 py-2 text-sm font-medium ${
+                    option.mode === MODES.WEBHOOKS
+                      ? "bg-sky-700 text-white hover:bg-sky-800"
+                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {option.connectLabel}
+                </button>
+              )}
+
+              {connected && !isActive && (
+                <button
+                  type="button"
+                  onClick={() => connect(option.mode)}
+                  className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Switch to {option.title}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {!connected ? (
-          <button
-            type="button"
-            onClick={connect}
-            className="inline-flex items-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
-          >
-            Connect Calendly
-          </button>
-        ) : (
+      {activeMode === MODES.WEBHOOKS && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2.5">
+          <p className="text-xs font-medium text-gray-700">
+            Webhook endpoint (registered on Standard+ connect)
+          </p>
+          <p className="text-xs text-gray-500 mt-1 break-all font-mono">{webhookUrl}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            For local dev, set{" "}
+            <code className="bg-gray-100 px-0.5">CALENDLY_WEBHOOK_URL</code> to a public HTTPS
+            URL (e.g. ngrok). Calendly rejects localhost.
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Set <code className="bg-gray-100 px-0.5">CALENDLY_WEBHOOK_SIGNING_KEY</code> from the
+            subscription signing key to verify signatures.
+          </p>
+        </div>
+      )}
+
+      {connected && activeMode === MODES.BOOKING_LINK && (
+        <p className="text-xs text-gray-500 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2">
+          Add your Calendly scheduling URL on each campaign. Outreach stage 2+ and reply
+          follow-ups append a tracked link that qualifies on click — not when the invitee
+          finishes booking in Calendly.
+        </p>
+      )}
+
+      {connected && (
+        <div className="flex flex-wrap gap-2 pt-1">
           <button
             type="button"
             disabled={disconnecting}
@@ -117,17 +261,15 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
           >
             {disconnecting ? "Disconnecting…" : "Disconnect"}
           </button>
-        )}
-        {connected && (
           <button
             type="button"
-            onClick={connect}
+            onClick={() => connect(activeMode || MODES.WEBHOOKS)}
             className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Reconnect
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

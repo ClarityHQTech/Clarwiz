@@ -57,7 +57,7 @@ const INTEGRATIONS = [
   {
     id: "calendly",
     title: "Calendly",
-    description: "OAuth + webhooks to qualify leads when meetings are booked.",
+    description: "Free (tracked link) or Standard+ (auto-qualify on book).",
     icon: <HiOutlineCalendar className="h-4 w-4 text-[#006BFF]" />,
     available: true,
   },

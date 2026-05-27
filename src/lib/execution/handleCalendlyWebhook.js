@@ -42,7 +42,7 @@ async function resolveUserIdFromWebhook(body) {
   }
 
   const integrations = await prisma.calendlyIntegration.findMany({
-    where: { status: "connected" },
+    where: { status: "connected", connectionMode: "webhooks" },
     select: { userId: true, organizationUri: true },
   });
   if (integrations.length === 1) return integrations[0].userId;
