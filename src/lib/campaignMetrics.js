@@ -5,7 +5,7 @@ const OUTBOUND_STATUSES = new Set(["planned", "sent", "delivered"]);
 /**
  * Derive campaign metrics from CommunicationLog rows (source of truth for UI).
  */
-export function computeCampaignMetrics(commLogs, prospectCount = 0) {
+export function computeCampaignMetrics(commLogs, prospectCount = 0, qualifiedCount = 0) {
   const outbound = commLogs.filter(
     (l) => l.status !== "skipped" && OUTBOUND_STATUSES.has(l.status)
   );
@@ -30,18 +30,21 @@ export function computeCampaignMetrics(commLogs, prospectCount = 0) {
     replyRate,
     replyCount,
     repliedProspects: repliedProspectIds.size,
-    qualifiedLeads: repliedProspectIds.size,
+    qualifiedLeads: qualifiedCount,
     opened,
   };
 }
 
 export async function syncCampaignMetrics(prisma, campaignId) {
-  const [logs, prospectCount] = await Promise.all([
+  const [logs, prospectCount, qualifiedCount] = await Promise.all([
     prisma.communicationLog.findMany({ where: { campaignId } }),
     prisma.prospect.count({ where: { campaignId } }),
+    prisma.prospect.count({
+      where: { campaignId, qualifiedAt: { not: null } },
+    }),
   ]);
 
-  const metrics = computeCampaignMetrics(logs, prospectCount);
+  const metrics = computeCampaignMetrics(logs, prospectCount, qualifiedCount);
 
   return prisma.campaign.update({
     where: { id: campaignId },
@@ -54,10 +57,11 @@ export async function syncCampaignMetrics(prisma, campaignId) {
   });
 }
 
-export function serializeCommLogForUi(log) {
+export function serializeCommLogForUi(log, { prospectName } = {}) {
   return {
     id: log.id,
     prospectId: log.prospectId,
+    prospectName: prospectName ?? null,
     channel: log.channel,
     channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,
     stage: log.stage,
@@ -66,12 +70,24 @@ export function serializeCommLogForUi(log) {
     ctaType: log.ctaType,
     status: log.status,
     sentAt: log.sentAt?.toISOString?.() ?? log.sentAt,
+    deliveredAt: log.deliveredAt?.toISOString?.() ?? log.deliveredAt ?? null,
     openedAt: log.openedAt?.toISOString?.() ?? log.openedAt ?? null,
+    ctaClickedAt: log.ctaClickedAt?.toISOString?.() ?? log.ctaClickedAt ?? null,
     deliveryProvider: log.deliveryProvider ?? null,
+    deliveryMeta: log.deliveryMeta ?? null,
     responseType: log.responseType,
     responseAt: log.responseAt?.toISOString?.() ?? log.responseAt ?? null,
     responseContent: log.responseContent,
     decisionReason: log.decisionReason,
+    modelUsed: log.modelUsed ?? null,
+    providerUsage: log.providerUsage ?? null,
+    providerCost: log.providerCost ?? null,
+    templateId: log.templateId ?? null,
+    signalRef: log.signalRef ?? null,
     isReply: Boolean(log.responseType && log.responseContent),
   };
+}
+
+export function serializeCommLogDetail(log, { prospectName } = {}) {
+  return serializeCommLogForUi(log, { prospectName });
 }

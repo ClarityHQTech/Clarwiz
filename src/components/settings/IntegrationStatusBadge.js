@@ -51,3 +51,11 @@ export function getWhatsAppDisplayStatus(integration) {
   if (integration.status === "pending") return "pending";
   return "not_configured";
 }
+
+export function getCalendlyDisplayStatus(integration) {
+  if (!integration) return "not_configured";
+  if (integration.status === "connected") return "connected";
+  if (integration.status === "error") return "failed";
+  if (integration.status === "pending") return "pending";
+  return "not_configured";
+}

@@ -151,6 +151,28 @@ export async function runExecutionForCampaign(
     const commHistory = logsForProspect(campaign.commLogs, prospect.id);
 
     try {
+      if (prospect.qualifiedAt) {
+        const skipLog = await createCommLog({
+          userId: campaign.userId,
+          campaignId: campaign.id,
+          prospectId: prospect.id,
+          channel: "email",
+          stage: null,
+          message: "Prospect qualified — outreach stopped",
+          status: "skipped",
+          decisionReason: `Qualified (${prospect.qualifiedReason ?? "unknown"})`,
+        });
+
+        results.push({
+          prospectId: prospect.id,
+          prospectName: prospect.name,
+          skipped: true,
+          reason: "Prospect qualified — outreach stopped",
+          commLogId: skipLog.id,
+        });
+        continue;
+      }
+
       const liveSignals = prospect.signals ?? [];
 
       const decision = await decideNextActionForProspect({

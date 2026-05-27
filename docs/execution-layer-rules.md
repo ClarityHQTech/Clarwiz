@@ -215,12 +215,32 @@ Execution **still records** the planned message when integration is missing; UI 
 
 - **Call / AI SDR** — not implemented; do not schedule or log call channel actions.
 - **Optimal send-time scheduling** — not in execution layer yet (product vision only).
-- **Qualified lead auto-stop** — product spec; not fully automated in execution (manual / future).
 - **UTM / pixel injection** — product spec; verify per-channel push modules.
 
 ---
 
-## 13. File map (implementation)
+## 13. Qualified leads
+
+A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every reply).
+
+| `qualifiedReason` | Trigger |
+|-------------------|---------|
+| `calendly_booked` | Calendly OAuth webhook `invitee.created` (active, not canceled) |
+| `calendly_link_clicked` | Tracked booking link `GET /api/campaigns/{id}/book` |
+| `positive_reply` | After track: LLM classifies latest reply as high-intent (demo/deal language) |
+| `manual` | Future admin override |
+
+### Rules
+
+- **Metrics:** `Campaign.qualifiedLeads` = count of prospects with `qualifiedAt` (not reply count).
+- **Stop outreach:** `runExecutionForCampaign` skips prospects with `qualifiedAt`; logs `skipped` with reason.
+- **Calendly:** Tenant connects via Settings OAuth; webhooks `invitee.created` + `invitee.canceled`. On cancel, log only; do not clear qualification if `rescheduled === true`.
+- **Booking link in copy:** Stage 1 — no Calendly URL. Stage ≥ 2 and reply follow-ups — append tracked `/api/campaigns/{id}/book?prospectId=…` when `campaign.calendlyBookingUrl` is set.
+- **Reply channel:** In reply thread mode, outbound **must** use the same channel as the latest prospect reply (code-enforced in `enforceReplyChannelPriority`).
+
+---
+
+## 14. File map (implementation)
 
 | Concern | Primary files |
 |---------|----------------|
@@ -232,6 +252,8 @@ Execution **still records** the planned message when integration is missing; UI 
 | Humanize copy | `src/lib/execution/humanizeOutboundMessage.js` |
 | Push | `src/lib/push/*.js` |
 | API | `src/app/api/campaigns/[id]/execute/route.js`, `.../track/route.js` |
+| Qualification | `src/lib/execution/qualifyProspect.js`, `handleCalendlyWebhook.js` |
+| Calendly OAuth | `src/lib/calendlyApi.js`, `src/lib/calendlyIntegration.js` |
 
 ---
 
@@ -243,3 +265,4 @@ Execution **still records** the planned message when integration is missing; UI 
 | 2026-05-26 | Smartlead: import leads with `ignore_duplicate_leads_in_other_campaign: false`; reply thread omits `first_name`; inbox `email_history` for reply bodies |
 | 2026-05-27 | LinkedIn track: fix `list_inbox` params (`count`/`cursor`); DM replies via `get_conversation` by prospect profile URL |
 | 2026-05-27 | LinkedIn connection note capped at 200 chars (truncate + LLM rule) to avoid Linkup `CUSTOM_MESSAGE_TOO_LONG` |
+| 2026-05-27 | Qualified leads: Calendly OAuth + webhooks, tracked booking link, reply-intent LLM; same-channel reply priority; stop outreach when qualified |

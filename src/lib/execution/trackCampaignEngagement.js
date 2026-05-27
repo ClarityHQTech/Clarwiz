@@ -5,6 +5,7 @@ import { checkEmailEngagementForProspect } from "@/lib/execution/checkEmailEngag
 import { checkLinkedInEngagementForCampaign } from "@/lib/execution/checkLinkedInEngagement";
 import { checkWhatsAppEngagementForCampaign } from "@/lib/execution/checkWhatsAppEngagement";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
+import { runPostTrackQualification } from "@/lib/execution/qualifyProspect";
 
 const PENDING_STATUSES = ["planned", "queued", "sent", "delivered"];
 
@@ -171,16 +172,32 @@ export async function trackCampaignEngagement(
   }
 
   const updated = allResults.filter((r) => r.activity).length;
-  if (updated > 0) {
+
+  const qualifyProspectIds = [
+    ...new Set([
+      ...replyProspectIds,
+      ...allResults.filter((r) => r.activity === "reply").map((r) => r.prospectId),
+    ]),
+  ];
+  const qualificationResults =
+    qualifyProspectIds.length > 0
+      ? await runPostTrackQualification(prisma, campaignId, {
+          prospectIds: [...qualifyProspectIds],
+        })
+      : [];
+
+  if (updated > 0 || qualificationResults.some((q) => q.qualified)) {
     await syncCampaignMetrics(prisma, campaignId);
   }
 
   return {
     results: allResults,
+    qualificationResults,
     summary: {
       tracked: prospects.length,
       updated,
       reran,
+      qualified: qualificationResults.filter((q) => q.qualified).length,
       linkedInSkipped: linkedIn.skipped ?? false,
       whatsappSkipped: whatsapp.skipped ?? false,
     },

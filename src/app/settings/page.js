@@ -4,8 +4,10 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import EmailIntegrationSection from "@/components/settings/EmailIntegrationSection";
 import LinkedInIntegrationSection from "@/components/settings/LinkedInIntegrationSection";
 import WhatsAppIntegrationSection from "@/components/settings/WhatsAppIntegrationSection";
+import CalendlyIntegrationSection from "@/components/settings/CalendlyIntegrationSection";
 import IcpContextSection from "@/components/settings/IcpContextSection";
 import IntegrationStatusBadge, {
+  getCalendlyDisplayStatus,
   getEmailDisplayStatus,
   getLinkedInDisplayStatus,
   getWhatsAppDisplayStatus,
@@ -21,6 +23,7 @@ import {
 } from "@chakra-ui/react";
 import { useCallback, useEffect, useState } from "react";
 import { FaLinkedin } from "react-icons/fa";
+import { HiOutlineCalendar } from "react-icons/hi2";
 import {
   HiOutlineChevronRight,
   HiOutlineEnvelope,
@@ -52,6 +55,13 @@ const INTEGRATIONS = [
     available: true,
   },
   {
+    id: "calendly",
+    title: "Calendly",
+    description: "OAuth + webhooks to qualify leads when meetings are booked.",
+    icon: <HiOutlineCalendar className="h-4 w-4 text-[#006BFF]" />,
+    available: true,
+  },
+  {
     id: "ai_calling",
     title: "AI Calling",
     description: "Voice outreach and call follow-ups.",
@@ -60,14 +70,15 @@ const INTEGRATIONS = [
   },
 ];
 
-function getIntegrationStatus(id, linkedin, email, whatsapp) {
+function getIntegrationStatus(id, linkedin, email, whatsapp, calendly) {
   if (id === "linkedin") return getLinkedInDisplayStatus(linkedin);
   if (id === "email") return getEmailDisplayStatus(email);
   if (id === "whatsapp") return getWhatsAppDisplayStatus(whatsapp);
+  if (id === "calendly") return getCalendlyDisplayStatus(calendly);
   return "coming_soon";
 }
 
-function getIntegrationSubtitle(id, linkedin, email, whatsapp) {
+function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly) {
   if (id === "linkedin" && linkedin?.status === "connected") {
     return linkedin.accountName || linkedin.email;
   }
@@ -83,6 +94,11 @@ function getIntegrationSubtitle(id, linkedin, email, whatsapp) {
     const templates =
       whatsapp.templateCount > 0 ? `${whatsapp.templateCount} templates` : null;
     return [label, detail, templates].filter(Boolean).join(" · ");
+  }
+  if (id === "calendly" && calendly?.status === "connected") {
+    return [calendly.ownerEmail, calendly.webhooksActive ? "Webhooks active" : null]
+      .filter(Boolean)
+      .join(" · ");
   }
   return null;
 }
@@ -135,9 +151,11 @@ const SettingsPage = () => {
   const [linkedinIntegration, setLinkedinIntegration] = useState(null);
   const [emailIntegration, setEmailIntegration] = useState(null);
   const [whatsappIntegration, setWhatsappIntegration] = useState(null);
+  const [calendlyIntegration, setCalendlyIntegration] = useState(null);
   const [loadingLinkedin, setLoadingLinkedin] = useState(true);
   const [loadingEmail, setLoadingEmail] = useState(true);
   const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
+  const [loadingCalendly, setLoadingCalendly] = useState(true);
   const [activeIntegrationId, setActiveIntegrationId] = useState(null);
 
   const drawer = useDisclosure();
@@ -188,11 +206,26 @@ const SettingsPage = () => {
     }
   }, []);
 
+  const fetchCalendly = useCallback(async () => {
+    try {
+      const res = await fetch("/api/integrations/calendly");
+      if (!res.ok) throw new Error("Failed to load Calendly integration");
+      const data = await res.json();
+      setCalendlyIntegration(data.integration);
+    } catch (err) {
+      toast.error(err.message);
+      setCalendlyIntegration(null);
+    } finally {
+      setLoadingCalendly(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchLinkedin();
     fetchEmail();
     fetchWhatsapp();
-  }, [fetchLinkedin, fetchEmail, fetchWhatsapp]);
+    fetchCalendly();
+  }, [fetchLinkedin, fetchEmail, fetchWhatsapp, fetchCalendly]);
 
   const openIntegration = (id) => {
     setActiveIntegrationId(id);
@@ -241,6 +274,18 @@ const SettingsPage = () => {
       );
     }
 
+    if (activeItem.id === "calendly") {
+      if (loadingCalendly) {
+        return <p className="text-sm text-gray-500">Loading Calendly configuration…</p>;
+      }
+      return (
+        <CalendlyIntegrationSection
+          integration={calendlyIntegration}
+          onRefresh={fetchCalendly}
+        />
+      );
+    }
+
     return (
       <ComingSoonPanel title={activeItem.title} description={activeItem.description} />
     );
@@ -271,13 +316,15 @@ const SettingsPage = () => {
                   item.id,
                   linkedinIntegration,
                   emailIntegration,
-                  whatsappIntegration
+                  whatsappIntegration,
+                  calendlyIntegration
                 )}
                 subtitle={getIntegrationSubtitle(
                   item.id,
                   linkedinIntegration,
                   emailIntegration,
-                  whatsappIntegration
+                  whatsappIntegration,
+                  calendlyIntegration
                 )}
                 onConfigure={() => openIntegration(item.id)}
               />
@@ -316,7 +363,8 @@ const SettingsPage = () => {
                           activeItem.id,
                           linkedinIntegration,
                           emailIntegration,
-                          whatsappIntegration
+                          whatsappIntegration,
+                          calendlyIntegration
                         )}
                       />
                     </div>

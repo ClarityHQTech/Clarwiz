@@ -81,6 +81,23 @@ export async function PATCH(request, { params }) {
     return NextResponse.json(await fetchSerializedCampaign(params.id, user.id));
   }
 
+  if (body.calendlyBookingUrl !== undefined) {
+    const url = body.calendlyBookingUrl?.trim() || null;
+    if (url && !/^https?:\/\//i.test(url)) {
+      return NextResponse.json(
+        { error: "Calendly URL must start with http:// or https://" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { calendlyBookingUrl: url },
+    });
+
+    return NextResponse.json(await fetchSerializedCampaign(params.id, user.id));
+  }
+
   if (body.action === "pause") {
     if (campaign.status !== "active") {
       return NextResponse.json(

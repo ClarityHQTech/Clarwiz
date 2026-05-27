@@ -6,9 +6,14 @@ import {
   LINKEDIN_CONNECTION_NOTE_MAX_CHARS,
   availableProspectChannels,
   enforceChannelRules,
+  enforceReplyChannelPriority,
   isLinkedInConnectionRequest,
   truncateLinkedInConnectionNote,
 } from "@/lib/execution/executionRules";
+import {
+  appendBookingLinkIfAllowed,
+  getNextOutboundStage,
+} from "@/lib/execution/appendBookingLink";
 import { applyTemplateVariables } from "@/lib/execution/renderMessage";
 import { selectModel } from "@/lib/execution/modelRouter";
 import { buildProviderMetadata } from "@/lib/execution/openaiUsage";
@@ -153,8 +158,18 @@ REPLY THREAD MODE (prospect has responded — this overrides template reuse):
 - NEVER output placeholders: no [Your Name], [Name], {{tokens}}, or bracketed filler text.
 - NEVER use empty stock closings alone ("Looking forward to our conversation", "Best regards," with nothing substantive).
 - Do NOT paste stage-1 campaign templates verbatim — generate fresh copy informed by the thread.
+- MUST use channel "${latestReply?.channel ?? "same as latestProspectReply"}" — reply on the channel where the prospect responded unless that channel is unavailable.
 - Match tenant brand tone: ${buildTenantContext(campaign).brandTone}.`
     : "";
+
+  const bookingRules =
+    campaign.calendlyBookingUrl?.trim()
+      ? `
+BOOKING / QUALIFICATION CTA:
+- Stage 1 outbound: do NOT include the Calendly or booking URL in the message.
+- Stage 2+ or reply follow-up: nudge toward booking a call; prefer ctaType book_demo when appropriate.
+- The app will append a tracked booking link after generation — focus on persuasive copy, not raw URLs in stage 1.`
+      : "";
 
   const systemPrompt = `You are ClarWiz's execution layer: a context-aware next-best-action engine for B2B outreach (see Decision Logic: load context, score channel/stage fit, generate custom copy when needed).
 
@@ -175,10 +190,15 @@ Rules (full spec: ${EXECUTION_RULES_DOC}):
 - All message text must be send-ready: no placeholders, no instructions to the user, no signature templates.
 ${replyRules}
 ${signalRules}
+${bookingRules}
 - Output valid JSON matching the schema only.`;
 
   const userPayload = {
-    tenantContext: buildTenantContext(campaign, tenantIcp),
+    tenantContext: {
+      ...buildTenantContext(campaign, tenantIcp),
+      calendlyBookingUrl: campaign.calendlyBookingUrl ?? null,
+      nextOutboundStage: getNextOutboundStage(commHistory),
+    },
     prospect: {
       id: prospect.id,
       name: prospect.name,
@@ -335,20 +355,37 @@ ${signalRules}
     message = truncateLinkedInConnectionNote(message) ?? message;
   }
 
+  let decisionPayload = {
+    skip: false,
+    channel,
+    stage,
+    templateId: replyFollowUp ? null : matchedTemplate?.id ?? decision.templateId,
+    subject,
+    message,
+    ctaType,
+    decisionReason: decision.decisionReason,
+    modelUsed: model,
+    modelTier: tier,
+    ...providerMeta,
+  };
+
+  decisionPayload = enforceReplyChannelPriority(
+    decisionPayload,
+    commHistory,
+    channels
+  );
+
+  decisionPayload.message = appendBookingLinkIfAllowed({
+    message: decisionPayload.message,
+    campaign,
+    prospectId: prospect.id,
+    stage: decisionPayload.stage,
+    isReplyFollowUp: replyFollowUp,
+    channel: decisionPayload.channel,
+  });
+
   const enforced = enforceChannelRules(
-    {
-      skip: false,
-      channel,
-      stage,
-      templateId: replyFollowUp ? null : matchedTemplate?.id ?? decision.templateId,
-      subject,
-      message,
-      ctaType,
-      decisionReason: decision.decisionReason,
-      modelUsed: model,
-      modelTier: tier,
-      ...providerMeta,
-    },
+    decisionPayload,
     channels,
     commHistory
   );

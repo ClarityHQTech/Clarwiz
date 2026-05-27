@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import CampaignActionsModal from "@/components/campaigns/CampaignActionsModal";
 import ProspectCommThread from "@/components/campaigns/ProspectCommThread";
 import CampaignTemplatesModal from "@/components/campaigns/CampaignTemplatesModal";
+import CampaignCommLogsDrawer from "@/components/campaigns/CampaignCommLogsDrawer";
 import {
   Drawer,
   DrawerBody,
@@ -23,6 +24,7 @@ import {
   HiOutlinePlus,
   HiOutlineBolt,
   HiOutlineArrowPath,
+  HiOutlineClipboardDocumentList,
 } from "react-icons/hi2";
 import { toast } from "sonner";
 
@@ -124,7 +126,14 @@ const Page = () => {
     onOpen: openProspectDrawer,
     onClose: closeProspectDrawer,
   } = useDisclosure();
+  const {
+    isOpen: activityDrawerOpen,
+    onOpen: openActivityDrawer,
+    onClose: closeActivityDrawer,
+  } = useDisclosure();
   const [selectedProspect, setSelectedProspect] = useState(null);
+  const [calendlyUrlEdit, setCalendlyUrlEdit] = useState("");
+  const [savingCalendlyUrl, setSavingCalendlyUrl] = useState(false);
 
   const fetchCampaign = useCallback(async () => {
     if (!id) return;
@@ -134,7 +143,9 @@ const Page = () => {
         if (res.status === 404) setCampaign(null);
         throw new Error("Failed to load campaign");
       }
-      setCampaign(await res.json());
+      const data = await res.json();
+      setCampaign(data);
+      setCalendlyUrlEdit(data.calendlyBookingUrl ?? "");
     } catch (err) {
       toast.error(err.message);
       setCampaign(null);
@@ -189,6 +200,26 @@ const Page = () => {
       toast.error(err.message);
     } finally {
       setRunLoading(false);
+    }
+  };
+
+  const saveCalendlyUrl = async () => {
+    setSavingCalendlyUrl(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ calendlyBookingUrl: calendlyUrlEdit }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      setCampaign(data);
+      setCalendlyUrlEdit(data.calendlyBookingUrl ?? "");
+      toast.success("Calendly URL saved");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingCalendlyUrl(false);
     }
   };
 
@@ -313,6 +344,14 @@ const Page = () => {
                 : "Launch drip campaign"}
             </button>
           )}
+          <button
+            type="button"
+            onClick={openActivityDrawer}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <HiOutlineClipboardDocumentList className="h-4 w-4" />
+            Activity log
+          </button>
           {isRunning && (
             <>
               <button
@@ -339,6 +378,39 @@ const Page = () => {
             <span className="text-xs text-gray-500 px-2">Campaign completed</span>
           )}
         </div>
+      </div>
+
+      {campaign.calendlyConnected === false && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+          Connect Calendly in{" "}
+          <Link href="/settings" className="font-medium underline">
+            Settings
+          </Link>{" "}
+          to auto-qualify prospects when meetings are booked.
+        </div>
+      )}
+
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="flex-1 min-w-0">
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            Calendly booking URL
+          </label>
+          <input
+            type="url"
+            value={calendlyUrlEdit}
+            onChange={(e) => setCalendlyUrlEdit(e.target.value)}
+            placeholder="https://calendly.com/…"
+            className="w-full text-sm rounded-lg border border-gray-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+          />
+        </div>
+        <button
+          type="button"
+          disabled={savingCalendlyUrl}
+          onClick={saveCalendlyUrl}
+          className="shrink-0 rounded-lg bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+        >
+          {savingCalendlyUrl ? "Saving…" : "Save URL"}
+        </button>
       </div>
 
       {isRunning && (
@@ -518,13 +590,16 @@ const Page = () => {
                 <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
                   Reply
                 </th>
+                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
+                  Qualified
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredProspects.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     {search ? "No prospects match your search." : "No prospects."}
@@ -574,6 +649,18 @@ const Page = () => {
                         <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {p.isQualified ? (
+                        <span
+                          className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800"
+                          title={p.qualifiedReason ?? ""}
+                        >
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -616,7 +703,11 @@ const Page = () => {
                     <div className="text-xs text-gray-600 text-right whitespace-nowrap">
                       <p className="font-medium text-gray-900">{selectedProspect.messageCount} msgs</p>
                       <p className="mt-1">
-                        {selectedProspect.hasReply ? (
+                        {selectedProspect.isQualified ? (
+                          <span className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                            Qualified
+                          </span>
+                        ) : selectedProspect.hasReply ? (
                           <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                             Reply received
                           </span>
@@ -687,6 +778,12 @@ const Page = () => {
         campaignId={campaign.id}
         templates={campaign.templates}
         onUpdated={setCampaign}
+      />
+
+      <CampaignCommLogsDrawer
+        isOpen={activityDrawerOpen}
+        onClose={closeActivityDrawer}
+        commLogs={campaign.commLogs ?? []}
       />
 
       <CampaignActionsModal

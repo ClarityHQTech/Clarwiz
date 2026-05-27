@@ -74,6 +74,7 @@ export async function POST(request) {
     targetSegment,
     goals,
     startDate,
+    calendlyBookingUrl,
     prospects = [],
     templates = [],
   } = body;
@@ -156,6 +157,7 @@ export async function POST(request) {
           description: description?.trim() || null,
           targetSegment: targetSegment?.trim() || null,
           goals: goals?.trim() || null,
+          calendlyBookingUrl: calendlyBookingUrl?.trim() || null,
           startDate: parsedStartDate,
           status: "draft",
         },

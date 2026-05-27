@@ -44,6 +44,7 @@ const INITIAL_CAMPAIGN = {
   targetSegment: "",
   goals: "",
   startDate: "",
+  calendlyBookingUrl: "",
 };
 
 function StepIndicator({ current }) {
@@ -344,6 +345,22 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                   placeholder="Book 20 demos, 50 qualified replies"
                 />
               </Field>
+              <div className="sm:col-span-2">
+                <Field
+                  label="Calendly booking URL"
+                  hint="Used in stage 2+ outreach and tracked links. Connect Calendly in Settings for auto-qualify on book."
+                >
+                  <Input
+                    size="md"
+                    type="url"
+                    value={campaign.calendlyBookingUrl}
+                    onChange={(e) =>
+                      updateCampaign({ calendlyBookingUrl: e.target.value })
+                    }
+                    placeholder="https://calendly.com/your-team/30min"
+                  />
+                </Field>
+              </div>
             </div>
           )}
 

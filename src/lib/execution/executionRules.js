@@ -1,3 +1,8 @@
+import {
+  getLatestProspectReply,
+  isReplyFollowUp,
+} from "@/lib/execution/humanizeOutboundMessage";
+
 /**
  * Runtime helpers for execution-layer constraints.
  *
@@ -63,6 +68,28 @@ export function truncateLinkedInConnectionNote(message) {
     cut = cut.slice(0, lastSpace);
   }
   return cut.trim();
+}
+
+/**
+ * Reply follow-ups must use the same channel as the latest prospect reply.
+ * @see docs/execution-layer-rules.md §13
+ */
+export function enforceReplyChannelPriority(
+  decision,
+  commHistory,
+  prospectChannels
+) {
+  if (!decision || decision.skip || !isReplyFollowUp(commHistory)) {
+    return decision;
+  }
+
+  const latestReply = getLatestProspectReply(commHistory);
+  const replyChannel = latestReply?.channel;
+  if (replyChannel && prospectChannels.includes(replyChannel)) {
+    return { ...decision, channel: replyChannel };
+  }
+
+  return decision;
 }
 
 /**

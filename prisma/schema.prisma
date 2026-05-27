@@ -22,6 +22,7 @@ model User {
   linkedInIntegration LinkedInIntegration?
   emailIntegration    EmailIntegration?
   whatsappIntegration WhatsAppIntegration?
+  calendlyIntegration   CalendlyIntegration?
   tenantIcpContext    TenantIcpContext?
 }
 
@@ -93,6 +94,23 @@ model EmailIntegration {
   updatedAt                 DateTime  @updatedAt
 }
 
+model CalendlyIntegration {
+  id                       String    @id @default(cuid())
+  userId                   String    @unique
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encryptedAccessToken     String
+  encryptedRefreshToken    String?
+  organizationUri          String?
+  userUri                  String?
+  ownerEmail               String?
+  status                   String    @default("pending")
+  /// JSON array of Calendly webhook subscription resource URIs
+  webhookSubscriptionUris  Json?
+  connectedAt              DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+}
+
 model WhatsAppIntegration {
   id                    String    @id @default(cuid())
   userId                String    @unique
@@ -131,6 +149,8 @@ model Campaign {
   openRate       Float                   @default(0)
   replyRate      Float                   @default(0)
   qualifiedLeads Int                     @default(0)
+  /// Per-campaign Calendly scheduling link for outreach CTAs
+  calendlyBookingUrl String?
   /// Smartlead campaign used for outbound email in execution / drip test
   smartleadCampaignId Int?
   createdAt      DateTime                @default(now())
@@ -156,6 +176,8 @@ model Prospect {
   whatsapp    String?
   email       String?
   linkedinUrl String?
+  qualifiedAt     DateTime?
+  qualifiedReason String?
   createdAt   DateTime         @default(now())
   commLogs    CommunicationLog[]
   signals     ProspectSignal[]

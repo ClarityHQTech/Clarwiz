@@ -7,6 +7,7 @@ const AUTH_TAG_LENGTH = 16;
 const SCRYPT_SALT_LINKUP = "clarwiz-linkup-account-id";
 const SCRYPT_SALT_SMARTLEAD = "clarwiz-smartlead-email-account-id";
 const SCRYPT_SALT_WHATSAPP = "clarwiz-whatsapp-access-token";
+const SCRYPT_SALT_CALENDLY = "clarwiz-calendly-oauth-token";
 
 function deriveKey(salt) {
   const secret = process.env.SECRET?.trim();
@@ -97,5 +98,19 @@ export function decryptWhatsAppToken(stored) {
     return decryptWithSalt(stored, SCRYPT_SALT_WHATSAPP, /^EAA[A-Za-z0-9]+$/);
   } catch {
     throw new Error("Failed to decrypt WhatsApp credential");
+  }
+}
+
+/** Encrypts a Calendly OAuth access or refresh token for storage. */
+export function encryptCalendlyToken(plainText) {
+  return encryptWithSalt(String(plainText), SCRYPT_SALT_CALENDLY);
+}
+
+/** Decrypts a stored Calendly OAuth token. */
+export function decryptCalendlyToken(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_CALENDLY, /^[A-Za-z0-9._-]{20,}$/);
+  } catch {
+    throw new Error("Failed to decrypt Calendly credential");
   }
 }
