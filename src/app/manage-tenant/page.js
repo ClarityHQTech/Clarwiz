@@ -359,22 +359,26 @@ const Page = () => {
                 <button
                   type="button"
                   onClick={async () => {
-                    const next = !tenant.payment;
+                    const next = !tenant.payment_status;
                     const res = await fetch(`/api/admin/tenants/${tenant.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ payment: next }),
+                      body: JSON.stringify({ payment_status: next }),
                     });
                     if (!res.ok) return;
-                    setTenant((prev) => ({ ...prev, payment: next }));
+                    const data = await res.json();
+                    setTenant((prev) => ({
+                      ...prev,
+                      payment_status: data.payment_status ?? next,
+                    }));
                   }}
                   className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                    tenant.payment
+                    tenant.payment_status
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-700"
                   }`}
                 >
-                  {tenant.payment ? "Payment: True" : "Payment: False"}
+                  {tenant.payment_status ? "Payment: True" : "Payment: False"}
                 </button>
               </div>
             </div>

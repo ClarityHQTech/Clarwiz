@@ -71,7 +71,9 @@ export async function POST(request) {
   }
 
   const adminEmail = normalizeEmail(body.adminEmail);
-  const payment_status = Boolean(body.payment_status);
+  const payment_status = Boolean(
+    body.payment_status !== undefined ? body.payment_status : body.payment
+  );
 
   const tenant = await prisma.tenant.create({
     data: { name, payment_status },

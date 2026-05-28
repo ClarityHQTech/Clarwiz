@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { MdDashboard } from "react-icons/md";
 import { FiUsers } from "react-icons/fi";
 import { HiOutlineWrenchScrewdriver } from "react-icons/hi2";
+import { FaBuildingUser } from "react-icons/fa6";
 
 const AdminSidebar = () => {
   const pathname = usePathname();
@@ -36,7 +37,7 @@ const AdminSidebar = () => {
           <LinkButton
             url="/admin/manage"
             title="Tenants"
-            icon={<HiOutlineWrenchScrewdriver size={20} />}
+            icon={<FaBuildingUser size={20} />}
             active={params === "manage"}
           />
         </div>

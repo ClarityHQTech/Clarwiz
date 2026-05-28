@@ -70,7 +70,11 @@ export async function PATCH(request, { params }) {
 
   const data = {};
   if (body.name !== undefined) data.name = body.name?.trim() || "";
-  if (body.payment_status !== undefined) data.payment_status = Boolean(body.payment_status);
+  if (body.payment_status !== undefined) {
+    data.payment_status = Boolean(body.payment_status);
+  } else if (body.payment !== undefined) {
+    data.payment_status = Boolean(body.payment);
+  }
 
   const tenant = await prisma.tenant.update({
     where: { id: params.id },

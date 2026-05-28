@@ -10,9 +10,12 @@ import { IoIosLogOut } from 'react-icons/io';
 import { MdDashboard, MdOutlineCampaign } from 'react-icons/md';
 // import ContactUs from '../dialogs/ContactUs';
 import { signOut } from 'next-auth/react';
+import ActiveTenantIndicator from './ActiveTenantIndicator';
+import { useUser } from '@/context/UserContext';
 
 const MobileDashMenu = () => {
 
+    const user = useUser();
     const pathname = usePathname();
 
     const params = pathname.split('/')[1];
@@ -63,6 +66,11 @@ const MobileDashMenu = () => {
                     Logout
                 </button>
                 <LinkButton icon={<FaUserCircle size={20}/>} active={params === 'profile' ? true : false} onClose={onClose} url="/profile" title="Profile" />
+                {user && !user.isSuperadmin ? (
+                  <div className="w-full px-2">
+                    <ActiveTenantIndicator />
+                  </div>
+                ) : null}
             </div>
 
             <ConfirmBox isOpen={logout.isOpen} onClose={logout.onClose} action="Logout" handler={logoutHandler}/>

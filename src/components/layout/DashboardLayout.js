@@ -7,8 +7,10 @@ import { useUser } from "@/context/UserContext";
 import Loader from "@/components/shared/Loader";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import TenantWorkspaces from "@/components/profile/TenantWorkspaces";
 
 const PAYMENT_ALLOWED_PATHS = ["/pricing", "/profile"];
+const TENANT_SETUP_PATHS = ["/profile"];
 
 function DashboardShell({ children }) {
   const user = useUser();
@@ -19,26 +21,40 @@ function DashboardShell({ children }) {
     return <Loader fullScreen />;
   }
 
-  if (user?.needsTenantSelection) {
+  const canAccessTenantSetup = TENANT_SETUP_PATHS.some(
+    (p) => pathname === p || pathname?.startsWith(`${p}/`)
+  );
+
+  if (user?.needsTenantSelection && !canAccessTenantSetup) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="max-w-md w-full rounded-lg border border-gray-200 bg-white p-6 text-center">
-          <h1 className="text-lg font-semibold text-gray-900">
-            Select a workspace
-          </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            {user?.memberships?.length
-              ? "Use the workspace switcher in the sidebar after signing in."
-              : "Create your first workspace to get started."}
-          </p>
-          {!user?.memberships?.length ? (
-            <Link
-              href="/manage-tenant"
-              className="mt-5 inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
-            >
-              Create workspace
-            </Link>
-          ) : null}
+        <div className="max-w-lg w-full space-y-4">
+          <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
+            <h1 className="text-lg font-semibold text-gray-900">
+              Select a workspace
+            </h1>
+            <p className="mt-2 text-sm text-gray-600">
+              {user?.memberships?.length
+                ? "Choose a workspace below to continue."
+                : "Create your first workspace to get started."}
+            </p>
+            {!user?.memberships?.length ? (
+              <Link
+                href="/manage-tenant"
+                className="mt-5 inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+              >
+                Create workspace
+              </Link>
+            ) : (
+              <Link
+                href="/profile"
+                className="mt-5 inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+              >
+                Go to profile
+              </Link>
+            )}
+          </div>
+          {user?.memberships?.length ? <TenantWorkspaces /> : null}
         </div>
       </div>
     );

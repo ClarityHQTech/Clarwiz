@@ -6,7 +6,7 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import TenantTable from "@/components/admin/TenantTable";
 import TenantDetailsDrawer from "@/components/admin/TenantDetailsDrawer";
 
-const initialForm = { name: "", payment: false, adminEmail: "" };
+const initialForm = { name: "", payment_status: false, adminEmail: "" };
 
 const Page = () => {
   const router = useRouter();
@@ -47,7 +47,7 @@ const Page = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name.trim(),
-          payment: form.payment,
+          payment_status: form.payment_status,
           adminEmail: form.adminEmail.trim() || undefined,
         }),
       });
@@ -151,9 +151,9 @@ const Page = () => {
           <label className="flex items-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700">
             <input
               type="checkbox"
-              checked={form.payment}
+              checked={form.payment_status}
               onChange={(e) =>
-                setForm((prev) => ({ ...prev, payment: e.target.checked }))
+                setForm((prev) => ({ ...prev, payment_status: e.target.checked }))
               }
             />
             Payment enabled
@@ -190,16 +190,23 @@ const Page = () => {
           if (!details?.id) return;
           setSavingPayment(true);
           try {
+            const next = !details.payment_status;
             const res = await fetch(`/api/admin/tenants/${details.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ payment: !details.payment }),
+              body: JSON.stringify({ payment_status: next }),
             });
             if (!res.ok) return;
-            setDetails((prev) => ({ ...prev, payment: !prev.payment }));
+            const data = await res.json();
+            setDetails((prev) => ({
+              ...prev,
+              payment_status: data.payment_status ?? next,
+            }));
             setTenants((prev) =>
               prev.map((t) =>
-                t.id === details.id ? { ...t, payment: !t.payment } : t
+                t.id === details.id
+                  ? { ...t, payment_status: data.payment_status ?? next }
+                  : t
               )
             );
           } finally {

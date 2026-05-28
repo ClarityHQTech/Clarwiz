@@ -10,7 +10,7 @@ import { useUser } from '@/context/UserContext';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import ConfirmBox from '../dialog/ConfirmBox';
-import TenantSwitcher from './TenantSwitcher';
+import ActiveTenantIndicator from './ActiveTenantIndicator';
 import { signOut } from 'next-auth/react';
 // import ContactUs from '../dialogs/ContactUs';
 
@@ -48,7 +48,6 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
             </div>
         </div>
         <div className={`h-[90vh] flex flex-col justify-between w-full text-white ${collapsed ? 'items-center' : 'items-start'}`}>
-            <TenantSwitcher collapsed={collapsed} />
             <div className='flex flex-col gap-4 w-full'>
                 {(user?.canAccessDashboard !== false) && (
                 <LinkButton collapsed={collapsed} url='/dashboard' title='Dashboard' icon={<MdDashboard size={20}/>} active={params === 'dashboard'} />
@@ -77,6 +76,7 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                     <FaUserCircle size={25} />
                     {!collapsed && "Profile"}
                 </Link>
+                <ActiveTenantIndicator collapsed={collapsed} />
             </div>
 
         </div>
