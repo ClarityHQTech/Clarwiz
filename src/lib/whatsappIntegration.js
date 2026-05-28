@@ -38,9 +38,9 @@ export function serializeWhatsAppIntegration(record) {
   };
 }
 
-export async function getWhatsAppIntegration(userId, { refresh = false } = {}) {
+export async function getWhatsAppIntegration(tenantId, { refresh = false } = {}) {
   const record = await prisma.whatsAppIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (!record) return null;
 
@@ -56,9 +56,9 @@ export async function getWhatsAppIntegration(userId, { refresh = false } = {}) {
   return serializeWhatsAppIntegration(record);
 }
 
-export async function getDecryptedAccessToken(userId) {
+export async function getDecryptedAccessToken(tenantId) {
   const record = await prisma.whatsAppIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
     select: { encryptedAccessToken: true },
   });
   if (!record?.encryptedAccessToken) return null;
@@ -98,13 +98,13 @@ export async function refreshTemplatesCache(record) {
   });
 }
 
-export async function connectMetaWhatsApp(userId, { accessToken, phoneNumberId, wabaId }) {
+export async function connectMetaWhatsApp(tenantId, { accessToken, phoneNumberId, wabaId }) {
   const meta = await validateMetaConnection({ accessToken, phoneNumberId, wabaId });
 
   const record = await prisma.whatsAppIntegration.upsert({
-    where: { userId },
+    where: { tenantId },
     create: {
-      userId,
+      tenantId,
       mode: "meta",
       status: "connected",
       encryptedAccessToken: encryptWhatsAppToken(accessToken),
@@ -132,15 +132,15 @@ export async function connectMetaWhatsApp(userId, { accessToken, phoneNumberId, 
 }
 
 export async function connectInteraktWhatsApp(
-  userId,
+  tenantId,
   { apiKey, wabaId, metaAccessToken }
 ) {
   await validateInteraktConnection(apiKey);
 
   const record = await prisma.whatsAppIntegration.upsert({
-    where: { userId },
+    where: { tenantId },
     create: {
-      userId,
+      tenantId,
       mode: "interakt",
       status: "pending",
       encryptedAccessToken: encryptWhatsAppToken(apiKey),

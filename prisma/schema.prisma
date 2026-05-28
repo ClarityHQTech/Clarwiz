@@ -7,42 +7,117 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum TenantRole {
+  ADMIN  @map("admin")
+  MEMBER @map("member")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 model User {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  name         String?
+  image        String?
+  is_superadmin Boolean          @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  memberships  TenantMembership[]
+  invitationsSent TenantInvitation[] @relation("InvitedBy")
+}
+
+model Tenant {
   id                  String               @id @default(cuid())
-  email               String               @unique
-  name                String?
-  image               String?
-  role                String               @default("user")
-  payment             Boolean              @default(false)
+  name                String
+  company_details     Json?
+  payment_status      Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+  memberships         TenantMembership[]
+  invitations         TenantInvitation[]
   campaigns           Campaign[]
   commLogs            CommunicationLog[]
   signals             ProspectSignal[]
+  apiKeys             ExternalApiKey[]
   linkedInIntegration LinkedInIntegration?
   emailIntegration    EmailIntegration?
   whatsappIntegration WhatsAppIntegration?
-  calendlyIntegration   CalendlyIntegration?
+  calendlyIntegration CalendlyIntegration?
   tenantIcpContext    TenantIcpContext?
+}
+
+model ExternalApiKey {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  prefix     String
+  keyHash    String   @unique
+  scopes     String[] @default([])
+  createdBy  String
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, revokedAt])
+  @@index([tenantId, expiresAt])
+}
+
+model TenantMembership {
+  id          String     @id @default(cuid())
+  tenantId    String     @map("tenant_id")
+  userId      String     @map("user_id")
+  role        TenantRole
+  scopes      String[]   @default([])
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("user_tenant_roles")
+}
+
+model TenantInvitation {
+  id          String           @id @default(cuid())
+  tenantId    String
+  email       String
+  role        TenantRole
+  scopes      String[]         @default([])
+  token       String           @unique
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  invitedById String
+  createdAt   DateTime         @default(now())
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy   User             @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, email])
+  @@index([token])
 }
 
 /// Per-tenant ICP workbook and GTM Core tool outputs for execution-layer context
 model TenantIcpContext {
   id               String    @id @default(cuid())
-  userId           String    @unique
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId         String    @unique
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   companyName      String?
   companyDomain    String?
-  /// Company knowledge / RAG content (website copy, CRM notes, product docs)
   relevantData     String?   @db.Text
   userQuery        String?
-  /// Raw account data for account_signal_extractor (transcripts, CRM notes)
   accountData      String?   @db.Text
-  /// draft | analyzing | complete | error
   status           String    @default("draft")
-  /// Pipeline step currently running or last completed
   currentStep      String?
-  icpGapAnalysis   String?   @db.Text
+  icpGapAnalysis    String?   @db.Text
   marketResearch   String?   @db.Text
   valueProposition String?   @db.Text
   icpWorkbook      String?   @db.Text
@@ -55,9 +130,8 @@ model TenantIcpContext {
 
 model LinkedInIntegration {
   id              String    @id @default(cuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// AES-256-GCM ciphertext of LinkupAPI account_id (key: SECRET env)
+  tenantId        String    @unique
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   linkupAccountId String
   accountName     String?
   email           String?
@@ -67,130 +141,118 @@ model LinkedInIntegration {
   connectedAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-
 }
 
 model EmailIntegration {
-  id                        String    @id @default(cuid())
-  userId                    String    @unique
-  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// smartlead_inbox | maildoso_domain (future)
-  mode                      String    @default("smartlead_inbox")
-  status                    String    @default("pending")
-  fromEmail                 String?
-  fromName                  String?
-  sendingDomain             String?
-  providerType              String?
-  /// AES-256-GCM ciphertext of Smartlead email account id
+  id                          String    @id @default(cuid())
+  tenantId                    String    @unique
+  tenant                      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mode                        String    @default("smartlead_inbox")
+  status                      String    @default("pending")
+  fromEmail                   String?
+  fromName                    String?
+  sendingDomain               String?
+  providerType                String?
   encryptedSmartleadAccountId String?
-  customTrackingDomain      String?
-  isSmtpSuccess              Boolean?
-  isImapSuccess             Boolean?
-  warmupEnabled             Boolean   @default(true)
-  warmupStatus              String?
-  warmupReputation          String?
-  connectedAt               DateTime?
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
+  customTrackingDomain        String?
+  isSmtpSuccess               Boolean?
+  isImapSuccess               Boolean?
+  warmupEnabled               Boolean   @default(true)
+  warmupStatus                String?
+  warmupReputation            String?
+  connectedAt                 DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 }
 
 model CalendlyIntegration {
-  id                       String    @id @default(cuid())
-  userId                   String    @unique
-  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  encryptedAccessToken     String
-  encryptedRefreshToken    String?
-  organizationUri          String?
-  userUri                  String?
-  ownerEmail               String?
-  status                   String    @default("pending")
-  /// booking_link = Free plan OAuth (no webhooks); webhooks = Standard+ auto-qualify on book
-  connectionMode           String    @default("webhooks")
-  /// JSON array of Calendly webhook subscription resource URIs
-  webhookSubscriptionUris  Json?
-  connectedAt              DateTime?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  id                      String    @id @default(cuid())
+  tenantId                String    @unique
+  tenant                  Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  encryptedAccessToken    String
+  encryptedRefreshToken   String?
+  organizationUri         String?
+  userUri                 String?
+  ownerEmail              String?
+  status                  String    @default("pending")
+  connectionMode          String    @default("webhooks")
+  webhookSubscriptionUris Json?
+  connectedAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 }
 
 model WhatsAppIntegration {
-  id                    String    @id @default(cuid())
-  userId                String    @unique
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// meta | interakt
-  mode                  String
-  status                String    @default("pending")
-  /// AES-256-GCM: Meta access token or Interakt API key
-  encryptedAccessToken  String
-  /// Meta Cloud API phone number ID (meta mode)
-  phoneNumberId         String?
-  /// WhatsApp Business Account ID — used to list templates
-  wabaId                String?
-  /// Optional Meta token when mode=interakt (template sync via Graph API)
-  encryptedMetaToken    String?
-  businessPhone         String?
-  businessName          String?
-  templatesCache        Json?
-  templatesCachedAt     DateTime?
-  connectedAt           DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  tenantId             String    @unique
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mode                 String
+  status               String    @default("pending")
+  encryptedAccessToken String
+  phoneNumberId        String?
+  wabaId               String?
+  encryptedMetaToken   String?
+  businessPhone        String?
+  businessName         String?
+  templatesCache       Json?
+  templatesCachedAt    DateTime?
+  connectedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 model Campaign {
-  id             String                  @id @default(cuid())
-  userId         String
-  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name           String
-  description    String?
-  targetSegment  String?
-  goals          String?
-  startDate      DateTime?
-  status         String                  @default("draft")
-  sentCount      Int                     @default(0)
-  openRate       Float                   @default(0)
-  replyRate      Float                   @default(0)
-  qualifiedLeads Int                     @default(0)
-  /// Per-campaign Calendly scheduling link for outreach CTAs
+  id                 String                  @id @default(cuid())
+  tenantId           String
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name               String
+  description        String?
+  targetSegment      String?
+  goals              String?
+  startDate          DateTime?
+  status             String                  @default("draft")
+  sentCount          Int                     @default(0)
+  openRate           Float                   @default(0)
+  replyRate          Float                   @default(0)
+  qualifiedLeads     Int                     @default(0)
   calendlyBookingUrl String?
-  /// Smartlead campaign used for outbound email in execution / drip test
   smartleadCampaignId Int?
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
-  prospects      Prospect[]
-  templates      CommunicationTemplate[]
-  commLogs       CommunicationLog[]
-  signals        ProspectSignal[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  prospects          Prospect[]
+  templates          CommunicationTemplate[]
+  commLogs           CommunicationLog[]
+  signals            ProspectSignal[]
 
-  @@index([userId])
+  @@index([tenantId])
 }
 
 model Prospect {
-  id          String   @id @default(cuid())
-  campaignId  String
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  name        String
-  firstName   String?
-  company     String?
-  jobTitle    String?
-  painPoint   String?
-  phone       String?
-  whatsapp    String?
-  email       String?
-  linkedinUrl String?
+  id              String             @id @default(cuid())
+  campaignId      String
+  campaign        Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name            String
+  firstName       String?
+  company         String?
+  jobTitle        String?
+  painPoint       String?
+  phone           String?
+  whatsapp        String?
+  email           String?
+  linkedinUrl     String?
   qualifiedAt     DateTime?
   qualifiedReason String?
-  createdAt   DateTime         @default(now())
-  commLogs    CommunicationLog[]
-  signals     ProspectSignal[]
+  createdAt       DateTime           @default(now())
+  commLogs        CommunicationLog[]
+  signals         ProspectSignal[]
 
   @@index([campaignId])
 }
 
 model ProspectSignal {
   id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   campaignId String
   campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   prospectId String
@@ -200,64 +262,62 @@ model ProspectSignal {
   content    String
   createdAt  DateTime @default(now())
 
-  @@index([userId])
+  @@index([tenantId])
   @@index([campaignId])
   @@index([prospectId])
   @@index([campaignId, prospectId])
 }
 
 model CommunicationLog {
-  id              String    @id @default(cuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  campaignId      String
-  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  prospectId      String
-  prospect        Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-  channel         String
-  templateId      String?
-  stage           Int?
-  subject         String?
-  message         String
-  ctaType         String?
-  status          String    @default("planned")
-  sentAt          DateTime  @default(now())
-  deliveredAt     DateTime?
-  openedAt        DateTime?
-  ctaClickedAt    DateTime?
-  responseType    String?
-  responseAt      DateTime?
-  responseContent String?
-  signalRef       String?
-  decisionReason  String?
-  modelUsed       String?
-  providerUsage   Json?
-  providerCost    Json?
-  /// e.g. smartlead — when set, deliveryMeta holds provider ids for tracking
+  id               String    @id @default(cuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaignId       String
+  campaign         Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prospectId       String
+  prospect         Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  channel          String
+  templateId       String?
+  stage            Int?
+  subject          String?
+  message          String
+  ctaType          String?
+  status           String    @default("planned")
+  sentAt           DateTime  @default(now())
+  deliveredAt      DateTime?
+  openedAt         DateTime?
+  ctaClickedAt     DateTime?
+  responseType     String?
+  responseAt       DateTime?
+  responseContent  String?
+  signalRef        String?
+  decisionReason   String?
+  modelUsed        String?
+  providerUsage    Json?
+  providerCost     Json?
   deliveryProvider String?
   deliveryMeta     Json?
-  createdAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
 
-  @@index([userId])
-  @@index([userId, sentAt])
+  @@index([tenantId])
+  @@index([tenantId, sentAt])
   @@index([campaignId])
   @@index([prospectId])
   @@index([campaignId, prospectId])
 }
 
 model CommunicationTemplate {
-  id                 String   @id @default(cuid())
-  campaignId         String
-  campaign           Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  channel            String
-  stage              Int      @default(1)
-  subject            String?
-  body               String
-  cta                String
-  whatsappTemplateId       String?
-  /// Maps {{1}}, {{2}}… to campaign fields: { "body": ["first_name","company"], "header": [] }
-  whatsappVariableMapping  Json?
-  createdAt                DateTime @default(now())
+  id                      String   @id @default(cuid())
+  campaignId              String
+  campaign                Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  channel                 String
+  stage                   Int      @default(1)
+  subject                 String?
+  body                    String
+  cta                     String
+  whatsappTemplateId      String?
+  whatsappVariableMapping Json?
+  createdAt               DateTime @default(now())
 
   @@index([campaignId])
 }

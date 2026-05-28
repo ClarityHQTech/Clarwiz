@@ -67,13 +67,13 @@ export function getPipelineStepsToRun(context) {
   return remaining.length > 0 ? remaining : PIPELINE_STEPS;
 }
 
-export async function runIcpAnalysisStep(userId, stepKey) {
+export async function runIcpAnalysisStep(tenantId, stepKey) {
   const step = PIPELINE_STEPS.find((s) => s.key === stepKey);
   if (!step) {
     throw new Error(`Unknown pipeline step: ${stepKey}`);
   }
 
-  const record = await prisma.tenantIcpContext.findUnique({ where: { userId } });
+  const record = await prisma.tenantIcpContext.findUnique({ where: { tenantId } });
   if (!record) {
     throw new Error("Save company details before running analysis");
   }
@@ -83,7 +83,7 @@ export async function runIcpAnalysisStep(userId, stepKey) {
   const isLastStep = stepKey === PIPELINE_STEPS[PIPELINE_STEPS.length - 1].key;
 
   await prisma.tenantIcpContext.update({
-    where: { userId },
+    where: { tenantId },
     data: { status: "analyzing", lastError: null, currentStep: stepKey },
   });
 
@@ -95,7 +95,7 @@ export async function runIcpAnalysisStep(userId, stepKey) {
     }
 
     const updated = await prisma.tenantIcpContext.update({
-      where: { userId },
+      where: { tenantId },
       data: {
         [step.field]: output,
         status: isLastStep ? "complete" : "analyzing",
@@ -108,7 +108,7 @@ export async function runIcpAnalysisStep(userId, stepKey) {
     return serializeTenantIcpContext(updated);
   } catch (err) {
     await prisma.tenantIcpContext.update({
-      where: { userId },
+      where: { tenantId },
       data: { status: "error", lastError: err.message },
     });
     throw err;
@@ -149,16 +149,16 @@ function preview(text, max = 280) {
   return `${t.slice(0, max)}…`;
 }
 
-export async function getTenantIcpContext(userId) {
+export async function getTenantIcpContext(tenantId) {
   const record = await prisma.tenantIcpContext.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   return serializeTenantIcpContext(record);
 }
 
-export async function getTenantIcpContextForExecution(userId) {
+export async function getTenantIcpContextForExecution(tenantId) {
   const record = await prisma.tenantIcpContext.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (!record || record.status !== "complete") return null;
   return {
@@ -173,7 +173,7 @@ export async function getTenantIcpContextForExecution(userId) {
   };
 }
 
-export async function upsertTenantIcpInputs(userId, inputs) {
+export async function upsertTenantIcpInputs(tenantId, inputs) {
   const data = {};
   if (inputs.companyName !== undefined) data.companyName = inputs.companyName?.trim() || null;
   if (inputs.companyDomain !== undefined) {
@@ -184,8 +184,8 @@ export async function upsertTenantIcpInputs(userId, inputs) {
   if (inputs.accountData !== undefined) data.accountData = inputs.accountData?.trim() || null;
 
   const record = await prisma.tenantIcpContext.upsert({
-    where: { userId },
-    create: { userId, ...data },
+    where: { tenantId },
+    create: { tenantId, ...data },
     update: data,
   });
 
@@ -198,8 +198,8 @@ function requireInputs(record) {
   }
 }
 
-export async function runAccountSignalExtraction(userId) {
-  const record = await prisma.tenantIcpContext.findUnique({ where: { userId } });
+export async function runAccountSignalExtraction(tenantId) {
+  const record = await prisma.tenantIcpContext.findUnique({ where: { tenantId } });
   if (!record) {
     throw new Error("Save company details before extracting account signals");
   }
@@ -221,7 +221,7 @@ export async function runAccountSignalExtraction(userId) {
   }
 
   await prisma.tenantIcpContext.update({
-    where: { userId },
+    where: { tenantId },
     data: { status: "analyzing", currentStep: "account_signal_extractor", lastError: null },
   });
 
@@ -233,7 +233,7 @@ export async function runAccountSignalExtraction(userId) {
     }
 
     const updated = await prisma.tenantIcpContext.update({
-      where: { userId },
+      where: { tenantId },
       data: {
         accountSignals: output,
         status: record.icpWorkbook ? "complete" : record.status,
@@ -245,7 +245,7 @@ export async function runAccountSignalExtraction(userId) {
     return serializeTenantIcpContext(updated);
   } catch (err) {
     await prisma.tenantIcpContext.update({
-      where: { userId },
+      where: { tenantId },
       data: { status: "error", lastError: err.message, currentStep: null },
     });
     throw err;

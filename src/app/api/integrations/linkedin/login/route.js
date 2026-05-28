@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { linkupLogin } from "@/lib/linkupApi";
 import {
   serializeLinkedInIntegration,
@@ -9,16 +10,9 @@ import {
 const COUNTRIES = ["US", "UK", "FR", "DE", "NL", "IT", "IL", "CA", "BR", "ES", "IN"];
 
 export async function POST(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   let body;
   try {
@@ -63,7 +57,7 @@ export async function POST(request) {
     );
   }
 
-  const record = await upsertLinkedInFromLogin(user.id, result, {
+  const record = await upsertLinkedInFromLogin(ctx.tenantId, result, {
     email,
     accountName,
     country,

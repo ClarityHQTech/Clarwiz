@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { MdDashboard } from 'react-icons/md';
 import { FiUsers } from 'react-icons/fi';
+import { HiOutlineWrenchScrewdriver } from "react-icons/hi2";
 
 const AdminMobileMenu = () => {
 
@@ -47,7 +48,8 @@ const AdminMobileMenu = () => {
         <DrawerBody className='bg-gray-800'>
         <VStack spacing={'4'} alignItems="flex-start">
             <LinkButton icon={<MdDashboard size={20}/>} active={params === 'dashboard' ? true :false} onClose={onClose} url="/admin/dashboard" title="Dashboard" />
-            <LinkButton icon={<FiUsers size={20}/>} active={params === 'clients' ? true :false} onClose={onClose} url="/admin/clients" title="Users" />
+            <LinkButton icon={<FiUsers size={20}/>} active={params === 'users' ? true :false} onClose={onClose} url="/admin/users" title="Users" />
+            <LinkButton icon={<HiOutlineWrenchScrewdriver size={20}/>} active={params === 'manage' ? true :false} onClose={onClose} url="/admin/manage" title="Tenants" />
 
             <HStack
             position="absolute"

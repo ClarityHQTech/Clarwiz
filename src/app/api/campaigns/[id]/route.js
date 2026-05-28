@@ -1,24 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   fetchSerializedCampaign,
   getOwnedCampaignDetail,
 } from "@/lib/campaignDetail";
 
 export async function GET(_request, { params }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
-  const serialized = await fetchSerializedCampaign(params.id, user.id);
+  const serialized = await fetchSerializedCampaign(params.id, ctx.tenantId);
   if (!serialized) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -27,18 +21,11 @@ export async function GET(_request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
-  const campaign = await getOwnedCampaignDetail(params.id, user.id);
+  const campaign = await getOwnedCampaignDetail(params.id, ctx.tenantId);
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -78,7 +65,7 @@ export async function PATCH(request, { params }) {
       },
     });
 
-    return NextResponse.json(await fetchSerializedCampaign(params.id, user.id));
+    return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
   }
 
   if (body.calendlyBookingUrl !== undefined) {
@@ -95,7 +82,7 @@ export async function PATCH(request, { params }) {
       data: { calendlyBookingUrl: url },
     });
 
-    return NextResponse.json(await fetchSerializedCampaign(params.id, user.id));
+    return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
   }
 
   if (body.action === "pause") {
@@ -111,7 +98,7 @@ export async function PATCH(request, { params }) {
       data: { status: "paused" },
     });
 
-    return NextResponse.json(await fetchSerializedCampaign(params.id, user.id));
+    return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

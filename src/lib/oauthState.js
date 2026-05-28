@@ -9,9 +9,9 @@ function signingKey() {
 }
 
 /** Signed OAuth state: base64url(payload).base64url(hmac) */
-export function createOAuthState(userId, provider = "calendly", extra = {}) {
+export function createOAuthState(tenantId, provider = "calendly", extra = {}) {
   const payload = JSON.stringify({
-    userId,
+    tenantId,
     provider,
     ts: Date.now(),
     nonce: randomBytes(8).toString("hex"),

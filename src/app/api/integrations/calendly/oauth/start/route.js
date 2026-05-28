@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   buildCalendlyAuthorizeUrl,
   CALENDLY_CONNECTION_MODES,
@@ -8,16 +9,9 @@ import {
 import { createOAuthState } from "@/lib/oauthState";
 
 export async function GET(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const { searchParams } = new URL(request.url);
   const mode = normalizeCalendlyConnectionMode(
@@ -25,7 +19,7 @@ export async function GET(request) {
   );
 
   try {
-    const state = createOAuthState(user.id, "calendly", { connectionMode: mode });
+    const state = createOAuthState(ctx.tenantId, "calendly", { connectionMode: mode });
     const url = buildCalendlyAuthorizeUrl(state, mode);
     return NextResponse.redirect(url);
   } catch (err) {

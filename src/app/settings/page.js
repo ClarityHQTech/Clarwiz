@@ -6,6 +6,8 @@ import LinkedInIntegrationSection from "@/components/settings/LinkedInIntegratio
 import WhatsAppIntegrationSection from "@/components/settings/WhatsAppIntegrationSection";
 import CalendlyIntegrationSection from "@/components/settings/CalendlyIntegrationSection";
 import IcpContextSection from "@/components/settings/IcpContextSection";
+import TeamSection from "@/components/settings/TeamSection";
+import { useUser } from "@/context/UserContext";
 import IntegrationStatusBadge, {
   getCalendlyDisplayStatus,
   getEmailDisplayStatus,
@@ -148,6 +150,7 @@ function ComingSoonPanel({ title, description }) {
 }
 
 const SettingsPage = () => {
+  const user = useUser();
   const [linkedinIntegration, setLinkedinIntegration] = useState(null);
   const [emailIntegration, setEmailIntegration] = useState(null);
   const [whatsappIntegration, setWhatsappIntegration] = useState(null);
@@ -308,7 +311,12 @@ const SettingsPage = () => {
           <p className="text-xs text-gray-400">Click an integration to configure</p>
         </div>
         <ul className="space-y-2">
-          {INTEGRATIONS.map((item) => (
+          {INTEGRATIONS.filter((item) => {
+            if (item.id === "linkedin" || item.id === "email" || item.id === "whatsapp" || item.id === "calendly") {
+              return user?.canAccessChannelIntegration !== false;
+            }
+            return true;
+          }).map((item) => (
             <li key={item.id}>
               <IntegrationListRow
                 item={item}
@@ -338,9 +346,20 @@ const SettingsPage = () => {
           Workspace
         </h2>
         <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <IcpContextSection />
+          {user?.canAccessTenantIcp !== false ? <IcpContextSection /> : <p className="text-sm text-gray-500">You do not have permission to manage ICP context.</p>}
         </div>
       </section>
+
+      {user?.canManageTeam ? (
+      <section className="max-w-3xl">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+          Team
+        </h2>
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <TeamSection />
+        </div>
+      </section>
+      ) : null}
 
       <Drawer isOpen={drawer.isOpen} placement="right" onClose={closeDrawer} size="md">
         <DrawerOverlay />

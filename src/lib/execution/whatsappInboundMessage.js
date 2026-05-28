@@ -21,12 +21,12 @@ export function phonesMatch(a, b) {
 /**
  * Find a prospect for this tenant by WhatsApp / phone number.
  */
-export async function findProspectByWhatsAppPhone(userId, phone) {
+export async function findProspectByWhatsAppPhone(tenantId, phone) {
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
   const prospects = await prisma.prospect.findMany({
-    where: { campaign: { userId } },
+    where: { campaign: { tenantId } },
     select: {
       id: true,
       name: true,
@@ -48,13 +48,13 @@ export async function findProspectByWhatsAppPhone(userId, phone) {
  * Latest WhatsApp comm log for a prospect (prefer awaiting reply).
  */
 export async function findWhatsAppCommLogForProspect({
-  userId,
+  tenantId,
   prospectId,
   campaignId,
   preferWithoutResponse = true,
 }) {
   const baseWhere = {
-    userId,
+    tenantId,
     prospectId,
     channel: "whatsapp",
     ...(campaignId ? { campaignId } : {}),
@@ -97,7 +97,7 @@ function alreadyProcessedInbound(log, inboundMessageId) {
  * Store an inbound WhatsApp message on the prospect's comm log.
  */
 export async function recordWhatsAppInboundMessage({
-  userId,
+  tenantId,
   provider,
   phone,
   text,
@@ -118,20 +118,20 @@ export async function recordWhatsAppInboundMessage({
 
   if (commLogId) {
     log = await prisma.communicationLog.findFirst({
-      where: { id: commLogId, userId, channel: "whatsapp" },
+      where: { id: commLogId, tenantId, channel: "whatsapp" },
     });
   }
 
   if (!log && contextMessageId) {
-    log = await findWhatsAppCommLogByMessageId(userId, contextMessageId);
+    log = await findWhatsAppCommLogByMessageId(tenantId, contextMessageId);
   }
 
   let prospect = null;
   if (!log && phone) {
-    prospect = await findProspectByWhatsAppPhone(userId, phone);
+    prospect = await findProspectByWhatsAppPhone(tenantId, phone);
     if (prospect) {
       log = await findWhatsAppCommLogForProspect({
-        userId,
+        tenantId,
         prospectId: prospect.id,
         campaignId: campaignId ?? prospect.campaignId,
       });

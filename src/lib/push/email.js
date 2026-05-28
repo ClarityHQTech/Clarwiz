@@ -55,7 +55,7 @@ export async function pushEmailIfConnected({
   commHistory = [],
 }) {
   const { getEmailIntegration } = await import("@/lib/emailIntegration");
-  const integration = await getEmailIntegration(campaign.userId);
+  const integration = await getEmailIntegration(campaign.tenantId);
   const canSend =
     integration?.mode === "smartlead_inbox" &&
     integration?.status === "connected" &&

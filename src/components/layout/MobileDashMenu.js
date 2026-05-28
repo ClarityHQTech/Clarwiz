@@ -1,12 +1,10 @@
-import React, { useState } from 'react'
-import { Avatar, Button, Drawer, DrawerBody, DrawerCloseButton, DrawerContent, DrawerHeader, DrawerOverlay, HStack, VStack, useDisclosure, } from '@chakra-ui/react';
+import React from 'react'
+import { Drawer, DrawerBody, DrawerCloseButton, DrawerContent, DrawerHeader, DrawerOverlay, HStack, VStack, useDisclosure } from '@chakra-ui/react';
 import { RiMenuFill } from 'react-icons/ri';
 import { FaUserCircle } from 'react-icons/fa';
 import { IoPricetagOutline, IoSettingsOutline } from 'react-icons/io5';
-import { useUser } from '@/context/UserContext';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Profile from '../dialog/ProfileModal';
 import ConfirmBox from '@/components/dialog/ConfirmBox';
 import { IoIosLogOut } from 'react-icons/io';
 import { MdDashboard, MdOutlineCampaign } from 'react-icons/md';
@@ -15,13 +13,11 @@ import { signOut } from 'next-auth/react';
 
 const MobileDashMenu = () => {
 
-    const user = useUser();
     const pathname = usePathname();
 
     const params = pathname.split('/')[1];
 
     const { isOpen, onClose, onOpen } = useDisclosure();
-    const profile = useDisclosure();
     const logout = useDisclosure();
 
     const logoutHandler = () => {
@@ -66,13 +62,9 @@ const MobileDashMenu = () => {
                     <IoIosLogOut className='' size={25} />
                     Logout
                 </button>
-                <button onClick={profile.onOpen} className='flex items-center gap-2 p-4 cursor-pointer text-white font-semibold'>
-                    <FaUserCircle className='' size={25} />
-                    Profile
-                </button>
+                <LinkButton icon={<FaUserCircle size={20}/>} active={params === 'profile' ? true : false} onClose={onClose} url="/profile" title="Profile" />
             </div>
 
-            <Profile isOpen={profile.isOpen} onClose={profile.onClose} user={user}/>
             <ConfirmBox isOpen={logout.isOpen} onClose={logout.onClose} action="Logout" handler={logoutHandler}/>
             </HStack>
         </VStack>

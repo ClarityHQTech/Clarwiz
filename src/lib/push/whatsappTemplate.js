@@ -109,7 +109,7 @@ export function resolveWhatsAppTemplateParameters({
  * Send an approved WhatsApp template to a prospect (Meta Cloud API or Interakt).
  */
 export async function pushWhatsAppTemplate({
-  userId,
+  tenantId,
   prospect,
   templateName,
   languageCode,
@@ -120,7 +120,7 @@ export async function pushWhatsAppTemplate({
   useMarketingApi,
   cachedTemplate = null,
 }) {
-  const integration = await getWhatsAppIntegration(userId);
+  const integration = await getWhatsAppIntegration(tenantId);
   if (!integration || integration.status !== "connected") {
     return buildSkippedPush("whatsapp_not_connected");
   }
@@ -176,7 +176,7 @@ export async function pushWhatsAppTemplate({
 
   try {
     if (integration.mode === "interakt") {
-      const apiKey = await getDecryptedAccessToken(userId);
+      const apiKey = await getDecryptedAccessToken(tenantId);
       const { countryCode, phoneNumber } = splitPhoneNumber(phone);
       const result = await sendInteraktTemplate({
         apiKey,
@@ -211,7 +211,7 @@ export async function pushWhatsAppTemplate({
       return buildSkippedPush("whatsapp_mode_unsupported");
     }
 
-    const accessToken = await getDecryptedAccessToken(userId);
+    const accessToken = await getDecryptedAccessToken(tenantId);
     if (!accessToken || !integration.phoneNumberId) {
       return buildSkippedPush("whatsapp_meta_not_configured", "meta");
     }
@@ -279,7 +279,7 @@ export async function pushWhatsAppTemplate({
  * Resolve template name from campaign template id and push.
  */
 export async function pushWhatsAppTemplateForDecision({
-  userId,
+  tenantId,
   prospect,
   campaign,
   templateId,
@@ -313,7 +313,7 @@ export async function pushWhatsAppTemplateForDecision({
     }
   }
 
-  const integration = await getWhatsAppIntegration(userId);
+  const integration = await getWhatsAppIntegration(tenantId);
   const cached = templateName
     ? findCachedTemplate(integration, templateName)
     : null;
@@ -338,7 +338,7 @@ export async function pushWhatsAppTemplateForDecision({
     : undefined;
 
   return pushWhatsAppTemplate({
-    userId,
+    tenantId,
     prospect,
     templateName,
     languageCode,

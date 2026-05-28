@@ -32,14 +32,14 @@ export async function POST(request) {
   const phoneNumberId =
     body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id ?? null;
 
-  const userId = await resolveWhatsAppWebhookUserId({ phoneNumberId });
-  if (!userId) {
-    console.warn("[meta/webhook] No user resolved for phone_number_id", phoneNumberId);
+  const tenantId = await resolveWhatsAppWebhookUserId({ phoneNumberId });
+  if (!tenantId) {
+    console.warn("[meta/webhook] No tenant resolved for phone_number_id", phoneNumberId);
     return NextResponse.json({ received: true });
   }
 
   try {
-    const processed = await handleMetaWhatsAppWebhook(userId, body);
+    const processed = await handleMetaWhatsAppWebhook(tenantId, body);
     const inbound = processed.filter((p) => p.activity === "reply");
     if (inbound.length) {
       console.info(

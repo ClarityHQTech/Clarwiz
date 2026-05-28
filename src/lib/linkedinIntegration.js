@@ -25,17 +25,17 @@ export function serializeLinkedInIntegration(record) {
   };
 }
 
-export async function getLinkedInIntegration(userId) {
+export async function getLinkedInIntegration(tenantId) {
   const record = await prisma.linkedInIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   return serializeLinkedInIntegration(record);
 }
 
 /** Load integration with decrypted LinkupAPI account_id for server-side API calls. */
-export async function getLinkedInIntegrationWithAccountId(userId) {
+export async function getLinkedInIntegrationWithAccountId(tenantId) {
   const record = await prisma.linkedInIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (!record?.linkupAccountId) return null;
   return {
@@ -44,16 +44,16 @@ export async function getLinkedInIntegrationWithAccountId(userId) {
   };
 }
 
-export async function upsertLinkedInFromLogin(userId, loginPayload, form) {
+export async function upsertLinkedInFromLogin(tenantId, loginPayload, form) {
   const { data } = loginPayload;
   const status = data?.status ?? "pending";
 
   const encryptedAccountId = encryptLinkupAccountId(data.account_id);
 
   return prisma.linkedInIntegration.upsert({
-    where: { userId },
+    where: { tenantId },
     create: {
-      userId,
+      tenantId,
       linkupAccountId: encryptedAccountId,
       accountName: form.accountName || form.email,
       email: form.email,
@@ -74,9 +74,9 @@ export async function upsertLinkedInFromLogin(userId, loginPayload, form) {
   });
 }
 
-export async function markLinkedInConnected(userId, accountId) {
+export async function markLinkedInConnected(tenantId, accountId) {
   return prisma.linkedInIntegration.update({
-    where: { userId },
+    where: { tenantId },
     data: {
       linkupAccountId: encryptLinkupAccountId(accountId),
       status: "connected",

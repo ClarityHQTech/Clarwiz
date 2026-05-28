@@ -29,21 +29,21 @@ function parseCallbackData(raw) {
   }
 }
 
-async function resolveCommLog({ userId, commLogId, messageId, phone, campaignId }) {
+async function resolveCommLog({ tenantId, commLogId, messageId, phone, campaignId }) {
   if (commLogId) {
     const log = await prisma.communicationLog.findFirst({
-      where: { id: commLogId, userId, channel: "whatsapp" },
+      where: { id: commLogId, tenantId, channel: "whatsapp" },
     });
     if (log) return log;
   }
 
   if (messageId) {
-    const byMsg = await findWhatsAppCommLogByMessageId(userId, messageId);
+    const byMsg = await findWhatsAppCommLogByMessageId(tenantId, messageId);
     if (byMsg) return byMsg;
   }
 
   if (phone) {
-    return findWhatsAppCommLogByPhone({ userId, campaignId, phone });
+    return findWhatsAppCommLogByPhone({ tenantId, campaignId, phone });
   }
 
   return null;
@@ -57,7 +57,7 @@ async function afterStatusUpdate(log, activity) {
 /**
  * Handle Meta WhatsApp Cloud API webhook payload.
  */
-export async function handleMetaWhatsAppWebhook(userId, body) {
+export async function handleMetaWhatsAppWebhook(tenantId, body) {
   const processed = [];
 
   for (const entry of body?.entry ?? []) {
@@ -72,7 +72,7 @@ export async function handleMetaWhatsAppWebhook(userId, body) {
         )?.commLogId;
 
         const log = await resolveCommLog({
-          userId,
+          tenantId,
           commLogId,
           messageId,
           phone: status.recipient_id,
@@ -110,7 +110,7 @@ export async function handleMetaWhatsAppWebhook(userId, body) {
   const inboundEvents = parseMetaInboundWebhook(body);
   for (const event of inboundEvents) {
     const result = await recordWhatsAppInboundMessage({
-      userId,
+      tenantId,
       provider: "meta",
       phone: event.phone,
       text: event.text,
@@ -143,13 +143,13 @@ export async function handleMetaWhatsAppWebhook(userId, body) {
 /**
  * Handle Interakt webhook payload (template status + incoming messages).
  */
-export async function handleInteraktWhatsAppWebhook(userId, body) {
+export async function handleInteraktWhatsAppWebhook(tenantId, body) {
   const processed = [];
 
   const inbound = parseInteraktInboundWebhook(body);
   if (inbound?.text) {
     const result = await recordWhatsAppInboundMessage({
-      userId,
+      tenantId,
       provider: "interakt",
       phone: inbound.phone,
       text: inbound.text,
@@ -217,7 +217,7 @@ export async function handleInteraktWhatsAppWebhook(userId, body) {
     statusNorm.includes("failed")
   ) {
     const log = await resolveCommLog({
-      userId,
+      tenantId,
       commLogId,
       messageId,
       phone: phone ? normalizePhone(phone) : null,
@@ -254,15 +254,15 @@ export async function handleInteraktWhatsAppWebhook(userId, body) {
 }
 
 /**
- * Resolve userId from Meta phone_number_id in webhook metadata.
+ * Resolve tenantId from Meta phone_number_id in webhook metadata.
  */
 export async function resolveWhatsAppWebhookUserId({ phoneNumberId }) {
   if (phoneNumberId) {
     const integration = await prisma.whatsAppIntegration.findFirst({
       where: { phoneNumberId, status: "connected" },
-      select: { userId: true },
+      select: { tenantId: true },
     });
-    if (integration) return integration.userId;
+    if (integration) return integration.tenantId;
   }
 
   const envUserId = process.env.WHATSAPP_WEBHOOK_DEFAULT_USER_ID?.trim();

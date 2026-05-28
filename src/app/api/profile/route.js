@@ -1,29 +1,35 @@
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import authOptions from "@/app/auth/options";
-import { prisma } from "@/lib/prisma";
+import { getAuthContext } from "@/lib/authContext";
+import { requireAuth } from "@/lib/requireAuth";
+import { hasPermission, PERMISSIONS, ALL_PERMISSIONS } from "@/lib/permissions";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const ctx = await getAuthContext();
+  const authErr = requireAuth(ctx);
+  if (authErr) return authErr;
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      role: true,
-      payment: true,
-    },
+  const effectivePermissions =
+    ctx.isSuperadmin || ctx.tenantRole === "ADMIN"
+      ? ALL_PERMISSIONS
+      : ctx.scopes || [];
+
+  return NextResponse.json({
+    id: ctx.user.id,
+    name: ctx.user.name,
+    email: ctx.user.email,
+    image: ctx.user.image,
+    isSuperadmin: ctx.isSuperadmin,
+    tenantRole: ctx.tenantRole,
+    tenantId: ctx.tenantId,
+    tenantName: ctx.tenant?.name ?? null,
+    payment_status: ctx.isTenantActive,
+    scopes: effectivePermissions,
+    needsTenantSelection: ctx.needsTenantSelection,
+    memberships: ctx.memberships,
+    canManageTeam: hasPermission(ctx, PERMISSIONS.MEMBER_MANAGE),
+    canAccessChannelIntegration: hasPermission(ctx, PERMISSIONS.CHANNEL_INTEGRATE),
+    canAccessCampaignCreate: hasPermission(ctx, PERMISSIONS.CAMPAIGN_CREATE),
+    canAccessCampaignManage: hasPermission(ctx, PERMISSIONS.CAMPAIGN_MANAGE),
+    canAccessIcpCall: hasPermission(ctx, PERMISSIONS.ICP_CALL),
   });
-
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(user);
 }

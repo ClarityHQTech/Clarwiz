@@ -12,14 +12,31 @@ const authOptions = {
   callbacks: {
     async signIn({ user }) {
       try {
-        await prisma.user.upsert({
-          where: { email: user.email },
-          update: { name: user.name, image: user.image },
-          create: {
-            name: user.name,
-            email: user.email,
-            image: user.image,
-          },
+        await prisma.$transaction(async (tx) => {
+          const existing = await tx.user.findUnique({
+            where: { email: user.email },
+            select: { id: true },
+          });
+
+          if (existing) {
+            await tx.user.update({
+              where: { id: existing.id },
+              data: { name: user.name, image: user.image },
+            });
+            return;
+          }
+
+          const createdUser = await tx.user.create({
+            data: {
+              name: user.name,
+              email: user.email,
+              image: user.image,
+              is_superadmin: false,
+            },
+            select: { id: true },
+          });
+
+          // Workspace is created in first-login onboarding step.
         });
         return true;
       } catch (error) {

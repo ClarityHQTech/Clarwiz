@@ -1,38 +1,25 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { getLinkedInIntegration } from "@/lib/linkedinIntegration";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
-  const integration = await getLinkedInIntegration(user.id);
+  const integration = await getLinkedInIntegration(ctx.tenantId);
   return NextResponse.json({ integration });
 }
 
 export async function DELETE() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   await prisma.linkedInIntegration.deleteMany({
-    where: { userId: user.id },
+    where: { tenantId: ctx.tenantId },
   });
 
   return NextResponse.json({ success: true });

@@ -78,7 +78,7 @@ async function loadTrackingContext(campaignId, prospectIds) {
  */
 export async function trackCampaignEngagement(
   campaignId,
-  { userId, prospectIds } = {}
+  { tenantId, prospectIds } = {}
 ) {
   const { campaign, prospects, pendingLogsByProspect, linkedInLogsByProspect } =
     await loadTrackingContext(campaignId, prospectIds);
@@ -93,7 +93,7 @@ export async function trackCampaignEngagement(
   const allResults = [];
 
   const linkedIn = await checkLinkedInEngagementForCampaign({
-    userId,
+    tenantId,
     campaignId,
     prospects,
     pendingLogsByProspect,
@@ -102,7 +102,7 @@ export async function trackCampaignEngagement(
   if (linkedIn.results?.length) allResults.push(...linkedIn.results);
 
   const whatsapp = await checkWhatsAppEngagementForCampaign({
-    userId,
+    tenantId,
     prospects,
     pendingLogsByProspect,
   });
@@ -119,7 +119,7 @@ export async function trackCampaignEngagement(
       const emailResult = await checkEmailEngagementForProspect({
         campaignId,
         prospectId: prospect.id,
-        userId,
+        tenantId,
       });
 
       if (emailResult.activity) {

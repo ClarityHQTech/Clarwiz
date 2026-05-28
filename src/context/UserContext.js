@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 const UserContext = createContext(null);
 
-const PROTECTED_PREFIXES = ["/dashboard", "/campaigns", "/settings", "/pricing"];
+const PROTECTED_PREFIXES = ["/dashboard", "/campaigns", "/settings", "/pricing", "/profile"];
 
 export const UserProvider = ({ children }) => {
   const { status } = useSession();
@@ -36,7 +36,7 @@ export const UserProvider = ({ children }) => {
           }
           const data = await response.json();
           setUser(data);
-          if (isAdminRoute && data.role !== "admin") {
+          if (isAdminRoute && !data.isSuperadmin) {
             router.replace("/dashboard");
           }
         } catch (error) {

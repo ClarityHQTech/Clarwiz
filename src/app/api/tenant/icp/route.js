@@ -1,37 +1,24 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   getTenantIcpContext,
   upsertTenantIcpInputs,
 } from "@/lib/tenantIcpContext";
 
 export async function GET() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.ICP_CALL });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
-  const context = await getTenantIcpContext(user.id);
+  const context = await getTenantIcpContext(ctx.tenantId);
   return NextResponse.json({ context });
 }
 
 export async function PATCH(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.ICP_CALL });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   let body;
   try {
@@ -40,7 +27,7 @@ export async function PATCH(request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const context = await upsertTenantIcpInputs(user.id, {
+  const context = await upsertTenantIcpInputs(ctx.tenantId, {
     companyName: body.companyName ?? body.company_name,
     companyDomain: body.companyDomain ?? body.company_domain,
     relevantData: body.relevantData ?? body.relevant_data,

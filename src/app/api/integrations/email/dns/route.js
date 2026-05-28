@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { buildDnsRecords, extractDomainFromEmail } from "@/lib/emailDnsRecords";
 
 export async function GET(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const domain =
     request.nextUrl.searchParams.get("domain")?.trim().toLowerCase() ||

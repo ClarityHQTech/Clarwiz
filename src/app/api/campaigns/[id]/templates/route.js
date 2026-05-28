@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { CAMPAIGN_CHANNELS, CTA_OPTIONS } from "@/lib/campaignConstants";
 import {
   fetchSerializedCampaign,
@@ -68,18 +69,11 @@ function templateCreateData(campaignId, template) {
 }
 
 export async function POST(request, { params }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
-  const campaign = await getOwnedCampaignDetail(params.id, user.id);
+  const campaign = await getOwnedCampaignDetail(params.id, ctx.tenantId);
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -104,23 +98,16 @@ export async function POST(request, { params }) {
     data: payloads.map((template) => templateCreateData(campaign.id, template)),
   });
 
-  const serialized = await fetchSerializedCampaign(params.id, user.id);
+  const serialized = await fetchSerializedCampaign(params.id, ctx.tenantId);
   return NextResponse.json(serialized, { status: 201 });
 }
 
 export async function PATCH(request, { params }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
-  const campaign = await getOwnedCampaignDetail(params.id, user.id);
+  const campaign = await getOwnedCampaignDetail(params.id, ctx.tenantId);
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -164,21 +151,14 @@ export async function PATCH(request, { params }) {
     data: { whatsappVariableMapping: mapping },
   });
 
-  const serialized = await fetchSerializedCampaign(params.id, user.id);
+  const serialized = await fetchSerializedCampaign(params.id, ctx.tenantId);
   return NextResponse.json(serialized);
 }
 
 export async function DELETE(request, { params }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const { searchParams } = new URL(request.url);
   const templateId = searchParams.get("templateId");
@@ -186,7 +166,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: "templateId is required" }, { status: 400 });
   }
 
-  const campaign = await getOwnedCampaignDetail(params.id, user.id);
+  const campaign = await getOwnedCampaignDetail(params.id, ctx.tenantId);
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -198,6 +178,6 @@ export async function DELETE(request, { params }) {
 
   await prisma.communicationTemplate.delete({ where: { id: templateId } });
 
-  const serialized = await fetchSerializedCampaign(params.id, user.id);
+  const serialized = await fetchSerializedCampaign(params.id, ctx.tenantId);
   return NextResponse.json(serialized);
 }

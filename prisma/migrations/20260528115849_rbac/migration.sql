@@ -1,0 +1,2 @@
+-- No-op: constraint renames and PlatformRole cleanup run in 20260528173000_rbac_spec_alignment
+-- after TenantMembership is renamed to user_tenant_roles.

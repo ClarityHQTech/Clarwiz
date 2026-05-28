@@ -24,14 +24,15 @@ export async function GET(request) {
   }
 
   const payload = verifyOAuthState(state, "calendly");
-  if (!payload?.userId) {
+  const tenantId = payload?.tenantId ?? payload?.userId;
+  if (!tenantId) {
     return NextResponse.redirect(`${settingsUrl}error&reason=invalid_state`);
   }
 
   const connectionMode = normalizeCalendlyConnectionMode(payload.connectionMode);
 
   try {
-    await connectCalendlyFromOAuth(payload.userId, code, connectionMode);
+    await connectCalendlyFromOAuth(tenantId, code, connectionMode);
     const connectedParam =
       connectionMode === CALENDLY_CONNECTION_MODES.WEBHOOKS
         ? "connected"

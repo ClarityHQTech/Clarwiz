@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   getDecryptedSmartleadAccountId,
   getEmailIntegration,
@@ -8,42 +9,28 @@ import { deleteEmailAccount } from "@/lib/smartleadApi";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const refresh = request.nextUrl.searchParams.get("refresh") === "true";
-  const integration = await getEmailIntegration(user.id, { refresh });
+  const integration = await getEmailIntegration(ctx.tenantId, { refresh });
 
   return NextResponse.json({ integration });
 }
 
 export async function DELETE() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const record = await prisma.emailIntegration.findUnique({
-    where: { userId: user.id },
+    where: { tenantId: ctx.tenantId },
   });
 
   if (record?.encryptedSmartleadAccountId && record.mode === "smartlead_inbox") {
     try {
-      const accountId = await getDecryptedSmartleadAccountId(user.id);
+      const accountId = await getDecryptedSmartleadAccountId(ctx.tenantId);
       if (accountId) {
         await deleteEmailAccount(accountId);
       }
@@ -52,7 +39,7 @@ export async function DELETE() {
     }
   }
 
-  await prisma.emailIntegration.deleteMany({ where: { userId: user.id } });
+  await prisma.emailIntegration.deleteMany({ where: { tenantId: ctx.tenantId } });
 
   return NextResponse.json({ success: true });
 }

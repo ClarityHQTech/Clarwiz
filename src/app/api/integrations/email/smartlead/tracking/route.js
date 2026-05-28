@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   getDecryptedSmartleadAccountId,
   serializeEmailIntegration,
@@ -9,19 +10,12 @@ import { updateEmailAccount } from "@/lib/smartleadApi";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const record = await prisma.emailIntegration.findUnique({
-    where: { userId: user.id },
+    where: { tenantId: ctx.tenantId },
   });
 
   if (!record?.encryptedSmartleadAccountId) {
@@ -48,7 +42,7 @@ export async function POST(request) {
 
   let accountId;
   try {
-    accountId = await getDecryptedSmartleadAccountId(user.id);
+    accountId = await getDecryptedSmartleadAccountId(ctx.tenantId);
   } catch {
     return NextResponse.json(
       { error: "Could not read stored Smartlead account" },
@@ -68,7 +62,7 @@ export async function POST(request) {
   }
 
   const updated = await prisma.emailIntegration.update({
-    where: { userId: user.id },
+    where: { tenantId: ctx.tenantId },
     data: { customTrackingDomain },
   });
 

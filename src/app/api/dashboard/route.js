@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { CHANNEL_LABELS } from "@/lib/campaignConstants";
 import { computeCampaignMetrics } from "@/lib/campaignMetrics";
 
@@ -11,25 +12,18 @@ function formatActionLabel(log) {
 }
 
 export async function GET() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const [campaigns, recentLogs, replyLogs] = await Promise.all([
     prisma.campaign.findMany({
-      where: { userId: user.id },
+      where: { tenantId: ctx.tenantId },
       include: { commLogs: true, _count: { select: { prospects: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.communicationLog.findMany({
-      where: { userId: user.id },
+      where: { tenantId: ctx.tenantId },
       orderBy: { sentAt: "desc" },
       take: 25,
       include: {
@@ -39,7 +33,7 @@ export async function GET() {
     }),
     prisma.communicationLog.findMany({
       where: {
-        userId: user.id,
+        tenantId: ctx.tenantId,
         responseType: { not: null },
       },
       orderBy: { responseAt: "desc" },

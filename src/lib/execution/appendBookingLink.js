@@ -50,10 +50,22 @@ export function appendBookingLinkIfAllowed({
     return message;
   }
 
-  const tracked = buildTrackedBookingUrl(campaign.id, prospectId);
-  if (message.includes(tracked) || message.includes(campaign.calendlyBookingUrl)) {
+  let bookingUrl = campaign.calendlyBookingUrl.trim();
+  try {
+    const url = new URL(bookingUrl);
+    url.searchParams.set("utm_source", "clarwiz");
+    url.searchParams.set("utm_campaign", campaign.id);
+    if (prospectId) {
+      url.searchParams.set("utm_content", prospectId);
+    }
+    bookingUrl = url.toString();
+  } catch {
+    // Keep original URL if not parseable.
+  }
+
+  if (message.includes(bookingUrl) || message.includes(campaign.calendlyBookingUrl)) {
     return message;
   }
 
-  return `${message.trim()}\n\nBook a time here: ${tracked}`;
+  return `${message.trim()}\n\nBook a time here: ${bookingUrl}`;
 }

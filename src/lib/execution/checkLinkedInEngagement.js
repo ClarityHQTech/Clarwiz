@@ -102,13 +102,13 @@ async function fetchProspectConversation(accountId, prospect) {
  * Replies: get_conversation per prospect (not list_inbox).
  */
 export async function checkLinkedInEngagementForCampaign({
-  userId,
+  tenantId,
   campaignId,
   prospects,
   pendingLogsByProspect,
   linkedInLogsByProspect,
 }) {
-  const integration = await getLinkedInIntegrationWithAccountId(userId);
+  const integration = await getLinkedInIntegrationWithAccountId(tenantId);
   if (
     !integration ||
     integration.status !== "connected" ||

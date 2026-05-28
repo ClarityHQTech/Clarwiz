@@ -200,8 +200,8 @@ export function buildDeliveryMeta(message) {
   };
 }
 
-export async function requireConnectedEmailIntegration(userId) {
-  const integration = await getEmailIntegration(userId);
+export async function requireConnectedEmailIntegration(tenantId) {
+  const integration = await getEmailIntegration(tenantId);
   if (
     !integration ||
     integration.mode !== "smartlead_inbox" ||
@@ -212,7 +212,7 @@ export async function requireConnectedEmailIntegration(userId) {
       "Connect a Smartlead inbox in Settings before sending email outreach."
     );
   }
-  const emailAccountId = await getDecryptedSmartleadAccountId(userId);
+  const emailAccountId = await getDecryptedSmartleadAccountId(tenantId);
   if (!emailAccountId) {
     throw new Error("Smartlead email account is missing — reconnect in Settings.");
   }
@@ -231,7 +231,7 @@ async function verifySmartleadCampaignExists(smartleadCampaignId) {
 
 export async function ensureSmartleadCampaignForClarwiz(campaign) {
   const { emailAccountId } = await requireConnectedEmailIntegration(
-    campaign.userId
+    campaign.tenantId
   );
 
   let smartleadCampaignId = campaign.smartleadCampaignId
@@ -402,7 +402,7 @@ export async function sendPlannedEmailViaSmartlead({
   commHistory = [],
 }) {
   const { emailAccountId } = await requireConnectedEmailIntegration(
-    campaign.userId
+    campaign.tenantId
   );
 
   if (!prospect.email?.trim()) {
@@ -536,11 +536,11 @@ async function querySentEngagement({
 }
 
 export async function fetchSmartleadEngagementForProspect({
-  userId,
+  tenantId,
   prospectEmail,
   smartleadCampaignId,
 }) {
-  const { emailAccountId } = await requireConnectedEmailIntegration(userId);
+  const { emailAccountId } = await requireConnectedEmailIntegration(tenantId);
   const search = prospectEmail?.trim().slice(0, 30);
   if (!search) return null;
 

@@ -31,7 +31,7 @@ export async function markProspectQualified(
 
   const campaign = await prismaClient.campaign.findUnique({
     where: { id: campaignId },
-    select: { userId: true },
+    select: { tenantId: true },
   });
 
   const updated = await prismaClient.prospect.update({
@@ -42,11 +42,11 @@ export async function markProspectQualified(
     },
   });
 
-  if (sourceMeta && campaign?.userId) {
+  if (sourceMeta && campaign?.tenantId) {
     await prismaClient.prospectSignal
       .create({
         data: {
-          userId: campaign.userId,
+          tenantId: campaign.tenantId,
           campaignId,
           prospectId,
           type: "qualification",

@@ -35,16 +35,16 @@ export function serializeCalendlyIntegration(record) {
   };
 }
 
-export async function getCalendlyIntegration(userId) {
+export async function getCalendlyIntegration(tenantId) {
   const record = await prisma.calendlyIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   return serializeCalendlyIntegration(record);
 }
 
-export async function getCalendlyAccessToken(userId) {
+export async function getCalendlyAccessToken(tenantId) {
   const record = await prisma.calendlyIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (!record || record.status !== "connected") return null;
   return decryptCalendlyToken(record.encryptedAccessToken);
@@ -63,7 +63,7 @@ async function deleteExistingWebhooks(accessToken, uris, connectionMode) {
   }
 }
 
-export async function connectCalendlyFromOAuth(userId, code, connectionMode) {
+export async function connectCalendlyFromOAuth(tenantId, code, connectionMode) {
   const mode = normalizeCalendlyConnectionMode(connectionMode);
   const tokenData = await exchangeCalendlyCode(code, mode);
   const accessToken = tokenData.access_token;
@@ -76,7 +76,7 @@ export async function connectCalendlyFromOAuth(userId, code, connectionMode) {
   const ownerEmail = resource.email ?? null;
 
   const existing = await prisma.calendlyIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (existing?.webhookSubscriptionUris) {
     const oldToken = existing.encryptedAccessToken
@@ -102,9 +102,9 @@ export async function connectCalendlyFromOAuth(userId, code, connectionMode) {
   }
 
   const record = await prisma.calendlyIntegration.upsert({
-    where: { userId },
+    where: { tenantId },
     create: {
-      userId,
+      tenantId,
       encryptedAccessToken: encryptCalendlyToken(accessToken),
       encryptedRefreshToken: refreshToken
         ? encryptCalendlyToken(refreshToken)
@@ -135,9 +135,9 @@ export async function connectCalendlyFromOAuth(userId, code, connectionMode) {
   return serializeCalendlyIntegration(record);
 }
 
-export async function disconnectCalendly(userId) {
+export async function disconnectCalendly(tenantId) {
   const record = await prisma.calendlyIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (!record) return null;
 
@@ -155,7 +155,7 @@ export async function disconnectCalendly(userId) {
     console.warn("[calendly] disconnect cleanup:", err.message);
   }
 
-  await prisma.calendlyIntegration.delete({ where: { userId } });
+  await prisma.calendlyIntegration.delete({ where: { tenantId } });
   return { disconnected: true };
 }
 
@@ -181,9 +181,9 @@ export async function findCalendlyIntegrationByUserUri(userUri) {
   });
 }
 
-export async function ensureCalendlyAccessToken(userId) {
+export async function ensureCalendlyAccessToken(tenantId) {
   const record = await prisma.calendlyIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (!record?.encryptedAccessToken) return null;
 
@@ -198,7 +198,7 @@ export async function ensureCalendlyAccessToken(userId) {
     );
     const accessToken = tokenData.access_token;
     await prisma.calendlyIntegration.update({
-      where: { userId },
+      where: { tenantId },
       data: {
         encryptedAccessToken: encryptCalendlyToken(accessToken),
         encryptedRefreshToken: tokenData.refresh_token

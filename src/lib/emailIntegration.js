@@ -64,9 +64,9 @@ export function serializeEmailIntegration(record, { dnsRecords } = {}) {
   };
 }
 
-export async function getEmailIntegration(userId, { refresh = false } = {}) {
+export async function getEmailIntegration(tenantId, { refresh = false } = {}) {
   const record = await prisma.emailIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
   });
   if (!record) return null;
 
@@ -75,7 +75,7 @@ export async function getEmailIntegration(userId, { refresh = false } = {}) {
       const accountId = decryptSmartleadAccountId(record.encryptedSmartleadAccountId);
       const remote = await getEmailAccount(accountId);
       const updated = await prisma.emailIntegration.update({
-        where: { userId },
+        where: { tenantId },
         data: mapSmartleadAccountToDb(remote, record),
       });
       return serializeEmailIntegration(updated);
@@ -112,7 +112,7 @@ function mapSmartleadAccountToDb(account, existing) {
   };
 }
 
-export async function upsertSmartleadInbox(userId, smartleadResponse, form) {
+export async function upsertSmartleadInbox(tenantId, smartleadResponse, form) {
   let data =
     extractSmartleadAccountPayload(smartleadResponse) ??
     smartleadResponse?.data ??
@@ -139,9 +139,9 @@ export async function upsertSmartleadInbox(userId, smartleadResponse, form) {
   const connected = smtpOk !== false && imapOk !== false;
 
   return prisma.emailIntegration.upsert({
-    where: { userId },
+    where: { tenantId },
     create: {
-      userId,
+      tenantId,
       mode: "smartlead_inbox",
       status: connected ? "connected" : "failed",
       fromEmail,
@@ -176,9 +176,9 @@ export async function upsertSmartleadInbox(userId, smartleadResponse, form) {
   });
 }
 
-export async function getDecryptedSmartleadAccountId(userId) {
+export async function getDecryptedSmartleadAccountId(tenantId) {
   const record = await prisma.emailIntegration.findUnique({
-    where: { userId },
+    where: { tenantId },
     select: { encryptedSmartleadAccountId: true },
   });
   if (!record?.encryptedSmartleadAccountId) return null;

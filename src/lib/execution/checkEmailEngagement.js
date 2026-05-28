@@ -11,13 +11,13 @@ import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
 export async function checkEmailEngagementForProspect({
   campaignId,
   prospectId,
-  userId,
+  tenantId,
 }) {
   const campaign = await prisma.campaign.findFirst({
-    where: { id: campaignId, userId },
+    where: { id: campaignId, tenantId },
     select: {
       id: true,
-      userId: true,
+      tenantId: true,
       smartleadCampaignId: true,
     },
   });
@@ -61,7 +61,7 @@ export async function checkEmailEngagementForProspect({
     campaign.smartleadCampaignId &&
     prospect.email
   ) {
-    const emailAccountId = await getDecryptedSmartleadAccountId(userId);
+    const emailAccountId = await getDecryptedSmartleadAccountId(tenantId);
     const resolved = await resolveSmartleadDeliveryStatus({
       smartleadCampaignId: campaign.smartleadCampaignId,
       leadEmail: prospect.email,
@@ -88,7 +88,7 @@ export async function checkEmailEngagementForProspect({
   }
 
   const { engagement, source } = await fetchSmartleadEngagementForProspect({
-    userId,
+    tenantId,
     prospectEmail: prospect.email,
     smartleadCampaignId: campaign.smartleadCampaignId,
   });

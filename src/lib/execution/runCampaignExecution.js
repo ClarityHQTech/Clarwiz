@@ -102,12 +102,12 @@ async function maybePushOutboundMessage({
     }
     const pushResult = isConnection
       ? await pushLinkedInConnectionRequest({
-          userId: campaign.userId,
+          tenantId: campaign.tenantId,
           prospect,
           message: decision.message,
         })
       : await pushLinkedInMessage({
-          userId: campaign.userId,
+          tenantId: campaign.tenantId,
           prospect,
           message: decision.message,
         });
@@ -116,7 +116,7 @@ async function maybePushOutboundMessage({
 
   if (decision.channel === "whatsapp") {
     const pushResult = await pushWhatsAppTemplateForDecision({
-      userId: campaign.userId,
+      tenantId: campaign.tenantId,
       prospect,
       campaign,
       templateId: decision.templateId,
@@ -142,7 +142,7 @@ export async function runExecutionForCampaign(
     ? campaign.prospects.filter((p) => prospectIds.includes(p.id))
     : campaign.prospects;
 
-  const tenantIcp = await getTenantIcpContextForExecution(campaign.userId);
+  const tenantIcp = await getTenantIcpContextForExecution(campaign.tenantId);
 
   const results = [];
   let plannedCount = 0;
@@ -153,7 +153,7 @@ export async function runExecutionForCampaign(
     try {
       if (prospect.qualifiedAt) {
         const skipLog = await createCommLog({
-          userId: campaign.userId,
+          tenantId: campaign.tenantId,
           campaignId: campaign.id,
           prospectId: prospect.id,
           channel: "email",
@@ -186,7 +186,7 @@ export async function runExecutionForCampaign(
 
       if (decision.skip) {
         const skipLog = await createCommLog({
-          userId: campaign.userId,
+          tenantId: campaign.tenantId,
           campaignId: campaign.id,
           prospectId: prospect.id,
           channel: decision.channel || "email",
@@ -216,7 +216,7 @@ export async function runExecutionForCampaign(
       }
 
       const log = await createCommLog({
-        userId: campaign.userId,
+        tenantId: campaign.tenantId,
         campaignId: campaign.id,
         prospectId: prospect.id,
         channel: decision.channel,
@@ -300,7 +300,7 @@ export async function runExecutionForCampaign(
 export function serializeCommLog(log) {
   return {
     id: log.id,
-    userId: log.userId,
+    tenantId: log.tenantId,
     prospectId: log.prospectId,
     channel: log.channel,
     stage: log.stage,

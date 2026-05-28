@@ -1,15 +1,15 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * Tenant-scoped comm log queries (userId = tenant boundary).
+ * Tenant-scoped comm log queries.
  */
-export async function fetchCommLogsForUser(
-  userId,
+export async function fetchCommLogsForTenant(
+  tenantId,
   { campaignId, limit = 50 } = {}
 ) {
   return prisma.communicationLog.findMany({
     where: {
-      userId,
+      tenantId,
       ...(campaignId ? { campaignId } : {}),
     },
     orderBy: { sentAt: "desc" },

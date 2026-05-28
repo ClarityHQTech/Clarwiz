@@ -111,15 +111,30 @@ Studio uses the same `DATABASE_URL` as the app. If Studio shows unexpected rows,
 
 ---
 
-## Bootstrap first admin
+## Bootstrap first super admin
 
 After signing in with Google once:
 
 ```sql
-UPDATE "User" SET role = 'admin' WHERE email = 'your@email.com';
+UPDATE "User" SET "is_superadmin" = true WHERE email = 'your@email.com';
 ```
 
 Run via psql, pgAdmin, or Prisma Studio — connected to the same `clarwiz` on system Postgres.
+
+To create a first tenant admin membership manually (if needed):
+
+```sql
+INSERT INTO "user_tenant_roles" ("id", "tenant_id", "user_id", "role", "scopes", "created_at", "updated_at")
+VALUES (
+  gen_random_uuid()::text,
+  'your-tenant-id',
+  'your-user-id',
+  'admin',
+  ARRAY[]::text[],
+  NOW(),
+  NOW()
+);
+```
 
 ---
 

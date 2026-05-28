@@ -8,12 +8,12 @@ import { buildPushResult, buildSkippedPush } from "@/lib/push/normalizePushResul
  * Send a LinkedIn connection request via LinkupAPI (POST /v2/network, action invite).
  */
 export async function pushLinkedInConnectionRequest({
-  userId,
+  tenantId,
   prospect,
   message,
   profileUrl,
 }) {
-  const integration = await getLinkedInIntegrationWithAccountId(userId);
+  const integration = await getLinkedInIntegrationWithAccountId(tenantId);
   if (
     !integration ||
     integration.status !== "connected" ||

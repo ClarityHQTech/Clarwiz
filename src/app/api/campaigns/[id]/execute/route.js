@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/authSession";
-import { fetchCommLogsForUser } from "@/lib/commLogs";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
+import { fetchCommLogsForTenant } from "@/lib/commLogs";
 import {
   runExecutionForCampaign,
   serializeCommLog,
 } from "@/lib/execution/runCampaignExecution";
 
-async function getOwnedCampaign(id, userId) {
+async function getOwnedCampaign(id, tenantId) {
   return prisma.campaign.findFirst({
-    where: { id, userId },
+    where: { id, tenantId },
     select: { id: true, status: true },
   });
 }
 
 export async function POST(request, { params }) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
-  const campaign = await getOwnedCampaign(params.id, user.id);
+  const campaign = await getOwnedCampaign(params.id, ctx.tenantId);
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
@@ -50,7 +44,7 @@ export async function POST(request, { params }) {
       prospectIds: body.prospectIds,
     });
 
-    const commLogs = await fetchCommLogsForUser(user.id, {
+    const commLogs = await fetchCommLogsForTenant(ctx.tenantId, {
       campaignId: campaign.id,
       limit: 50,
     });

@@ -9,8 +9,8 @@ import { useDisclosure } from '@chakra-ui/react';
 import { useUser } from '@/context/UserContext';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Profile from '../dialog/ProfileModal';
 import ConfirmBox from '../dialog/ConfirmBox';
+import TenantSwitcher from './TenantSwitcher';
 import { signOut } from 'next-auth/react';
 // import ContactUs from '../dialogs/ContactUs';
 
@@ -18,7 +18,6 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
 
     const user = useUser();
     const pathname = usePathname();
-    const profile = useDisclosure();
     const logout = useDisclosure();
 
     const logoutHandler = () => {
@@ -49,9 +48,14 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
             </div>
         </div>
         <div className={`h-[90vh] flex flex-col justify-between w-full text-white ${collapsed ? 'items-center' : 'items-start'}`}>
+            <TenantSwitcher collapsed={collapsed} />
             <div className='flex flex-col gap-4 w-full'>
+                {(user?.canAccessDashboard !== false) && (
                 <LinkButton collapsed={collapsed} url='/dashboard' title='Dashboard' icon={<MdDashboard size={20}/>} active={params === 'dashboard'} />
+                )}
+                {user?.canAccessCampaignOutreach !== false && (
                 <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={params === 'campaigns'} />
+                )}
                 <LinkButton collapsed={collapsed} url='/settings' title='Settings' icon={<IoSettingsOutline size={20}/>} active={params === 'settings'} />
                 <LinkButton collapsed={collapsed} url='/pricing' title='Pricing' icon={<IoPricetagOutline size={20}/>} active={params === 'pricing'} />
             </div>
@@ -65,19 +69,18 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                     <IoIosLogOut className='text-white' size={25} />
                     {!collapsed && "Logout"}
                 </button>
-                <button
-                    onClick={profile.onOpen}
-                    className={`flex items-center w-full cursor-pointer ${collapsed ? 'justify-center p-2.5' : 'gap-2 p-4'}`}
-                    title='Profile'
+                <Link
+                    href="/profile"
+                    className={`flex items-center w-full ${collapsed ? 'justify-center p-2.5' : 'gap-2 p-4'} ${params === 'profile' ? 'bg-white text-sky-800 rounded-lg' : 'text-white'}`}
+                    title="Profile"
                 >
-                    <FaUserCircle className='text-white' size={25} />
+                    <FaUserCircle size={25} />
                     {!collapsed && "Profile"}
-                </button>
+                </Link>
             </div>
 
         </div>
 
-        <Profile isOpen={profile.isOpen} onClose={profile.onClose} user={user}/>
         <ConfirmBox isOpen={logout.isOpen} onClose={logout.onClose} action="Logout" handler={logoutHandler}/>
 
     </div>

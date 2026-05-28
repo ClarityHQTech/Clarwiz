@@ -142,17 +142,17 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
   };
 }
 
-export async function getOwnedCampaignDetail(id, userId) {
+export async function getOwnedCampaignDetail(id, tenantId) {
   return prisma.campaign.findFirst({
-    where: { id, userId },
+    where: { id, tenantId },
     include: campaignDetailInclude,
   });
 }
 
-export async function fetchSerializedCampaign(id, userId) {
-  const campaign = await getOwnedCampaignDetail(id, userId);
+export async function fetchSerializedCampaign(id, tenantId) {
+  const campaign = await getOwnedCampaignDetail(id, tenantId);
   if (!campaign) return null;
-  const calendly = await getCalendlyIntegration(userId);
+  const calendly = await getCalendlyIntegration(tenantId);
   return serializeCampaignDetail(campaign, {
     calendlyConnected: calendly?.status === "connected",
   });

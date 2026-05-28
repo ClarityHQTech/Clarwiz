@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import {
   runAccountSignalExtraction,
   runIcpAnalysisStep,
@@ -10,16 +11,9 @@ export const maxDuration = Number(process.env.SERVERLESS_MAX_DURATION) || 300;
 export const runtime = "nodejs";
 
 export async function POST(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.ICP_CALL });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   let body = {};
   try {
@@ -34,7 +28,7 @@ export async function POST(request) {
   try {
     let context;
     if (mode === "account_signals") {
-      context = await runAccountSignalExtraction(user.id);
+      context = await runAccountSignalExtraction(ctx.tenantId);
     } else if (mode === "step") {
       if (!step || typeof step !== "string") {
         return NextResponse.json(
@@ -42,7 +36,7 @@ export async function POST(request) {
           { status: 400 }
         );
       }
-      context = await runIcpAnalysisStep(user.id, step);
+      context = await runIcpAnalysisStep(ctx.tenantId, step);
     } else {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }

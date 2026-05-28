@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { linkupCheckpoint } from "@/lib/linkupApi";
 import {
   decryptLinkupAccountId,
@@ -9,19 +10,12 @@ import {
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const integration = await prisma.linkedInIntegration.findUnique({
-    where: { userId: user.id },
+    where: { tenantId: ctx.tenantId },
   });
 
   if (!integration) {
@@ -89,7 +83,7 @@ export async function POST(request) {
   }
 
   const accountId = result.data?.account_id ?? linkupAccountId;
-  const record = await markLinkedInConnected(user.id, accountId);
+  const record = await markLinkedInConnected(ctx.tenantId, accountId);
 
   return NextResponse.json({
     integration: serializeLinkedInIntegration(record),

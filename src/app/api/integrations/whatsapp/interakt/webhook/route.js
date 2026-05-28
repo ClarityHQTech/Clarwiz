@@ -23,20 +23,21 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId =
+  const tenantId =
+    process.env.WHATSAPP_WEBHOOK_DEFAULT_TENANT_ID?.trim() ||
     process.env.WHATSAPP_WEBHOOK_DEFAULT_USER_ID?.trim() ||
     (await prisma.whatsAppIntegration.findFirst({
       where: { mode: "interakt", status: "connected" },
-      select: { userId: true },
+      select: { tenantId: true },
       orderBy: { updatedAt: "desc" },
-    }))?.userId;
+    }))?.tenantId;
 
-  if (!userId) {
+  if (!tenantId) {
     return NextResponse.json({ received: true });
   }
 
   try {
-    const processed = await handleInteraktWhatsAppWebhook(userId, body);
+    const processed = await handleInteraktWhatsAppWebhook(tenantId, body);
     const inbound = processed.filter((p) => p.activity === "reply");
     if (inbound.length) {
       console.info(

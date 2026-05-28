@@ -17,11 +17,11 @@ function normalizePhone(phone) {
  * Poll Meta Cloud API for template message delivery/read status.
  */
 export async function checkWhatsAppEngagementForCampaign({
-  userId,
+  tenantId,
   prospects,
   pendingLogsByProspect,
 }) {
-  const integration = await getWhatsAppIntegration(userId);
+  const integration = await getWhatsAppIntegration(tenantId);
   if (!integration || integration.status !== "connected") {
     return { results: [], skipped: true, reason: "whatsapp_not_connected" };
   }
@@ -40,7 +40,7 @@ export async function checkWhatsAppEngagementForCampaign({
     return { results: [], skipped: true, reason: "whatsapp_mode_unsupported" };
   }
 
-  const accessToken = await getDecryptedAccessToken(userId);
+  const accessToken = await getDecryptedAccessToken(tenantId);
   if (!accessToken) {
     return { results: [], skipped: true, reason: "whatsapp_token_missing" };
   }
@@ -113,12 +113,12 @@ export async function applyWhatsAppWebhookToCommLog(commLogId, engagement) {
 /**
  * Find comm log by Meta WAMID or Interakt message id.
  */
-export async function findWhatsAppCommLogByMessageId(userId, messageId) {
+export async function findWhatsAppCommLogByMessageId(tenantId, messageId) {
   if (!messageId) return null;
 
   const logs = await prisma.communicationLog.findMany({
     where: {
-      userId,
+      tenantId,
       channel: "whatsapp",
       status: { in: ["planned", "queued", "sent", "delivered"] },
     },
@@ -139,7 +139,7 @@ export async function findWhatsAppCommLogByMessageId(userId, messageId) {
  * Find comm log by prospect phone for inbound messages.
  */
 export async function findWhatsAppCommLogByPhone({
-  userId,
+  tenantId,
   campaignId,
   phone,
 }) {
@@ -149,7 +149,7 @@ export async function findWhatsAppCommLogByPhone({
   const prospects = await prisma.prospect.findMany({
     where: campaignId
       ? { campaignId }
-      : { campaign: { userId } },
+      : { campaign: { tenantId } },
     select: { id: true, phone: true, whatsapp: true, campaignId: true },
   });
 
@@ -161,7 +161,7 @@ export async function findWhatsAppCommLogByPhone({
 
   return prisma.communicationLog.findFirst({
     where: {
-      userId,
+      tenantId,
       prospectId: prospect.id,
       campaignId: campaignId ?? prospect.campaignId,
       channel: "whatsapp",

@@ -1,11 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/layout/AdminLayout";
 
 const Page = () => {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/admin/users");
+  }, [router]);
+
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold">Clients</h1>
+      <p className="text-sm text-gray-600">Redirecting to Users...</p>
     </div>
   );
 };

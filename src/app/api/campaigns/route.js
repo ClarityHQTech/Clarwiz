@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/authSession";
+import { resolveApiAuth } from "@/lib/apiAuth";
+import { PERMISSIONS } from "@/lib/permissions";
 import { CAMPAIGN_CHANNELS } from "@/lib/campaignConstants";
 import {
   countWhatsAppNumberedVariables,
@@ -29,19 +30,12 @@ function serializeCampaign(campaign) {
 }
 
 export async function GET() {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   const campaigns = await prisma.campaign.findMany({
-    where: { userId: user.id },
+    where: { tenantId: ctx.tenantId },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { prospects: true } } },
   });
@@ -50,16 +44,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!user.payment) {
-    return NextResponse.json(
-      { error: "Forbidden", message: "You don't have access to this." },
-      { status: 403 }
-    );
-  }
+  const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_CREATE });
+  if (auth.error) return auth.error;
+  const { ctx } = auth;
 
   let body;
   try {
@@ -152,7 +139,7 @@ export async function POST(request) {
     const campaign = await prisma.$transaction(async (tx) => {
       const created = await tx.campaign.create({
         data: {
-          userId: user.id,
+          tenantId: ctx.tenantId,
           name: name.trim(),
           description: description?.trim() || null,
           targetSegment: targetSegment?.trim() || null,

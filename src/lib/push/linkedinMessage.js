@@ -7,13 +7,13 @@ import { buildPushResult, buildSkippedPush } from "@/lib/push/normalizePushResul
  * Send a LinkedIn direct message via LinkupAPI (POST /v2/messages, action send).
  */
 export async function pushLinkedInMessage({
-  userId,
+  tenantId,
   prospect,
   message,
   profileUrl,
   mediaLink,
 }) {
-  const integration = await getLinkedInIntegrationWithAccountId(userId);
+  const integration = await getLinkedInIntegrationWithAccountId(tenantId);
   if (
     !integration ||
     integration.status !== "connected" ||
