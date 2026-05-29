@@ -12,7 +12,7 @@ const roleLabel = (role) => {
 export default function ActiveTenantIndicator({ collapsed = false }) {
   const user = useUser();
 
-  if (!user || user.isSuperadmin) {
+  if (!user) {
     return null;
   }
 
@@ -21,9 +21,15 @@ export default function ActiveTenantIndicator({ collapsed = false }) {
   );
   const tenantName =
     user.tenantName || activeMembership?.tenantName || "No workspace";
-  const role = roleLabel(activeMembership?.role || user.tenantRole);
+  const role = user.isSuperadmin
+    ? "Superadmin"
+    : roleLabel(activeMembership?.role || user.tenantRole);
 
-  if (!user.memberships?.length && !user.tenantId) {
+  if (!user.tenantId && !user.isSuperadmin) {
+    if (!user.memberships?.length) return null;
+  }
+
+  if (!user.tenantId) {
     return null;
   }
 

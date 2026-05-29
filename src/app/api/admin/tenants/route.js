@@ -8,6 +8,7 @@ import {
   inviteExpiresAt,
   normalizeEmail,
 } from "@/lib/invitations";
+import { buildCompanyDetails } from "@/lib/tenantCompanyDetails";
 
 export async function GET(request) {
   const ctx = await getAuthContext();
@@ -75,8 +76,14 @@ export async function POST(request) {
     body.payment_status !== undefined ? body.payment_status : body.payment
   );
 
+  const company_details = buildCompanyDetails({
+    industry: body.industry,
+    about: body.about,
+    website: body.website,
+  });
+
   const tenant = await prisma.tenant.create({
-    data: { name, payment_status },
+    data: { name, payment_status, company_details },
   });
 
   let membership = null;
@@ -124,6 +131,7 @@ export async function POST(request) {
         id: tenant.id,
         name: tenant.name,
         payment_status: tenant.payment_status,
+        company_details: tenant.company_details,
       },
       membership: membership
         ? { userId: membership.userId, role: membership.role }

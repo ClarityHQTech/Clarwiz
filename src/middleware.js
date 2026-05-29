@@ -5,7 +5,6 @@ export const config = {
     "/dashboard/:path*",
     "/campaigns/:path*",
     "/settings/:path*",
-    "/manage-tenant/:path*",
     "/profile/:path*",
     "/admin/:path*",
     "/invite/:path*",

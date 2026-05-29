@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import AdminLayout from "@/components/layout/AdminLayout";
 import TenantTable from "@/components/admin/TenantTable";
 import TenantDetailsDrawer from "@/components/admin/TenantDetailsDrawer";
-
-const initialForm = { name: "", payment_status: false, adminEmail: "" };
+import CreateTenantModal from "@/components/admin/CreateTenantModal";
+import { useUser } from "@/context/UserContext";
+import { useSwitchTenant } from "@/hooks/useSwitchTenant";
 
 const Page = () => {
-  const router = useRouter();
+  const user = useUser();
+  const { switchTenant } = useSwitchTenant();
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [memberActionLoadingId, setMemberActionLoadingId] = useState(null);
   const [savingPayment, setSavingPayment] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState(initialForm);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [details, setDetails] = useState(null);
@@ -36,33 +36,10 @@ const Page = () => {
     loadTenants();
   }, []);
 
-  const createTenant = async (e) => {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-
-    setCreating(true);
-    try {
-      const res = await fetch("/api/admin/tenants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          payment_status: form.payment_status,
-          adminEmail: form.adminEmail.trim() || undefined,
-        }),
-      });
-      if (!res.ok) return;
-      setForm(initialForm);
-      await loadTenants();
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const manageTenant = async (tenant) => {
     setActionLoadingId(tenant.id);
     try {
-      router.push(`/manage-tenant?from=admin&tenantId=${tenant.id}`);
+      await switchTenant(tenant.id, user?.tenantId, { redirectTo: "/dashboard" });
     } finally {
       setActionLoadingId(null);
     }
@@ -125,48 +102,24 @@ const Page = () => {
     <div className="p-8 space-y-6">
       <h1 className="text-2xl font-semibold">Manage</h1>
       <p className="text-sm text-gray-600">
-        Create tenants and open their workspace management interface.
+        Create tenants and open them in the standard workspace interface.
       </p>
 
-      <form
-        onSubmit={createTenant}
-        className="rounded-lg border border-gray-200 bg-white p-4 space-y-3"
-      >
-        <h2 className="text-base font-medium">Create Tenant</h2>
-        <div className="grid gap-3 md:grid-cols-3">
-          <input
-            value={form.name}
-            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder="Tenant name"
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-          <input
-            value={form.adminEmail}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, adminEmail: e.target.value }))
-            }
-            placeholder="Admin email (optional)"
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          />
-          <label className="flex items-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={form.payment_status}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, payment_status: e.target.checked }))
-              }
-            />
-            Payment enabled
-          </label>
-        </div>
+      <div>
         <button
-          type="submit"
-          disabled={creating}
-          className="rounded-md bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800 disabled:opacity-60"
+          type="button"
+          onClick={() => setCreateModalOpen(true)}
+          className="rounded-md bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800"
         >
-          {creating ? "Creating..." : "Create tenant"}
+          Create tenant
         </button>
-      </form>
+      </div>
+
+      <CreateTenantModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={() => loadTenants()}
+      />
 
       {loading ? (
         <p className="text-sm text-gray-500">Loading tenants...</p>

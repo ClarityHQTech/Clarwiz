@@ -46,6 +46,39 @@ const TenantDetailsDrawer = ({
             </div>
 
             <div className="rounded-md border border-gray-200 p-3">
+              <p className="font-medium text-gray-900">Workspace details</p>
+              <dl className="mt-2 space-y-2 text-xs text-gray-700">
+                <div>
+                  <dt className="text-gray-500">Industry</dt>
+                  <dd className="mt-0.5 text-gray-900">{tenant.industry || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Website</dt>
+                  <dd className="mt-0.5 text-gray-900">
+                    {tenant.website ? (
+                      <a
+                        href={tenant.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-700 hover:underline break-all"
+                      >
+                        {tenant.website}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">About</dt>
+                  <dd className="mt-0.5 text-gray-900 whitespace-pre-wrap">
+                    {tenant.about || "—"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="rounded-md border border-gray-200 p-3">
               <p className="font-medium text-gray-900">Stats</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-700">
                 <p>Campaigns: {tenant.stats?.campaigns ?? 0}</p>

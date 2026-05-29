@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthContext } from "@/lib/authContext";
 import { requireSuperAdmin } from "@/lib/requireAuth";
+import {
+  buildCompanyDetails,
+  parseCompanyDetails,
+} from "@/lib/tenantCompanyDetails";
 
 export async function GET(_request, { params }) {
   const ctx = await getAuthContext();
@@ -11,10 +15,20 @@ export async function GET(_request, { params }) {
   const [tenant, prospectCount] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: params.id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        company_details: true,
+        payment_status: true,
+        createdAt: true,
         memberships: {
-          include: {
-            user: { select: { id: true, email: true, name: true, image: true } },
+          select: {
+            id: true,
+            role: true,
+            scopes: true,
+            user: {
+              select: { id: true, email: true, name: true, image: true },
+            },
           },
         },
         linkedInIntegration: { select: { id: true } },
@@ -33,9 +47,14 @@ export async function GET(_request, { params }) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
+  const { industry, about, website } = parseCompanyDetails(tenant.company_details);
+
   return NextResponse.json({
     id: tenant.id,
     name: tenant.name,
+    industry,
+    about,
+    website,
     payment_status: tenant.payment_status,
     createdAt: tenant.createdAt.toISOString(),
     members: tenant.memberships.map((m) => ({
@@ -76,14 +95,36 @@ export async function PATCH(request, { params }) {
     data.payment_status = Boolean(body.payment);
   }
 
+  if (
+    body.industry !== undefined ||
+    body.about !== undefined ||
+    body.website !== undefined
+  ) {
+    const existing = await prisma.tenant.findUnique({
+      where: { id: params.id },
+      select: { company_details: true },
+    });
+    const current = parseCompanyDetails(existing?.company_details);
+    data.company_details = buildCompanyDetails({
+      industry: body.industry !== undefined ? body.industry : current.industry,
+      about: body.about !== undefined ? body.about : current.about,
+      website: body.website !== undefined ? body.website : current.website,
+    });
+  }
+
   const tenant = await prisma.tenant.update({
     where: { id: params.id },
     data,
   });
 
+  const { industry, about, website } = parseCompanyDetails(tenant.company_details);
+
   return NextResponse.json({
     id: tenant.id,
     name: tenant.name,
+    industry,
+    about,
+    website,
     payment_status: tenant.payment_status,
   });
 }

@@ -43,7 +43,7 @@ export async function POST(request) {
   }
 
   await setActiveTenantCookie(tenantId);
-  if (!tenant.payment_status) {
+  if (!ctx.isSuperadmin && !tenant.payment_status) {
     return NextResponse.json(
       { error: "PaymentRequired", message: "Selected workspace requires payment.", tenantId },
       { status: 402 }
