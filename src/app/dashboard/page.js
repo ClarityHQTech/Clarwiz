@@ -116,8 +116,8 @@ const Page = () => {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <section className={`${ui.card} overflow-hidden`}>
-          <div className="px-4 py-3 border-b border-brand-secondary/25 bg-brand-secondary/10">
+        <section className={`${ui.cardSurface} overflow-hidden`}>
+          <div className="px-4 py-3 border-b border-brand-secondary/25 bg-brand-surface">
             <h2 className={`${ui.titleSm} text-base`}>Recent replies</h2>
             <p className="text-xs text-brand-stone mt-0.5">
               Prospect responses across all campaigns
@@ -167,8 +167,8 @@ const Page = () => {
           </div>
         </section>
 
-        <section className={`${ui.card} overflow-hidden`}>
-          <div className="px-4 py-3 border-b border-brand-secondary/25 bg-brand-secondary/10">
+        <section className={`${ui.cardSurface} overflow-hidden`}>
+          <div className="px-4 py-3 border-b border-brand-secondary/25 bg-brand-surface">
             <h2 className={`${ui.titleSm} text-base`}>Recent actions</h2>
             <p className="text-xs text-brand-stone mt-0.5">
               Outbound messages, skips, and replies

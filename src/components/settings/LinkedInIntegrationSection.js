@@ -142,7 +142,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
             type="button"
             onClick={handleDisconnect}
             disabled={disconnecting}
-            className="mt-3 rounded-md border border-red-200 bg-white px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            className="mt-3 rounded-md border border-red-200 bg-brand-surface px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
           >
             {disconnecting ? "Disconnecting…" : "Disconnect account"}
           </button>

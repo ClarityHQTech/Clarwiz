@@ -80,7 +80,7 @@ function OutputPreview({ title, preview }) {
         )}
       </button>
       {open ? (
-        <pre className="border-t border-brand-secondary/30 bg-white p-3 text-xs text-brand-stone whitespace-pre-wrap max-h-64 overflow-y-auto">
+        <pre className="border-t border-brand-secondary/30 bg-brand-surface p-3 text-xs text-brand-stone whitespace-pre-wrap max-h-64 overflow-y-auto">
           {preview}
         </pre>
       ) : null}
@@ -323,7 +323,7 @@ export default function IcpContextSection() {
           type="button"
           onClick={() => saveInputs()}
           disabled={saving || isAnalyzing}
-          className="rounded-lg border border-brand-secondary/30 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
+          className="rounded-lg border border-brand-secondary/30 bg-brand-surface px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save inputs"}
         </button>
@@ -392,7 +392,7 @@ export default function IcpContextSection() {
           type="button"
           onClick={runSignalExtraction}
           disabled={extractingSignals || isAnalyzing || !accountData?.trim()}
-          className="rounded-lg border border-brand-secondary/30 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
+          className="rounded-lg border border-brand-secondary/30 bg-brand-surface px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
         >
           {extractingSignals ? "Extracting…" : "Extract account signals"}
         </button>

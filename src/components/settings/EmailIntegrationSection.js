@@ -56,7 +56,7 @@ function CollapsibleDnsRecords({ records, sendingDomain, defaultOpen = false }) 
       </button>
 
       {open ? (
-        <div className="border-t border-brand-secondary/30 bg-white p-4 space-y-3">
+        <div className="border-t border-brand-secondary/30 bg-brand-surface p-4 space-y-3">
           <p className="text-xs text-brand-stone leading-relaxed">
             Add these at your domain registrar (or DNS host). SPF, DKIM, and DMARC improve
             deliverability; the tracking CNAME is configured after you set a custom tracking domain

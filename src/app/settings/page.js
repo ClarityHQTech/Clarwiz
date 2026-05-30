@@ -114,7 +114,7 @@ function IntegrationListRow({ item, status, subtitle, onConfigure }) {
       type="button"
       onClick={clickable ? onConfigure : undefined}
       disabled={!clickable}
-      className={`flex w-full items-center gap-4 rounded-lg border bg-white p-4 text-left shadow-sm transition-colors ${
+      className={`flex w-full items-center gap-4 rounded-lg border bg-brand-surface p-4 text-left shadow-sm transition-colors ${
         clickable
           ? "border-brand-secondary/30 hover:border-brand-sage/30 hover:bg-brand-sage/10 cursor-pointer"
           : "border-brand-secondary/15 opacity-80 cursor-default"
@@ -346,7 +346,7 @@ const SettingsPage = () => {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
           Workspace
         </h2>
-        <div className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
+        <div className={ui.panelSurface}>
           {user?.canAccessTenantIcp !== false ? <IcpContextSection /> : <p className="text-sm text-brand-stone">You do not have permission to manage ICP context.</p>}
         </div>
       </section>
@@ -356,7 +356,7 @@ const SettingsPage = () => {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
           Team
         </h2>
-        <div className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
+        <div className={ui.panelSurface}>
           <TeamSection />
         </div>
       </section>
@@ -364,8 +364,8 @@ const SettingsPage = () => {
 
       <Drawer isOpen={drawer.isOpen} placement="right" onClose={closeDrawer} size="md">
         <DrawerOverlay />
-        <DrawerContent>
-          <DrawerHeader borderBottomWidth="1px" className="pr-12">
+        <DrawerContent className="!bg-brand-surface">
+          <DrawerHeader borderBottomWidth="1px" className="pr-12 !bg-brand-surface">
             {activeItem ? (
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-bg">
@@ -394,7 +394,7 @@ const SettingsPage = () => {
             ) : null}
           </DrawerHeader>
           <DrawerCloseButton />
-          <DrawerBody py={6}>{renderDrawerContent()}</DrawerBody>
+          <DrawerBody py={6} className="!bg-brand-surface">{renderDrawerContent()}</DrawerBody>
         </DrawerContent>
       </Drawer>
     </div>

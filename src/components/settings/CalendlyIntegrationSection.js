@@ -155,7 +155,7 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
               className={`rounded-xl border p-4 flex flex-col ${
                 isActive
                   ? "border-brand-sage/40 bg-brand-sage/10 ring-1 ring-brand-sage/30"
-                  : "border-brand-secondary/30 bg-white"
+                  : "border-brand-secondary/30 bg-brand-surface"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -204,7 +204,7 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
                   className={`mt-4 w-full rounded-lg px-3 py-2 text-sm font-medium ${
                     option.mode === MODES.WEBHOOKS
                       ? "bg-brand-dark text-white hover:bg-brand-ink"
-                      : "border border-brand-secondary/40 bg-white text-brand-stone hover:bg-brand-bg"
+                      : "border border-brand-secondary/40 bg-brand-surface text-brand-stone hover:bg-brand-bg"
                   }`}
                 >
                   {option.connectLabel}
@@ -215,7 +215,7 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
                 <button
                   type="button"
                   onClick={() => connect(option.mode)}
-                  className="mt-4 w-full rounded-lg border border-brand-secondary/40 bg-white px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
+                  className="mt-4 w-full rounded-lg border border-brand-secondary/40 bg-brand-surface px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
                 >
                   Switch to {option.title}
                 </button>
@@ -257,14 +257,14 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
             type="button"
             disabled={disconnecting}
             onClick={disconnect}
-            className="inline-flex items-center rounded-lg border border-brand-secondary/40 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
+            className="inline-flex items-center rounded-lg border border-brand-secondary/40 bg-brand-surface px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
           >
             {disconnecting ? "Disconnecting…" : "Disconnect"}
           </button>
           <button
             type="button"
             onClick={() => connect(activeMode || MODES.WEBHOOKS)}
-            className="inline-flex items-center rounded-lg border border-brand-secondary/40 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
+            className="inline-flex items-center rounded-lg border border-brand-secondary/40 bg-brand-surface px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
           >
             Reconnect
           </button>
