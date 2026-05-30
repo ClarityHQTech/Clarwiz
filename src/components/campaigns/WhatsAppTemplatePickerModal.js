@@ -105,14 +105,14 @@ export default function WhatsAppTemplatePickerModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
       <ModalOverlay backdropFilter="blur(4px)" />
-      <ModalContent mx={3} maxH="88vh" borderRadius="xl">
-        <ModalHeader borderBottomWidth="1px" py={4} pr={12}>
+      <ModalContent mx={3} maxH="88vh" borderRadius="xl" className="!bg-brand-surface">
+        <ModalHeader borderBottomWidth="1px" py={4} pr={12} className="!bg-brand-surface">
           <p className="text-base font-semibold text-brand-ink">{title}</p>
           <p className="text-xs font-normal text-brand-stone mt-0.5">{description}</p>
         </ModalHeader>
         <ModalCloseButton />
 
-        <ModalBody py={4} px={{ base: 4, md: 5 }}>
+        <ModalBody py={4} px={{ base: 4, md: 5 }} className="!bg-brand-surface">
           <div className="flex items-center justify-between gap-2 mb-3">
             <p className="text-xs text-brand-stone">
               {availableTemplates.length} available
@@ -158,7 +158,7 @@ export default function WhatsAppTemplatePickerModal({
                 const checked = selectedKeys.has(key);
                 const expanded = expandedKey === key;
                 return (
-                  <li key={key} className="text-sm bg-white">
+                  <li key={key} className="text-sm bg-brand-surface">
                     <div className="flex items-start gap-3 px-4 py-3 hover:bg-brand-bg/60">
                       <Checkbox
                         mt={0.5}
@@ -204,7 +204,7 @@ export default function WhatsAppTemplatePickerModal({
           )}
         </ModalBody>
 
-        <ModalFooter borderTopWidth="1px" gap={2}>
+        <ModalFooter borderTopWidth="1px" gap={2} className="!bg-brand-surface">
           <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>

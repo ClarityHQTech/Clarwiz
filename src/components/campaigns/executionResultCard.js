@@ -24,7 +24,7 @@ export function ResultCard({ result }) {
   }
 
   return (
-    <div className="rounded-lg border border-brand-secondary/30 bg-white px-3 py-2.5 text-sm space-y-1.5">
+    <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface px-3 py-2.5 text-sm space-y-1.5">
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium text-brand-ink">{result.prospectName}</p>
         <span className="shrink-0 text-xs rounded-md bg-brand-sage/15 text-brand-ink px-2 py-0.5">

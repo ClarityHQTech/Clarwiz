@@ -30,7 +30,8 @@ export const ui = {
   miniStat: "rounded-md bg-brand-surface border border-brand-secondary/15 px-3 py-2",
   tableWrap: "rounded-xl border border-brand-secondary/30 bg-brand-surface overflow-hidden shadow-sm",
   tableCellMetric: "px-4 py-3 text-right text-brand-ink tabular-nums",
-  tableHead: "border-b border-brand-secondary/25 bg-brand-bg/60",
+  tableHead: "border-b border-brand-secondary/25 bg-brand-surface",
+  tableToolbar: "border-b border-brand-secondary/25 bg-brand-surface",
   tableHeadCell:
     "text-left text-xs font-medium text-brand-stone uppercase tracking-wider px-4 py-3",
   tableRowHover: "cursor-pointer hover:bg-brand-sage/10 transition-colors",
@@ -39,11 +40,15 @@ export const ui = {
     "inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-dark px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-ink transition-colors disabled:opacity-50",
   btnSecondary:
     "inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-secondary/50 bg-white px-3.5 py-2 text-sm font-medium text-brand-ink hover:bg-brand-bg transition-colors disabled:opacity-50",
+  btnSecondarySurface:
+    "inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-secondary/50 bg-brand-surface px-3.5 py-2 text-sm font-medium text-brand-ink hover:bg-brand-bg transition-colors disabled:opacity-50",
   btnGhost:
     "text-sm font-medium text-brand-terracotta hover:text-brand-ink transition-colors",
   link: "text-sm font-medium text-brand-terracotta hover:text-brand-ink transition-colors",
   input:
     "text-sm rounded-lg border border-brand-secondary/40 bg-white px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-brand-sage/40 focus:border-brand-sage",
+  inputSurface:
+    "text-sm rounded-lg border border-brand-secondary/40 bg-brand-surface px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-brand-sage/40 focus:border-brand-sage",
   progressTrack: "h-2 rounded-full bg-brand-bg overflow-hidden",
   progressBar: "h-full rounded-full bg-brand-sage transition-all duration-500",
   badgeHighlight: "inline-flex rounded-full bg-brand-sage/25 px-2 py-0.5 text-xs font-medium text-brand-ink",

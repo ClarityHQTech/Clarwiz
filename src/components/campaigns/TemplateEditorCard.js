@@ -60,7 +60,7 @@ export default function TemplateEditorCard({
   }
 
   return (
-    <div className="rounded-lg border border-brand-secondary/30 bg-white p-4 space-y-3">
+    <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 flex-wrap">
           <Field label="Stage">

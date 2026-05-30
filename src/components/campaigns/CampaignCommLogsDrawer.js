@@ -33,7 +33,7 @@ function CommLogCard({ log }) {
   const tokens = log.providerUsage?.total_tokens;
 
   return (
-    <article className="rounded-lg border border-brand-secondary/30 bg-white p-3 text-sm space-y-2">
+    <article className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-3 text-sm space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-medium text-brand-ink truncate">
@@ -113,15 +113,15 @@ export default function CampaignCommLogsDrawer({
   return (
     <Drawer placement="right" size="md" isOpen={isOpen} onClose={onClose}>
       <DrawerOverlay />
-      <DrawerContent className="!max-w-[560px]">
+      <DrawerContent className="!max-w-[560px] !bg-brand-surface">
         <DrawerCloseButton />
-        <DrawerHeader className="text-sm font-semibold text-brand-ink border-b">
+        <DrawerHeader className="text-sm font-semibold text-brand-ink border-b !bg-brand-surface">
           Activity log
           <p className="text-xs font-normal text-brand-stone mt-1">
             All communication logs, newest first
           </p>
         </DrawerHeader>
-        <DrawerBody className="px-4 py-4">
+        <DrawerBody className="px-4 py-4 !bg-brand-surface">
           {sorted.length === 0 ? (
             <p className="text-sm text-brand-stone py-8 text-center">
               No activity yet. Run next-best-action to plan outreach.

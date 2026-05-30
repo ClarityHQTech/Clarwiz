@@ -178,8 +178,8 @@ export default function CampaignTemplatesModal({
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="6xl" scrollBehavior="inside">
       <ModalOverlay backdropFilter="blur(4px)" />
-      <ModalContent mx={3} maxH="92vh" borderRadius="xl">
-        <ModalHeader borderBottomWidth="1px" py={4} pr={12}>
+      <ModalContent mx={3} maxH="92vh" borderRadius="xl" className="!bg-brand-surface">
+        <ModalHeader borderBottomWidth="1px" py={4} pr={12} className="!bg-brand-surface">
           <p className="text-base font-semibold text-brand-ink">
             Communication templates
           </p>
@@ -190,7 +190,7 @@ export default function CampaignTemplatesModal({
         </ModalHeader>
         <ModalCloseButton isDisabled={saving} />
 
-        <ModalBody py={5} px={{ base: 4, md: 6 }} className="space-y-5">
+        <ModalBody py={5} px={{ base: 4, md: 6 }} className="space-y-5 !bg-brand-surface">
           <WhatsAppCampaignTemplatesSection
             templates={localTemplates}
             onAddTemplates={saveWhatsAppTemplates}
@@ -208,7 +208,7 @@ export default function CampaignTemplatesModal({
                 key={channel}
                 className="rounded-lg border border-brand-secondary/30 overflow-hidden"
               >
-                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-bg border-b border-brand-secondary/30">
+                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-surface border-b border-brand-secondary/30">
                   <h4 className="text-sm font-semibold text-brand-ink">
                     {CHANNEL_LABELS[channel]}
                     <span className="ml-2 text-xs font-normal text-brand-stone">
@@ -219,14 +219,14 @@ export default function CampaignTemplatesModal({
                   <button
                     type="button"
                     onClick={() => startCreate(channel)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg"
+                    className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-brand-surface px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg"
                   >
                     <HiOutlinePlus className="h-3.5 w-3.5" />
                     New template
                   </button>
                 </div>
 
-                <div className="p-4 space-y-3 bg-white">
+                <div className="p-4 space-y-3 bg-brand-surface">
                   {channelTemplates.length === 0 ? (
                     <p className="text-xs text-brand-steel text-center py-2">
                       No templates for {CHANNEL_LABELS[channel]} yet.
@@ -284,7 +284,7 @@ export default function CampaignTemplatesModal({
           )}
         </ModalBody>
 
-        <ModalFooter borderTopWidth="1px">
+        <ModalFooter borderTopWidth="1px" className="!bg-brand-surface">
           <Button size="sm" variant="outline" onClick={handleClose}>
             Close
           </Button>

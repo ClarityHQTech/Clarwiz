@@ -5,6 +5,8 @@ import CampaignActionsModal from "@/components/campaigns/CampaignActionsModal";
 import ProspectCommThread from "@/components/campaigns/ProspectCommThread";
 import CampaignTemplatesModal from "@/components/campaigns/CampaignTemplatesModal";
 import CampaignCommLogsDrawer from "@/components/campaigns/CampaignCommLogsDrawer";
+import AddProspectModal from "@/components/campaigns/AddProspectModal";
+import ConfirmBox from "@/components/dialog/ConfirmBox";
 import {
   Drawer,
   DrawerBody,
@@ -25,6 +27,7 @@ import {
   HiOutlineBolt,
   HiOutlineArrowPath,
   HiOutlineClipboardDocumentList,
+  HiOutlineTrash,
 } from "react-icons/hi2";
 import { STATUS_STYLES, ui } from "@/lib/brandUi";
 import { toast } from "sonner";
@@ -112,7 +115,18 @@ const Page = () => {
     onOpen: openActivityDrawer,
     onClose: closeActivityDrawer,
   } = useDisclosure();
+  const {
+    isOpen: addProspectModalOpen,
+    onOpen: openAddProspectModal,
+    onClose: closeAddProspectModal,
+  } = useDisclosure();
+  const {
+    isOpen: deleteProspectConfirmOpen,
+    onOpen: openDeleteProspectConfirm,
+    onClose: closeDeleteProspectConfirm,
+  } = useDisclosure();
   const [selectedProspect, setSelectedProspect] = useState(null);
+  const [deleteProspectLoading, setDeleteProspectLoading] = useState(false);
   const [calendlyUrlEdit, setCalendlyUrlEdit] = useState("");
   const [savingCalendlyUrl, setSavingCalendlyUrl] = useState(false);
 
@@ -228,6 +242,28 @@ const Page = () => {
     }
   };
 
+  const deleteProspect = async () => {
+    if (!selectedProspect || !id) return;
+    setDeleteProspectLoading(true);
+    try {
+      const res = await fetch(
+        `/api/campaigns/${id}/prospects/${selectedProspect.id}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete prospect");
+      setCampaign(data);
+      toast.success("Prospect removed.");
+      closeProspectDrawer();
+      setSelectedProspect(null);
+      closeDeleteProspectConfirm();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleteProspectLoading(false);
+    }
+  };
+
   const filteredProspects =
     campaign?.prospects.filter((p) => {
       if (!search.trim()) return true;
@@ -298,7 +334,7 @@ const Page = () => {
               type="button"
               disabled={actionLoading}
               onClick={() => runAction("pause")}
-              className={`${ui.btnSecondary} disabled:opacity-50`}
+              className={`${ui.btnSecondarySurface} disabled:opacity-50`}
             >
               <HiOutlinePause className="h-4 w-4" />
               Pause drip
@@ -320,7 +356,7 @@ const Page = () => {
           <button
             type="button"
             onClick={openActivityDrawer}
-            className={ui.btnSecondary}
+            className={ui.btnSecondarySurface}
           >
             <HiOutlineClipboardDocumentList className="h-4 w-4" />
             Activity log
@@ -340,7 +376,7 @@ const Page = () => {
                 type="button"
                 disabled={trackLoading || metrics.prospectCount === 0}
                 onClick={trackEngagement}
-                className={`${ui.btnSecondary} disabled:opacity-50`}
+                className={`${ui.btnSecondarySurface} disabled:opacity-50`}
               >
                 <HiOutlineArrowPath className="h-4 w-4" />
                 {trackLoading ? "Tracking…" : "Track engagement"}
@@ -363,7 +399,7 @@ const Page = () => {
         </div>
       )}
 
-      <div className={`${ui.card} px-4 py-3 flex flex-col sm:flex-row sm:items-end gap-3`}>
+      <div className={`${ui.cardSurface} px-4 py-3 flex flex-col sm:flex-row sm:items-end gap-3`}>
         <div className="flex-1 min-w-0">
           <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
             Calendly booking URL
@@ -373,7 +409,7 @@ const Page = () => {
             value={calendlyUrlEdit}
             onChange={(e) => setCalendlyUrlEdit(e.target.value)}
             placeholder="https://calendly.com/…"
-            className={ui.input}
+            className={ui.inputSurface}
           />
         </div>
         <button
@@ -438,7 +474,7 @@ const Page = () => {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className={`lg:col-span-2 ${ui.card} p-4 space-y-4`}>
+        <div className={`lg:col-span-2 ${ui.cardSurface} p-4 space-y-4`}>
           <h2 className={`${ui.titleSm} text-base`}>Progress</h2>
           <ProgressBar label="Outreach sent" percent={progress.sentPercent} />
           <div className="grid sm:grid-cols-3 gap-3 pt-1">
@@ -479,13 +515,13 @@ const Page = () => {
           </div>
         </div>
 
-        <div className={`${ui.card} p-4`}>
+        <div className={`${ui.cardSurface} p-4`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className={`${ui.titleSm} text-base`}>Comm templates</h2>
             <button
               type="button"
               onClick={openTemplatesModal}
-              className={`${ui.btnSecondary} px-2 py-1 text-xs`}
+              className={`${ui.btnSecondarySurface} px-2 py-1 text-xs`}
             >
               <HiOutlinePlus className="h-3.5 w-3.5" />
               Manage
@@ -522,7 +558,7 @@ const Page = () => {
       </div>
 
       <div className={ui.tableWrap}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-brand-secondary/25 bg-brand-bg/60">
+        <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 ${ui.tableToolbar}`}>
           <div>
             <h2 className={`${ui.titleSm} text-base`}>
               Prospects ({campaign.prospects.length})
@@ -531,13 +567,23 @@ const Page = () => {
               Click a prospect to view details and conversations (drawer)
             </p>
           </div>
-          <input
-            type="search"
-            placeholder="Search name, company, email…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={`${ui.input} sm:w-64`}
-          />
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={openAddProspectModal}
+              className={ui.btnSecondarySurface}
+            >
+              <HiOutlinePlus className="h-4 w-4" />
+              Add prospect
+            </button>
+            <input
+              type="search"
+              placeholder="Search name, company, email…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`${ui.inputSurface} sm:w-64`}
+            />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
@@ -634,18 +680,18 @@ const Page = () => {
         }}
       >
         <DrawerOverlay />
-        <DrawerContent className="!max-w-[520px]">
+        <DrawerContent className="!max-w-[520px] !bg-brand-surface">
           <DrawerCloseButton />
-          <DrawerHeader className={`${ui.titleSm} text-base`}>
+          <DrawerHeader className={`${ui.titleSm} text-base !bg-brand-surface`}>
             {selectedProspect?.name ?? "Prospect"}
           </DrawerHeader>
 
-          <DrawerBody className="px-4 pb-6 bg-brand-bg">
+          <DrawerBody className="px-4 pb-6 !bg-brand-surface">
             {!selectedProspect ? (
               <p className={ui.body}>No prospect selected.</p>
             ) : (
               <div className="space-y-5">
-                <div className={`${ui.card} p-4`}>
+                <div className={`${ui.cardSurface} p-4`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-brand-ink truncate">
@@ -715,11 +761,37 @@ const Page = () => {
                     communications={selectedProspect.communications}
                   />
                 </div>
+
+                <div className="pt-2 border-t border-brand-secondary/25">
+                  <button
+                    type="button"
+                    onClick={openDeleteProspectConfirm}
+                    disabled={deleteProspectLoading}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-800 disabled:opacity-50"
+                  >
+                    <HiOutlineTrash className="h-4 w-4" />
+                    Delete prospect
+                  </button>
+                </div>
               </div>
             )}
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+
+      <AddProspectModal
+        isOpen={addProspectModalOpen}
+        onClose={closeAddProspectModal}
+        campaignId={campaign.id}
+        onAdded={setCampaign}
+      />
+
+      <ConfirmBox
+        isOpen={deleteProspectConfirmOpen}
+        onClose={closeDeleteProspectConfirm}
+        action="Delete prospect"
+        handler={deleteProspect}
+      />
 
       <CampaignTemplatesModal
         isOpen={templatesModalOpen}

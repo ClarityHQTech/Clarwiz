@@ -38,7 +38,7 @@ export default function WhatsAppCampaignTemplatesSection({
             <button
               type="button"
               onClick={onOpen}
-              className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg shrink-0"
+              className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-brand-surface px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg shrink-0"
             >
               <HiOutlinePlus className="h-3.5 w-3.5" />
               Select templates
@@ -56,7 +56,7 @@ export default function WhatsAppCampaignTemplatesSection({
             channelTemplates.map((t) => (
               <div
                 key={t.id}
-                className="rounded-lg border border-brand-secondary/30 bg-white p-3 text-sm relative group"
+                className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-3 text-sm relative group"
               >
                 <div className="flex justify-between gap-2 items-start">
                   <div className="min-w-0 flex-1">

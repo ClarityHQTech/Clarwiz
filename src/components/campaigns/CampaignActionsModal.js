@@ -129,12 +129,12 @@ export default function CampaignActionsModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="3xl" scrollBehavior="inside">
       <ModalOverlay />
-      <ModalContent maxH="90vh">
-        <ModalHeader className="text-base font-semibold text-brand-ink pr-10">
+      <ModalContent maxH="90vh" className="!bg-brand-surface">
+        <ModalHeader className="text-base font-semibold text-brand-ink pr-10 !bg-brand-surface">
           Campaign actions — {campaignName}
         </ModalHeader>
         <ModalCloseButton />
-        <ModalBody className="space-y-5">
+        <ModalBody className="space-y-5 !bg-brand-surface">
           <p className="text-sm text-brand-stone">
             Run the next-best-action engine using comm history, live signals, and
             tenant ICP context. Outbound messages are sent via your connected
@@ -188,7 +188,7 @@ export default function CampaignActionsModal({
               type="button"
               onClick={trackEngagement}
               disabled={tracking || !prospects?.length}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-secondary/40 bg-white px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-secondary/40 bg-brand-surface px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
             >
               <HiOutlineArrowPath className="h-4 w-4" />
               {tracking ? "Tracking…" : "Track engagement"}
@@ -263,7 +263,7 @@ export default function CampaignActionsModal({
             </div>
           )}
         </ModalBody>
-        <ModalFooter>
+        <ModalFooter className="!bg-brand-surface">
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
