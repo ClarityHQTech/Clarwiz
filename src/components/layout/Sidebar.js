@@ -39,7 +39,7 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 </Link>
                 <button
                     onClick={onToggleCollapse}
-                    className='hidden lg:inline-flex items-center justify-center rounded-md p-1.5 text-gray-100 hover:bg-sky-700/80'
+                    className='hidden lg:inline-flex items-center justify-center rounded-md p-1.5 text-brand-secondary hover:bg-brand-ink/50'
                     aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                     title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
@@ -70,7 +70,7 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 </button>
                 <Link
                     href="/profile"
-                    className={`flex items-center w-full ${collapsed ? 'justify-center p-2.5' : 'gap-2 p-4'} ${params === 'profile' ? 'bg-white text-sky-800 rounded-lg' : 'text-white'}`}
+                    className={`flex items-center w-full ${collapsed ? 'justify-center p-2.5' : 'gap-2 p-4'} ${params === 'profile' ? 'bg-brand-bg text-brand-ink rounded-lg' : 'text-white'}`}
                     title="Profile"
                 >
                     <FaUserCircle size={25} />
@@ -93,7 +93,7 @@ const LinkButton = ({ url = '/', title = 'Home', icon, active, collapsed = false
       title={title}
       className={`relative flex items-center w-full ${
         collapsed ? 'justify-center' : 'gap-4'
-      } ${active ? 'p-2 bg-white text-sky-800 rounded-lg' : 'p-2'}`}
+      } ${active ? 'p-2 bg-brand-bg text-brand-ink rounded-lg' : 'p-2 text-white hover:bg-brand-ink/40'}`}
     >
       {icon}
       {!collapsed && title}

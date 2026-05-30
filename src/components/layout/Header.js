@@ -54,21 +54,16 @@ const Header = () => {
         transition-all duration-300
         ${
           scrolled
-            ? "bg-white/80 backdrop-blur-md shadow-md"
+            ? "bg-brand-bg/90 backdrop-blur-md shadow-sm border-b border-brand-secondary/20"
             : "bg-transparent"
         }
       `}
     >
       <div className="flex gap-16 items-center">
-        <Link className='flex gap-2 items-center' href="/">
-          <img src='/logo.svg' className='h-8'/>
-          <h1
-            className={`
-              font-bold text-xl transition-colors duration-300
-              ${scrolled ? "text-sky-700" : "text-sky-700"}
-            `}
-          >
-            ClarWiz
+          <Link className='flex gap-2 items-center' href="/">
+          <img src='/logo.svg' className='h-8' alt="ClarityHQ"/>
+          <h1 className="font-serif font-semibold text-xl text-brand-ink transition-colors duration-300">
+            ClarityHQ
           </h1>
         </Link>
       </div>
@@ -76,7 +71,7 @@ const Header = () => {
       <div
         className={`
           flex items-center gap-8 transition-colors duration-300
-          ${scrolled ? "text-gray-800" : "text-gray-800"}
+          text-brand-stone
         `}
       >
         <button onClick={contact.onOpen}>Contact Us</button>
@@ -88,11 +83,7 @@ const Header = () => {
               onClick={()=> signIn('google', {callbackUrl:"/dashboard"})}
               className={`
                 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-1000
-                ${
-                  scrolled
-                    ? "bg-gray-700 text-white hover:bg-gray-800"
-                    : "bg-gray-200 text-gray-900 hover:bg-gray-200"
-                }
+                bg-brand-dark text-white hover:bg-brand-ink
               `}
             >
               Get Started
@@ -101,7 +92,7 @@ const Header = () => {
         ) : (
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-tr from-sky-800 to-sky-300 text-white text-sm font-semibold"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-dark text-white text-sm font-semibold hover:bg-brand-ink transition-colors"
           >
             Dashboard
           </Link>

@@ -27,13 +27,13 @@ function DashboardShell({ children }) {
 
   if (user?.needsTenantSelection && !canAccessTenantSetup) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="h-screen flex items-center justify-center bg-brand-bg p-6">
         <div className="max-w-lg w-full space-y-4">
-          <div className="rounded-lg border border-gray-200 bg-white p-6 text-center">
-            <h1 className="text-lg font-semibold text-gray-900">
+          <div className="rounded-xl border border-brand-secondary/30 bg-white p-6 text-center">
+            <h1 className="font-serif text-lg font-semibold text-brand-ink">
               Select a workspace
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-brand-stone">
               {user?.memberships?.length
                 ? "Choose a workspace below to continue."
                 : "Create your first workspace to get started."}
@@ -41,14 +41,14 @@ function DashboardShell({ children }) {
             {!user?.memberships?.length ? (
               <Link
                 href={user?.isSuperadmin ? "/admin/manage" : "/profile"}
-                className="mt-5 inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+                className="mt-5 inline-flex items-center justify-center rounded-lg bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-ink"
               >
                 {user?.isSuperadmin ? "Manage tenants" : "Go to profile"}
               </Link>
             ) : (
               <Link
                 href="/profile"
-                className="mt-5 inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+                className="mt-5 inline-flex items-center justify-center rounded-lg bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-ink"
               >
                 Go to profile
               </Link>
@@ -70,7 +70,7 @@ function DashboardShell({ children }) {
   return (
     <div className="h-screen flex overflow-hidden">
       <div
-        className={`bg-sky-800 sticky top-0 h-screen overflow-y-auto border hidden lg:block no-scrollbar transition-all duration-300 ${
+        className={`bg-brand-dark sticky top-0 h-screen overflow-y-auto border hidden lg:block no-scrollbar transition-all duration-300 ${
           sidebarCollapsed ? "lg:w-20" : "lg:w-64"
         }`}
       >
@@ -84,21 +84,21 @@ function DashboardShell({ children }) {
         <MobileDashMenu />
       </div>
 
-      <div className="flex-1 overflow-y-auto h-screen">
+      <div className="flex-1 overflow-y-auto h-screen bg-brand-bg">
         {canAccessCurrentPage ? (
           children
         ) : (
-          <div className="h-full flex items-center justify-center bg-gray-50 p-6">
-            <div className="max-w-md w-full rounded-lg border border-gray-200 bg-white p-6 text-center">
-              <h1 className="text-lg font-semibold text-gray-900">
+          <div className="h-full flex items-center justify-center bg-brand-bg p-6">
+            <div className="max-w-md w-full rounded-xl border border-brand-secondary/30 bg-white p-6 text-center">
+              <h1 className="font-serif text-lg font-semibold text-brand-ink">
                 You don&apos;t have access to this.
               </h1>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-brand-stone">
                 This workspace does not have an active subscription.
               </p>
               <Link
                 href="/pricing"
-                className="mt-5 inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+                className="mt-5 inline-flex items-center justify-center rounded-lg bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-ink"
               >
                 Go to pricing
               </Link>

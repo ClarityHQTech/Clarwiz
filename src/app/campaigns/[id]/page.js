@@ -26,14 +26,8 @@ import {
   HiOutlineArrowPath,
   HiOutlineClipboardDocumentList,
 } from "react-icons/hi2";
+import { STATUS_STYLES, ui } from "@/lib/brandUi";
 import { toast } from "sonner";
-
-const STATUS_STYLES = {
-  active: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  paused: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  draft: "bg-gray-100 text-gray-600 ring-gray-500/10",
-  completed: "bg-sky-50 text-sky-700 ring-sky-600/20",
-};
 
 function formatDate(iso) {
   if (!iso) return "—";
@@ -62,26 +56,16 @@ function StatusBadge({ status }) {
 function MetricCard({ label, value, sub, highlight }) {
   return (
     <div
-      className={`rounded-lg border px-4 py-3 ${
-        highlight
-          ? "border-emerald-200 bg-emerald-50/50"
-          : "border-gray-200 bg-white"
+      className={`${ui.statCard} ${
+        highlight ? "border-brand-sage/50 bg-brand-sage/10" : ""
       }`}
     >
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-        {label}
-      </p>
-      <p
-        className={`mt-1 text-xl font-semibold tabular-nums ${
-          highlight ? "text-emerald-800" : "text-gray-900"
-        }`}
-      >
+      <p className={ui.label}>{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums text-brand-ink font-serif">
         {value}
       </p>
       {sub && (
-        <p
-          className={`text-xs mt-0.5 ${highlight ? "text-emerald-700/80" : "text-gray-400"}`}
-        >
+        <p className={`text-xs mt-0.5 ${highlight ? "text-brand-stone" : "text-brand-steel"}`}>
           {sub}
         </p>
       )}
@@ -93,14 +77,11 @@ function ProgressBar({ percent, label }) {
   return (
     <div>
       <div className="flex justify-between text-xs mb-1">
-        <span className="text-gray-600">{label}</span>
-        <span className="font-medium text-gray-900 tabular-nums">{percent}%</span>
+        <span className="text-brand-stone">{label}</span>
+        <span className="font-medium text-brand-ink tabular-nums">{percent}%</span>
       </div>
-      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-sky-600 to-cyan-500 transition-all duration-500"
-          style={{ width: `${percent}%` }}
-        />
+      <div className={ui.progressTrack}>
+        <div className={ui.progressBar} style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
@@ -258,23 +239,20 @@ const Page = () => {
 
   if (loading) {
     return (
-      <div className="p-5 lg:p-7">
-        <p className="text-sm text-gray-500">Loading campaign…</p>
+      <div className={`${ui.page} ${ui.container}`}>
+        <p className={ui.body}>Loading campaign…</p>
       </div>
     );
   }
 
   if (!campaign) {
     return (
-      <div className="p-5 lg:p-7">
-        <Link
-          href="/campaigns"
-          className="inline-flex items-center gap-1 text-sm text-sky-700 hover:text-sky-800"
-        >
+      <div className={`${ui.page} ${ui.container}`}>
+        <Link href="/campaigns" className={`inline-flex items-center gap-1 ${ui.link}`}>
           <HiOutlineArrowLeft className="h-4 w-4" />
           Back to campaigns
         </Link>
-        <p className="mt-6 text-sm text-gray-600">Campaign not found.</p>
+        <p className="mt-6 text-sm text-brand-stone">Campaign not found.</p>
       </div>
     );
   }
@@ -289,11 +267,8 @@ const Page = () => {
   const isRunning = campaign.status === "active";
 
   return (
-    <div className="p-5 lg:p-7 max-w-[1400px] space-y-6">
-      <Link
-        href="/campaigns"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-sky-700"
-      >
+    <div className={`${ui.page} ${ui.container} space-y-6`}>
+      <Link href="/campaigns" className={`inline-flex items-center gap-1 ${ui.link}`}>
         <HiOutlineArrowLeft className="h-4 w-4" />
         Campaigns
       </Link>
@@ -301,15 +276,13 @@ const Page = () => {
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg font-semibold text-gray-900 truncate">
-              {campaign.name}
-            </h1>
+            <h1 className={`${ui.titleSm} truncate`}>{campaign.name}</h1>
             <StatusBadge status={campaign.status} />
           </div>
           {campaign.description && (
-            <p className="text-sm text-gray-600 mt-1">{campaign.description}</p>
+            <p className="text-sm text-brand-stone mt-1">{campaign.description}</p>
           )}
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-brand-stone">
             {campaign.targetSegment && (
               <span>Segment: {campaign.targetSegment}</span>
             )}
@@ -325,7 +298,7 @@ const Page = () => {
               type="button"
               disabled={actionLoading}
               onClick={() => runAction("pause")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className={`${ui.btnSecondary} disabled:opacity-50`}
             >
               <HiOutlinePause className="h-4 w-4" />
               Pause drip
@@ -336,7 +309,7 @@ const Page = () => {
               type="button"
               disabled={metrics.prospectCount === 0}
               onClick={() => setExecutionModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+              className={`${ui.btnPrimary} disabled:opacity-50`}
             >
               <HiOutlinePlay className="h-4 w-4" />
               {campaign.status === "paused"
@@ -347,7 +320,7 @@ const Page = () => {
           <button
             type="button"
             onClick={openActivityDrawer}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className={ui.btnSecondary}
           >
             <HiOutlineClipboardDocumentList className="h-4 w-4" />
             Activity log
@@ -358,7 +331,7 @@ const Page = () => {
                 type="button"
                 disabled={runLoading || metrics.prospectCount === 0}
                 onClick={runNextBestAction}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+                className={`${ui.btnPrimary} disabled:opacity-50`}
               >
                 <HiOutlineBolt className="h-4 w-4" />
                 {runLoading ? "Running…" : "Run next-best-action"}
@@ -367,7 +340,7 @@ const Page = () => {
                 type="button"
                 disabled={trackLoading || metrics.prospectCount === 0}
                 onClick={trackEngagement}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className={`${ui.btnSecondary} disabled:opacity-50`}
               >
                 <HiOutlineArrowPath className="h-4 w-4" />
                 {trackLoading ? "Tracking…" : "Track engagement"}
@@ -375,24 +348,24 @@ const Page = () => {
             </>
           )}
           {campaign.status === "completed" && (
-            <span className="text-xs text-gray-500 px-2">Campaign completed</span>
+            <span className="text-xs text-brand-stone px-2">Campaign completed</span>
           )}
         </div>
       </div>
 
       {campaign.calendlyConnected === false && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+        <div className={ui.alertWarn}>
           Connect Calendly in{" "}
-          <Link href="/settings" className="font-medium underline">
+          <Link href="/settings" className="font-medium underline text-brand-ink">
             Settings
           </Link>{" "}
           to auto-qualify prospects when meetings are booked.
         </div>
       )}
 
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row sm:items-end gap-3">
+      <div className={`${ui.card} px-4 py-3 flex flex-col sm:flex-row sm:items-end gap-3`}>
         <div className="flex-1 min-w-0">
-          <label className="block text-xs font-medium text-gray-500 mb-1">
+          <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
             Calendly booking URL
           </label>
           <input
@@ -400,33 +373,33 @@ const Page = () => {
             value={calendlyUrlEdit}
             onChange={(e) => setCalendlyUrlEdit(e.target.value)}
             placeholder="https://calendly.com/…"
-            className="w-full text-sm rounded-lg border border-gray-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+            className={ui.input}
           />
         </div>
         <button
           type="button"
           disabled={savingCalendlyUrl}
           onClick={saveCalendlyUrl}
-          className="shrink-0 rounded-lg bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+          className={`shrink-0 ${ui.btnPrimary} disabled:opacity-50`}
         >
           {savingCalendlyUrl ? "Saving…" : "Save URL"}
         </button>
       </div>
 
       {isRunning && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 space-y-1">
+        <div className={`${ui.alertInfo} space-y-1`}>
           <p>
             Campaign is active. Use Run next-best-action to send outreach and Track
             engagement to sync replies, opens, and connection accepts into comm logs.
           </p>
           {whatsappTemplates.length > 0 ? (
-            <p className="text-xs text-emerald-900/90">
+            <p className="text-xs text-brand-stone">
               WhatsApp execution uses {whatsappTemplates.length} campaign template
               {whatsappTemplates.length === 1 ? "" : "s"}:{" "}
               {whatsappTemplates.map((t) => t.whatsappTemplateId).join(", ")}.
             </p>
           ) : (
-            <p className="text-xs text-amber-800">
+            <p className="text-xs text-brand-ink/80">
               No WhatsApp templates selected — add them via Manage under Comm templates
               before running WhatsApp outreach.
             </p>
@@ -465,25 +438,25 @@ const Page = () => {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-white p-4 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-900">Progress</h2>
+        <div className={`lg:col-span-2 ${ui.card} p-4 space-y-4`}>
+          <h2 className={`${ui.titleSm} text-base`}>Progress</h2>
           <ProgressBar label="Outreach sent" percent={progress.sentPercent} />
           <div className="grid sm:grid-cols-3 gap-3 pt-1">
-            <div className="rounded-md bg-gray-50 px-3 py-2">
-              <p className="text-xs text-gray-500">Templates</p>
-              <p className="text-sm font-semibold text-gray-900">
+            <div className="rounded-md bg-brand-bg px-3 py-2">
+              <p className="text-xs text-brand-stone">Templates</p>
+              <p className="text-sm font-semibold text-brand-ink">
                 {progress.templateCount}
               </p>
             </div>
-            <div className="rounded-md bg-gray-50 px-3 py-2">
-              <p className="text-xs text-gray-500">Max stage</p>
-              <p className="text-sm font-semibold text-gray-900">
+            <div className="rounded-md bg-brand-bg px-3 py-2">
+              <p className="text-xs text-brand-stone">Max stage</p>
+              <p className="text-sm font-semibold text-brand-ink">
                 {progress.maxStage || "—"}
               </p>
             </div>
-            <div className="rounded-md bg-gray-50 px-3 py-2">
-              <p className="text-xs text-gray-500">Channels</p>
-              <p className="text-sm font-semibold text-gray-900 truncate">
+            <div className="rounded-md bg-brand-bg px-3 py-2">
+              <p className="text-xs text-brand-stone">Channels</p>
+              <p className="text-sm font-semibold text-brand-ink truncate">
                 {progress.channelsConfigured.length
                   ? progress.channelsConfigured.join(", ")
                   : "None"}
@@ -496,8 +469,8 @@ const Page = () => {
                 key={s}
                 className={`rounded-full px-2.5 py-0.5 text-xs capitalize ${
                   campaign.status === s
-                    ? "bg-sky-100 text-sky-800 font-medium"
-                    : "bg-gray-100 text-gray-400"
+                    ? "bg-brand-sage/30 text-brand-ink font-medium"
+                    : "bg-brand-bg text-brand-steel"
                 }`}
               >
                 {s}
@@ -506,42 +479,40 @@ const Page = () => {
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className={`${ui.card} p-4`}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-900">
-              Comm templates
-            </h2>
+            <h2 className={`${ui.titleSm} text-base`}>Comm templates</h2>
             <button
               type="button"
               onClick={openTemplatesModal}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              className={`${ui.btnSecondary} px-2 py-1 text-xs`}
             >
               <HiOutlinePlus className="h-3.5 w-3.5" />
               Manage
             </button>
           </div>
           {campaign.templates.length === 0 ? (
-            <p className="text-xs text-gray-500">No templates configured yet.</p>
+            <p className="text-xs text-brand-stone">No templates configured yet.</p>
           ) : (
             <ul className="space-y-2 max-h-48 overflow-y-auto">
               {campaign.templates.map((t) => (
                 <li
                   key={t.id}
-                  className="text-xs border-b border-gray-50 pb-2 last:border-0 last:pb-0"
+                  className="text-xs border-b border-brand-secondary/15 pb-2 last:border-0 last:pb-0"
                 >
-                  <span className="font-medium text-gray-800">
+                  <span className="font-medium text-brand-ink">
                     {t.channelLabel} · S{t.stage}
                   </span>
                   {t.channel === "whatsapp" && t.whatsappTemplateId && (
-                    <p className="text-gray-600 truncate mt-0.5">
+                    <p className="text-brand-stone truncate mt-0.5">
                       {t.whatsappTemplateId}
                     </p>
                   )}
                   {t.subject && (
-                    <p className="text-gray-500 truncate">{t.subject}</p>
+                    <p className="text-brand-stone truncate">{t.subject}</p>
                   )}
                   {t.channel !== "whatsapp" && (
-                    <p className="text-gray-400">{t.ctaLabel}</p>
+                    <p className="text-brand-steel">{t.ctaLabel}</p>
                   )}
                 </li>
               ))}
@@ -550,13 +521,13 @@ const Page = () => {
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50/80">
+      <div className={ui.tableWrap}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-brand-secondary/25 bg-brand-bg/60">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">
+            <h2 className={`${ui.titleSm} text-base`}>
               Prospects ({campaign.prospects.length})
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-brand-stone mt-0.5">
               Click a prospect to view details and conversations (drawer)
             </p>
           </div>
@@ -565,42 +536,28 @@ const Page = () => {
             placeholder="Search name, company, email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="text-sm rounded-lg border border-gray-300 px-3 py-1.5 w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+            className={`${ui.input} sm:w-64`}
           />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-white">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Name
-                </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Company
-                </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Job title
-                </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Email
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Msgs
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Reply
-                </th>
-                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider px-4 py-2.5">
-                  Qualified
-                </th>
+              <tr className={ui.tableHead}>
+                <th className={`${ui.tableHeadCell} py-2.5`}>Name</th>
+                <th className={`${ui.tableHeadCell} py-2.5`}>Company</th>
+                <th className={`${ui.tableHeadCell} py-2.5`}>Job title</th>
+                <th className={`${ui.tableHeadCell} py-2.5`}>Email</th>
+                <th className={`${ui.tableHeadCell} text-center py-2.5`}>Msgs</th>
+                <th className={`${ui.tableHeadCell} text-center py-2.5`}>Reply</th>
+                <th className={`${ui.tableHeadCell} text-center py-2.5`}>Qualified</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className={ui.divider}>
               {filteredProspects.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-8 text-center text-sm text-gray-500"
+                    className="px-4 py-8 text-center text-sm text-brand-stone"
                   >
                     {search ? "No prospects match your search." : "No prospects."}
                   </td>
@@ -613,23 +570,23 @@ const Page = () => {
                       setSelectedProspect(p);
                       openProspectDrawer();
                     }}
-                    className="cursor-pointer transition-colors hover:bg-gray-50/80"
+                    className={`${ui.tableRowHover} hover:bg-brand-sage/10`}
                   >
-                    <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">
+                    <td className="px-4 py-2.5 font-medium text-brand-ink whitespace-nowrap">
                       {p.name}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">
+                    <td className="px-4 py-2.5 text-brand-stone">
                       {p.company || "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">
+                    <td className="px-4 py-2.5 text-brand-stone">
                       {p.jobTitle || "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">
+                    <td className="px-4 py-2.5 text-brand-stone">
                       {p.email ? (
                         <a
                           href={`mailto:${p.email}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-sky-700 hover:underline"
+                          className="text-brand-terracotta hover:underline"
                         >
                           {p.email}
                         </a>
@@ -637,28 +594,26 @@ const Page = () => {
                         "—"
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-center text-gray-600 tabular-nums">
+                    <td className="px-4 py-2.5 text-center text-brand-stone tabular-nums">
                       {p.messageCount}
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       {p.hasReply ? (
-                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                          Yes
-                        </span>
+                        <span className={ui.badgeHighlight}>Yes</span>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-brand-steel">—</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       {p.isQualified ? (
                         <span
-                          className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800"
+                          className={ui.badgeQualified}
                           title={p.qualifiedReason ?? ""}
                         >
                           Yes
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400">—</span>
+                        <span className="text-xs text-brand-steel">—</span>
                       )}
                     </td>
                   </tr>
@@ -681,50 +636,46 @@ const Page = () => {
         <DrawerOverlay />
         <DrawerContent className="!max-w-[520px]">
           <DrawerCloseButton />
-          <DrawerHeader className="text-sm font-semibold text-gray-900">
+          <DrawerHeader className={`${ui.titleSm} text-base`}>
             {selectedProspect?.name ?? "Prospect"}
           </DrawerHeader>
 
-          <DrawerBody className="px-4 pb-6">
+          <DrawerBody className="px-4 pb-6 bg-brand-bg">
             {!selectedProspect ? (
-              <p className="text-sm text-gray-500">No prospect selected.</p>
+              <p className={ui.body}>No prospect selected.</p>
             ) : (
               <div className="space-y-5">
-                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className={`${ui.card} p-4`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-brand-ink truncate">
                         {selectedProspect.company || "—"}
                       </p>
-                      <p className="text-xs mt-1 text-gray-500 truncate">
+                      <p className="text-xs mt-1 text-brand-stone truncate">
                         {selectedProspect.jobTitle || "—"}
                       </p>
                     </div>
-                    <div className="text-xs text-gray-600 text-right whitespace-nowrap">
-                      <p className="font-medium text-gray-900">{selectedProspect.messageCount} msgs</p>
+                    <div className="text-xs text-brand-stone text-right whitespace-nowrap">
+                      <p className="font-medium text-brand-ink">{selectedProspect.messageCount} msgs</p>
                       <p className="mt-1">
                         {selectedProspect.isQualified ? (
-                          <span className="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
-                            Qualified
-                          </span>
+                          <span className={ui.badgeQualified}>Qualified</span>
                         ) : selectedProspect.hasReply ? (
-                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                            Reply received
-                          </span>
+                          <span className={ui.badgeHighlight}>Reply received</span>
                         ) : (
-                          <span className="text-xs text-gray-400">No reply yet</span>
+                          <span className="text-xs text-brand-steel">No reply yet</span>
                         )}
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
+                  <div className="mt-4 grid sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-brand-stone">
                     <p className="truncate">
-                      <span className="font-medium text-gray-700">Email:</span>{" "}
+                      <span className="font-medium text-brand-ink">Email:</span>{" "}
                       {selectedProspect.email ? (
                         <a
                           href={`mailto:${selectedProspect.email}`}
-                          className="text-sky-700 hover:underline"
+                          className="text-brand-terracotta hover:underline"
                         >
                           {selectedProspect.email}
                         </a>
@@ -733,21 +684,21 @@ const Page = () => {
                       )}
                     </p>
                     <p className="truncate">
-                      <span className="font-medium text-gray-700">Phone:</span>{" "}
+                      <span className="font-medium text-brand-ink">Phone:</span>{" "}
                       {selectedProspect.phone || "—"}
                     </p>
                     <p className="truncate">
-                      <span className="font-medium text-gray-700">WhatsApp:</span>{" "}
+                      <span className="font-medium text-brand-ink">WhatsApp:</span>{" "}
                       {selectedProspect.whatsapp || "—"}
                     </p>
                     <p className="truncate">
-                      <span className="font-medium text-gray-700">LinkedIn:</span>{" "}
+                      <span className="font-medium text-brand-ink">LinkedIn:</span>{" "}
                       {selectedProspect.linkedinUrl ? (
                         <a
                           href={selectedProspect.linkedinUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sky-700 hover:underline"
+                          className="text-brand-terracotta hover:underline"
                         >
                           Profile
                         </a>
@@ -759,9 +710,7 @@ const Page = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Conversations
-                  </p>
+                  <p className={ui.label}>Conversations</p>
                   <ProspectCommThread
                     communications={selectedProspect.communications}
                   />

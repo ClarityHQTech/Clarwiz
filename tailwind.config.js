@@ -10,6 +10,21 @@ module.exports = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        brand: {
+          bg: "#F5F5F0",
+          ink: "#1A1410",
+          stone: "#6B5C4E",
+          dark: "#1C1C1C",
+          secondary: "#B8A68A",
+          steel: "#8B9A9C",
+          sage: "#A8B5A0",
+          terracotta: "#D4A59A",
+          gold: "#D4AF37",
+        },
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", "Inter", "system-ui", "sans-serif"],
+        serif: ["var(--font-serif)", "Georgia", "serif"],
       },
     },
   },
