@@ -130,12 +130,12 @@ export default function CampaignActionsModal({
     <Modal isOpen={isOpen} onClose={onClose} size="3xl" scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent maxH="90vh">
-        <ModalHeader className="text-base font-semibold text-gray-900 pr-10">
+        <ModalHeader className="text-base font-semibold text-brand-ink pr-10">
           Campaign actions — {campaignName}
         </ModalHeader>
         <ModalCloseButton />
         <ModalBody className="space-y-5">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-brand-stone">
             Run the next-best-action engine using comm history, live signals, and
             tenant ICP context. Outbound messages are sent via your connected
             channels (Smartlead, LinkedIn, WhatsApp). Track engagement to sync
@@ -143,22 +143,22 @@ export default function CampaignActionsModal({
           </p>
 
           {whatsappTemplates.length > 0 ? (
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-xs text-emerald-900">
+            <div className="rounded-lg border border-brand-sage/30 bg-brand-sage/15 px-3 py-2 text-xs text-brand-ink">
               <p className="font-medium">WhatsApp templates for this campaign</p>
-              <ul className="mt-1 space-y-0.5 list-disc list-inside text-emerald-800/90">
+              <ul className="mt-1 space-y-0.5 list-disc list-inside text-brand-ink/90">
                 {whatsappTemplates.map((t) => (
                   <li key={t.id}>
                     S{t.stage}: {t.whatsappTemplateId}
                   </li>
                 ))}
               </ul>
-              <p className="mt-1.5 text-emerald-800/80">
+              <p className="mt-1.5 text-brand-ink/80">
                 Execution only sends templates selected above — not your full
                 provider catalog.
               </p>
             </div>
           ) : (
-            <p className="text-xs text-amber-800 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+            <p className="text-xs text-brand-ink rounded-lg border border-brand-terracotta/30 bg-brand-terracotta/15 px-3 py-2">
               No WhatsApp templates linked to this campaign. Add them from Comm
               templates → Manage before WhatsApp steps can run.
             </p>
@@ -170,7 +170,7 @@ export default function CampaignActionsModal({
                 type="button"
                 onClick={startCampaign}
                 disabled={starting}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-brand-sage bg-brand-sage/20 px-3 py-2 text-sm font-medium text-brand-ink hover:bg-brand-sage/25 disabled:opacity-50"
               >
                 Activate campaign
               </button>
@@ -179,7 +179,7 @@ export default function CampaignActionsModal({
               type="button"
               onClick={runExecution}
               disabled={running || !prospects?.length}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-700 px-3 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-dark px-3 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
             >
               <HiOutlineBolt className="h-4 w-4" />
               {running ? "Running…" : "Run next-best-action"}
@@ -188,7 +188,7 @@ export default function CampaignActionsModal({
               type="button"
               onClick={trackEngagement}
               disabled={tracking || !prospects?.length}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-secondary/40 bg-white px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
             >
               <HiOutlineArrowPath className="h-4 w-4" />
               {tracking ? "Tracking…" : "Track engagement"}
@@ -197,7 +197,7 @@ export default function CampaignActionsModal({
 
           {results.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h3 className="text-sm font-semibold text-brand-ink">
                 Execution results ({results.length})
               </h3>
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -213,10 +213,10 @@ export default function CampaignActionsModal({
 
           {trackResults.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h3 className="text-sm font-semibold text-brand-ink">
                 Tracking results ({trackResults.length})
               </h3>
-              <ul className="text-xs text-gray-700 space-y-1 max-h-40 overflow-y-auto">
+              <ul className="text-xs text-brand-stone space-y-1 max-h-40 overflow-y-auto">
                 {trackResults.map((r, i) => (
                   <li key={`${r.prospectId}-${r.channel}-${i}`}>
                     {r.channel}: {r.activity ?? "no change"}
@@ -229,12 +229,12 @@ export default function CampaignActionsModal({
 
           {commLogs.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h3 className="text-sm font-semibold text-brand-ink">
                 Communication log (recent)
               </h3>
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <div className="overflow-x-auto rounded-lg border border-brand-secondary/30">
                 <table className="w-full text-xs">
-                  <thead className="bg-gray-50 text-gray-500">
+                  <thead className="bg-brand-bg text-brand-stone">
                     <tr>
                       <th className="text-left px-2 py-1.5">Channel</th>
                       <th className="text-left px-2 py-1.5">Stage</th>
@@ -242,7 +242,7 @@ export default function CampaignActionsModal({
                       <th className="text-left px-2 py-1.5">Response</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-brand-secondary/15">
                     {commLogs.map((log) => (
                       <tr key={log.id}>
                         <td className="px-2 py-1.5 whitespace-nowrap">
@@ -250,7 +250,7 @@ export default function CampaignActionsModal({
                         </td>
                         <td className="px-2 py-1.5">S{log.stage ?? "—"}</td>
                         <td className="px-2 py-1.5">{log.status}</td>
-                        <td className="px-2 py-1.5 max-w-[200px] truncate text-violet-700">
+                        <td className="px-2 py-1.5 max-w-[200px] truncate text-brand-ink">
                           {log.responseType
                             ? `${log.responseType}: ${log.responseContent}`
                             : "—"}

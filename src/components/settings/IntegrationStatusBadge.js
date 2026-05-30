@@ -1,12 +1,14 @@
 "use client";
 
 const STYLES = {
-  connected: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  checkpoint_required: "bg-amber-50 text-amber-700 ring-amber-600/20",
+  connected: "bg-brand-sage/20 text-brand-ink ring-brand-sage/40",
+  checkpoint_required:
+    "bg-brand-terracotta/15 text-brand-ink ring-brand-terracotta/40",
   failed: "bg-red-50 text-red-700 ring-red-600/20",
-  pending: "bg-gray-50 text-gray-600 ring-gray-500/20",
-  not_configured: "bg-gray-50 text-gray-600 ring-gray-500/20",
-  coming_soon: "bg-gray-100 text-gray-500 ring-gray-400/30",
+  pending: "bg-brand-bg text-brand-stone ring-brand-steel/30",
+  not_configured: "bg-brand-bg text-brand-stone ring-brand-steel/30",
+  coming_soon: "bg-brand-bg text-brand-stone ring-brand-steel/20",
+  error: "bg-red-50 text-red-700 ring-red-600/20",
 };
 
 const LABELS = {
@@ -16,6 +18,7 @@ const LABELS = {
   pending: "Pending",
   not_configured: "Not configured",
   coming_soon: "Coming soon",
+  error: "Error",
 };
 
 export default function IntegrationStatusBadge({ status }) {
@@ -24,7 +27,7 @@ export default function IntegrationStatusBadge({ status }) {
     <span
       className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${STYLES[key]}`}
     >
-      {LABELS[key]}
+      {LABELS[key] ?? status}
     </span>
   );
 }
@@ -36,11 +39,15 @@ export function getLinkedInDisplayStatus(integration) {
 
 export function getEmailDisplayStatus(integration) {
   if (!integration) return "not_configured";
-  if (integration.mode === "smartlead_inbox" && integration.status === "connected") {
+  if (
+    integration.mode === "smartlead_inbox" &&
+    integration.status === "connected"
+  ) {
     return "connected";
   }
   if (integration.status === "failed") return "failed";
-  if (integration.hasSmartleadAccount || integration.status === "pending") return "pending";
+  if (integration.hasSmartleadAccount || integration.status === "pending")
+    return "pending";
   return "not_configured";
 }
 

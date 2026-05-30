@@ -16,22 +16,22 @@ function formatDateTime(iso) {
 function OutboundBubble({ log }) {
   return (
     <div className="flex justify-start">
-      <div className="max-w-[85%] rounded-lg rounded-tl-sm bg-sky-50 border border-sky-100 px-3 py-2">
+      <div className="max-w-[85%] rounded-lg rounded-tl-sm bg-brand-sage/15 border border-brand-sage/25 px-3 py-2">
         <div className="flex flex-wrap items-center gap-2 mb-1">
-          <span className="text-xs font-medium text-sky-800">
+          <span className="text-xs font-medium text-brand-ink">
             {log.stage != null ? `Stage ${log.stage}` : "Outbound"}
           </span>
-          <span className="text-xs text-sky-600/70 capitalize">{log.status}</span>
-          <span className="text-xs text-gray-400 ml-auto">
+          <span className="text-xs text-brand-steel capitalize">{log.status}</span>
+          <span className="text-xs text-brand-steel ml-auto">
             {formatDateTime(log.sentAt)}
           </span>
         </div>
         {log.subject && (
-          <p className="text-xs font-medium text-gray-800 mb-1">{log.subject}</p>
+          <p className="text-xs font-medium text-brand-ink mb-1">{log.subject}</p>
         )}
-        <p className="text-sm text-gray-800 whitespace-pre-wrap">{log.message}</p>
+        <p className="text-sm text-brand-ink whitespace-pre-wrap">{log.message}</p>
         {log.decisionReason && (
-          <p className="text-xs text-gray-400 mt-1.5 italic">{log.decisionReason}</p>
+          <p className="text-xs text-brand-steel mt-1.5 italic">{log.decisionReason}</p>
         )}
       </div>
     </div>
@@ -41,16 +41,16 @@ function OutboundBubble({ log }) {
 function ReplyBubble({ log }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[85%] rounded-lg rounded-tr-sm bg-emerald-50 border border-emerald-100 px-3 py-2">
+      <div className="max-w-[85%] rounded-lg rounded-tr-sm bg-brand-sage/20 border border-brand-sage/30 px-3 py-2">
         <div className="flex flex-wrap items-center gap-2 mb-1">
-          <span className="text-xs font-medium text-emerald-800 capitalize">
+          <span className="text-xs font-medium text-brand-ink capitalize">
             {log.responseType || "reply"}
           </span>
-          <span className="text-xs text-gray-400 ml-auto">
+          <span className="text-xs text-brand-steel ml-auto">
             {formatDateTime(log.responseAt)}
           </span>
         </div>
-        <p className="text-sm text-gray-800 whitespace-pre-wrap">
+        <p className="text-sm text-brand-ink whitespace-pre-wrap">
           {log.responseContent}
         </p>
       </div>
@@ -61,7 +61,7 @@ function ReplyBubble({ log }) {
 function ChannelThread({ logs }) {
   if (!logs.length) {
     return (
-      <p className="text-sm text-gray-500 py-3 text-center">
+      <p className="text-sm text-brand-stone py-3 text-center">
         No messages on this channel yet.
       </p>
     );
@@ -106,7 +106,7 @@ export default function ProspectCommThread({ communications }) {
 
   if (!communications?.length) {
     return (
-      <p className="text-sm text-gray-500 py-2">
+      <p className="text-sm text-brand-stone py-2">
         No messages yet. Run execution to plan outreach for this prospect.
       </p>
     );
@@ -116,7 +116,7 @@ export default function ProspectCommThread({ communications }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-3">
+      <div className="flex flex-wrap gap-1 border-b border-brand-secondary/30 mb-3">
         {tabs.map((ch) => {
           const count = byChannel[ch]?.length ?? 0;
           const active = activeTab === ch;
@@ -127,15 +127,15 @@ export default function ProspectCommThread({ communications }) {
               onClick={() => setActiveTab(ch)}
               className={`px-3 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors ${
                 active
-                  ? "border-sky-600 text-sky-800"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-brand-sage text-brand-ink"
+                  : "border-transparent text-brand-stone hover:text-brand-stone"
               }`}
             >
               {CHANNEL_LABELS[ch]}
               {count > 0 && (
                 <span
                   className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${
-                    active ? "bg-sky-100 text-sky-700" : "bg-gray-100 text-gray-500"
+                    active ? "bg-brand-sage/20 text-brand-terracotta" : "bg-brand-bg text-brand-stone"
                   }`}
                 >
                   {count}

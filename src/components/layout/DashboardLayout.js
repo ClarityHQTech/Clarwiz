@@ -80,11 +80,8 @@ function DashboardShell({ children }) {
         />
       </div>
 
-      <div className="lg:hidden">
+      <div className="flex-1 overflow-y-auto h-screen bg-brand-bg relative">
         <MobileDashMenu />
-      </div>
-
-      <div className="flex-1 overflow-y-auto h-screen bg-brand-bg">
         {canAccessCurrentPage ? (
           children
         ) : (

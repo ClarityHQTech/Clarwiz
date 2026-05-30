@@ -42,20 +42,20 @@ function StepStatus({ context, stepId, activeStepId }) {
 
   if (active) {
     return (
-      <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
+      <span className="text-xs font-medium text-brand-ink bg-brand-terracotta/15 px-2 py-0.5 rounded">
         Running…
       </span>
     );
   }
   if (done) {
     return (
-      <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+      <span className="text-xs font-medium text-brand-ink bg-brand-sage/20 px-2 py-0.5 rounded">
         Done
       </span>
     );
   }
   return (
-    <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+    <span className="text-xs font-medium text-brand-steel bg-brand-bg px-2 py-0.5 rounded">
       Pending
     </span>
   );
@@ -66,21 +66,21 @@ function OutputPreview({ title, preview }) {
   if (!preview) return null;
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
+    <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 bg-gray-50/80 px-3 py-2 text-left hover:bg-gray-100/80"
+        className="flex w-full items-center justify-between gap-2 bg-brand-bg/60 px-3 py-2 text-left hover:bg-brand-bg/80"
       >
-        <span className="text-sm font-medium text-gray-800">{title}</span>
+        <span className="text-sm font-medium text-brand-ink">{title}</span>
         {open ? (
-          <HiOutlineChevronDown className="h-4 w-4 text-gray-500" />
+          <HiOutlineChevronDown className="h-4 w-4 text-brand-stone" />
         ) : (
-          <HiOutlineChevronRight className="h-4 w-4 text-gray-500" />
+          <HiOutlineChevronRight className="h-4 w-4 text-brand-stone" />
         )}
       </button>
       {open ? (
-        <pre className="border-t border-gray-200 bg-white p-3 text-xs text-gray-600 whitespace-pre-wrap max-h-64 overflow-y-auto">
+        <pre className="border-t border-brand-secondary/30 bg-white p-3 text-xs text-brand-stone whitespace-pre-wrap max-h-64 overflow-y-auto">
           {preview}
         </pre>
       ) : null}
@@ -248,7 +248,7 @@ export default function IcpContextSection() {
   };
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading ICP context…</p>;
+    return <p className="text-sm text-brand-stone">Loading ICP context…</p>;
   }
 
   const isAnalyzing = context?.status === "analyzing" || analyzing;
@@ -256,12 +256,12 @@ export default function IcpContextSection() {
   return (
     <div className="space-y-6">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-gold/15 text-brand-ink">
           <HiOutlineSparkles className="h-5 w-5" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">ICP & tenant context</h3>
-          <p className="mt-1 text-sm text-gray-500 leading-relaxed">
+          <h3 className="text-sm font-semibold text-brand-ink">ICP & tenant context</h3>
+          <p className="mt-1 text-sm text-brand-stone leading-relaxed">
             Run GTM Core analysis on your company. Results are stored per workspace and
             injected into campaign execution for next-best-action decisions.
           </p>
@@ -270,31 +270,31 @@ export default function IcpContextSection() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm">
-          <span className="font-medium text-gray-700">Company name</span>
+          <span className="font-medium text-brand-stone">Company name</span>
           <input
             type="text"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="Acme Corp"
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+            className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
           />
         </label>
         <label className="block text-sm">
-          <span className="font-medium text-gray-700">Company domain</span>
+          <span className="font-medium text-brand-stone">Company domain</span>
           <input
             type="text"
             value={companyDomain}
             onChange={(e) => setCompanyDomain(e.target.value)}
             placeholder="acme.com"
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+            className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
           />
         </label>
       </div>
 
       <label className="block text-sm">
-        <span className="font-medium text-gray-700">Company knowledge</span>
-        <span className="ml-1 text-gray-400 font-normal">(required)</span>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <span className="font-medium text-brand-stone">Company knowledge</span>
+        <span className="ml-1 text-brand-steel font-normal">(required)</span>
+        <p className="text-xs text-brand-stone mt-0.5">
           Website copy, product docs, CRM notes, or positioning — used by all analysis tools.
         </p>
         <textarea
@@ -302,19 +302,19 @@ export default function IcpContextSection() {
           onChange={(e) => setRelevantData(e.target.value)}
           rows={6}
           placeholder="Paste your company overview, product description, target market, differentiators…"
-          className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+          className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
         />
       </label>
 
       <label className="block text-sm">
-        <span className="font-medium text-gray-700">Focus instruction</span>
-        <span className="ml-1 text-gray-400 font-normal">(optional)</span>
+        <span className="font-medium text-brand-stone">Focus instruction</span>
+        <span className="ml-1 text-brand-steel font-normal">(optional)</span>
         <input
           type="text"
           value={userQuery}
           onChange={(e) => setUserQuery(e.target.value)}
           placeholder="e.g. focus on enterprise SaaS accounts in North America"
-          className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+          className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
         />
       </label>
 
@@ -323,7 +323,7 @@ export default function IcpContextSection() {
           type="button"
           onClick={() => saveInputs()}
           disabled={saving || isAnalyzing}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-lg border border-brand-secondary/30 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save inputs"}
         </button>
@@ -331,13 +331,13 @@ export default function IcpContextSection() {
           type="button"
           onClick={runPipeline}
           disabled={isAnalyzing || extractingSignals || !companyName || !companyDomain || !relevantData}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          className="rounded-lg bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
         >
           {isAnalyzing ? "Running analysis…" : "Run full ICP analysis"}
         </button>
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-brand-stone">
         Full pipeline: ICP gap analysis → market research → value proposition → ICP workbook.
         Each step runs separately and can take up to 10 minutes (market research is often the
         slowest). If a step fails, click again to resume from where it stopped.
@@ -347,9 +347,9 @@ export default function IcpContextSection() {
         {PIPELINE_STEPS.map((step) => (
           <li
             key={step.id}
-            className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2"
+            className="flex items-center justify-between rounded-lg border border-brand-secondary/15 bg-brand-bg/50 px-3 py-2"
           >
-            <span className="text-sm text-gray-700">{step.label}</span>
+            <span className="text-sm text-brand-stone">{step.label}</span>
             <StepStatus
               context={context}
               stepId={step.id}
@@ -360,7 +360,7 @@ export default function IcpContextSection() {
       </ul>
 
       {context?.status === "complete" ? (
-        <p className="text-xs text-emerald-700">
+        <p className="text-xs text-brand-ink">
           Analysis complete
           {context.analyzedAt
             ? ` · ${new Date(context.analyzedAt).toLocaleString()}`
@@ -375,9 +375,9 @@ export default function IcpContextSection() {
         </p>
       ) : null}
 
-      <div className="border-t border-gray-100 pt-6 space-y-3">
-        <h4 className="text-sm font-semibold text-gray-800">Account signal extractor</h4>
-        <p className="text-xs text-gray-500">
+      <div className="border-t border-brand-secondary/15 pt-6 space-y-3">
+        <h4 className="text-sm font-semibold text-brand-ink">Account signal extractor</h4>
+        <p className="text-xs text-brand-stone">
           Optional: extract GTM signals from call transcripts, CRM notes, or email threads.
           Runs independently; scores better when ICP workbook exists.
         </p>
@@ -386,13 +386,13 @@ export default function IcpContextSection() {
           onChange={(e) => setAccountData(e.target.value)}
           rows={4}
           placeholder="Paste account-level raw data (transcript, notes, activity log)…"
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+          className="w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
         />
         <button
           type="button"
           onClick={runSignalExtraction}
           disabled={extractingSignals || isAnalyzing || !accountData?.trim()}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-lg border border-brand-secondary/30 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
         >
           {extractingSignals ? "Extracting…" : "Extract account signals"}
         </button>
@@ -402,8 +402,8 @@ export default function IcpContextSection() {
       </div>
 
       {context?.hasIcpWorkbook ? (
-        <div className="space-y-2 border-t border-gray-100 pt-4">
-          <h4 className="text-sm font-semibold text-gray-800">Stored outputs</h4>
+        <div className="space-y-2 border-t border-brand-secondary/15 pt-4">
+          <h4 className="text-sm font-semibold text-brand-ink">Stored outputs</h4>
           <OutputPreview title="ICP gap analysis" preview={context.icpGapAnalysisPreview} />
           <OutputPreview title="Market research" preview={context.marketResearchPreview} />
           <OutputPreview title="Value proposition" preview={context.valuePropositionPreview} />

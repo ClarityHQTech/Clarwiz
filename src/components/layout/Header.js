@@ -10,6 +10,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useUser } from '@/context/UserContext';
 // import ContactUs from '../dialogs/ContactUs';
 import Loader from '../shared/Loader';
+import { ui } from '@/lib/brandUi';
 
 
 const Header = () => {
@@ -101,24 +102,24 @@ const Header = () => {
     </div>
   </header>
   
-      <button onClick={onOpen} className='lg:hidden flex justify-center items-center bg-cyan-800 rounded-lg p-2 z-50 fixed top-6 right-6 text-lg shadow-lg shadow-gray-500/50'>
-        <RiMenuFill size={22} className='text-white'/>
+      <button type="button" onClick={onOpen} className={`${ui.mobileFab} fixed top-6 right-6 left-auto z-50`} aria-label="Open menu">
+        <RiMenuFill size={22} className="text-brand-bg"/>
       </button>
 
       <Drawer placement="right" onClose={onClose} isOpen={isOpen}>
         <DrawerOverlay />
         <DrawerContent className='lg:hidden'>
-          <DrawerHeader borderBottomWidth={'1px'} className="bg-gray-800">
+          <DrawerHeader borderBottomWidth={'1px'} className={ui.mobileDrawerHeader}>
             <div className="flex justify-between items-center">
-              <Link className='flex items-center justify-start gap-2 w-full' href={'/'}>
-                <img className='h-8' src="/logo.svg" alt="" />
-                <h1 className='text-gray-200 font-bold text-xl'>ClarWiz</h1>
+              <Link className='flex items-center justify-start gap-2 w-full' href={'/'} onClick={onClose}>
+                <img className='h-8' src="/logo_white.svg" alt="" />
+                <h1 className={ui.mobileDrawerTitle}>ClarityHQ</h1>
               </Link>
-              <DrawerCloseButton className="text-gray-400 border-2 border-gray-400" />
+              <DrawerCloseButton className={ui.mobileCloseBtn} />
             </div>
           </DrawerHeader>
 
-          <DrawerBody className='bg-gray-800'>
+          <DrawerBody className={ui.mobileDrawerBody}>
             <VStack spacing={'4'} alignItems="flex-start">
               <LinkButton active={params === '/contact-us' ? true :false} onClose={onClose} url="/contact-us" title="Contact Us" />
               {/* <LinkButton onClose={onClose} url="/dashboard/pricing" title="Pricing" /> */}
@@ -133,7 +134,7 @@ const Header = () => {
               >
                 {user ? (
                   <>
-                    <Link href={'/dashboard'} className='flex items-center justify-center gap-2 p-2 px-4 rounded-full bg-gradient-to-tr from-cyan-800 to-cyan-300 text-white text-sm font-semibold'>Dashboard <FaRegArrowAltCircleRight size={20}/></Link>
+                    <Link href={'/dashboard'} className='flex items-center justify-center gap-2 p-2 px-4 rounded-lg bg-brand-bg text-brand-ink text-sm font-semibold hover:bg-white transition-colors'>Dashboard <FaRegArrowAltCircleRight size={20}/></Link>
                   </>
                 ) : (
                   <>

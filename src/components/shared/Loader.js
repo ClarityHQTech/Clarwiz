@@ -19,22 +19,19 @@ const Loader = ({
   return (
     <div
       className={`h-[100vh] flex items-center justify-center ${
-        fullScreen ? "fixed inset-0 bg-white/80 z-50" : ""
+        fullScreen ? "fixed inset-0 bg-brand-bg/90 z-50" : ""
       } ${className}`}
       aria-busy="true"
       aria-label="Loading"
     >
       <div className="relative flex items-center justify-center">
-        {/* Rotating cyan ring */}
         <div
           style={ringStyle}
-          className="absolute rounded-full border-4 border-sky-600 border-t-transparent animate-spin"
+          className="absolute rounded-full border-4 border-brand-sage border-t-transparent animate-spin"
         />
-
-        {/* Logo sits centered above the ring */}
         <img
-          src={'/logo.svg'}
-          alt="logo"
+          src="/logo.svg"
+          alt="Loading"
           style={logoStyle}
           className="relative object-contain"
         />

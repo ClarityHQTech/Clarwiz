@@ -7,6 +7,7 @@ import TenantDetailsDrawer from "@/components/admin/TenantDetailsDrawer";
 import CreateTenantModal from "@/components/admin/CreateTenantModal";
 import { useUser } from "@/context/UserContext";
 import { useSwitchTenant } from "@/hooks/useSwitchTenant";
+import { ui } from "@/lib/brandUi";
 
 const Page = () => {
   const user = useUser();
@@ -99,9 +100,9 @@ const Page = () => {
   };
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-2xl font-semibold">Manage</h1>
-      <p className="text-sm text-gray-600">
+    <div className={`${ui.page} p-8 space-y-6`}>
+      <h1 className={ui.title}>Manage</h1>
+      <p className="text-sm text-brand-stone">
         Create tenants and open them in the standard workspace interface.
       </p>
 
@@ -109,7 +110,7 @@ const Page = () => {
         <button
           type="button"
           onClick={() => setCreateModalOpen(true)}
-          className="rounded-md bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800"
+          className="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
         >
           Create tenant
         </button>
@@ -122,7 +123,7 @@ const Page = () => {
       />
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading tenants...</p>
+        <p className="text-sm text-brand-stone">Loading tenants...</p>
       ) : (
         <TenantTable
           tenants={tenants}

@@ -13,7 +13,7 @@ const Page = () => {
 
   return (
     <div className="p-8">
-      <p className="text-sm text-gray-600">Redirecting to Users...</p>
+      <p className="text-sm text-brand-stone">Redirecting to Users...</p>
     </div>
   );
 };

@@ -55,21 +55,21 @@ function StepIndicator({ current }) {
           <div
             className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
               i <= current
-                ? "bg-sky-700 text-white"
-                : "bg-gray-100 text-gray-500"
+                ? "bg-brand-dark text-white"
+                : "bg-brand-bg text-brand-stone"
             }`}
           >
             {i + 1}
           </div>
           <span
             className={`text-sm font-medium hidden sm:inline ${
-              i === current ? "text-gray-900" : "text-gray-400"
+              i === current ? "text-brand-ink" : "text-brand-steel"
             }`}
           >
             {label}
           </span>
           {i < STEPS.length - 1 && (
-            <div className="w-6 h-px bg-gray-200 hidden sm:block" />
+            <div className="w-6 h-px bg-brand-secondary/30 hidden sm:block" />
           )}
         </div>
       ))}
@@ -80,12 +80,12 @@ function StepIndicator({ current }) {
 function Field({ label, required, children, hint }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      <label className="block text-sm font-medium text-brand-stone mb-1.5">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {children}
-      {hint && <p className="text-sm text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-sm text-brand-steel mt-1">{hint}</p>}
     </div>
   );
 }
@@ -96,29 +96,29 @@ function ChannelTemplatesSection({ channel, templates, onAdd, onUpdate, onRemove
     .sort((a, b) => a.stage - b.stage);
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+    <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-bg border-b border-brand-secondary/30">
         <div>
-          <h4 className="text-sm font-semibold text-gray-900">
+          <h4 className="text-sm font-semibold text-brand-ink">
             {CHANNEL_LABELS[channel]}
           </h4>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-brand-stone mt-0.5">
             Add stage templates for this channel (optional).
           </p>
         </div>
         <button
           type="button"
           onClick={() => onAdd(channel)}
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 shrink-0"
+          className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg shrink-0"
         >
           <HiOutlinePlus className="h-3.5 w-3.5" />
           Add template
         </button>
       </div>
 
-      <div className="p-4 space-y-3 bg-gray-50/30">
+      <div className="p-4 space-y-3 bg-brand-bg/30">
         {channelTemplates.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-2">
+          <p className="text-xs text-brand-steel text-center py-2">
             No templates for {CHANNEL_LABELS[channel]} — skip or add when ready.
           </p>
         ) : (
@@ -290,8 +290,8 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
       <ModalOverlay backdropFilter="blur(4px)" />
       <ModalContent m={0} maxH="100vh" minH="100vh" borderRadius="none">
         <ModalHeader borderBottomWidth="1px" py={5} px={{ base: 5, md: 6 }} pr={12}>
-          <p className="text-lg font-semibold text-gray-900">New campaign</p>
-          <p className="text-sm font-normal text-gray-500 mt-1">
+          <p className="text-lg font-semibold text-brand-ink">New campaign</p>
+          <p className="text-sm font-normal text-brand-stone mt-1">
             Configure campaign details, import prospects, and optionally add comm templates.
           </p>
         </ModalHeader>
@@ -366,16 +366,16 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
 
           {step === 1 && (
             <div className="space-y-4">
-              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 p-7 text-center">
-                <HiOutlineArrowUpTray className="mx-auto h-8 w-8 text-gray-400" />
-                <p className="text-base font-medium text-gray-900 mt-2">
+              <div className="rounded-lg border-2 border-dashed border-brand-secondary/30 bg-brand-bg/50 p-7 text-center">
+                <HiOutlineArrowUpTray className="mx-auto h-8 w-8 text-brand-steel" />
+                <p className="text-base font-medium text-brand-ink mt-2">
                   Upload prospect list (.xlsx, .xls, .csv)
                 </p>
-                <p className="text-sm text-gray-500 mt-1 max-w-lg mx-auto">
+                <p className="text-sm text-brand-stone mt-1 max-w-lg mx-auto">
                   Recognized columns (any casing):{" "}
                   {PROSPECT_IMPORT_COLUMNS.join(" · ")}
                 </p>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-brand-steel mt-1">
                   Maps to template variables: {TEMPLATE_VARIABLES}
                 </p>
                 <label className="mt-4 inline-block">
@@ -388,17 +388,17 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                       e.target.value = "";
                     }}
                   />
-                  <span className="cursor-pointer inline-flex items-center rounded-lg bg-white border border-gray-300 px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  <span className="cursor-pointer inline-flex items-center rounded-lg bg-white border border-brand-secondary/40 px-3.5 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg">
                     Choose file
                   </span>
                 </label>
                 {fileName && (
-                  <p className="text-sm text-sky-700 mt-2 font-medium">{fileName}</p>
+                  <p className="text-sm text-brand-terracotta mt-2 font-medium">{fileName}</p>
                 )}
               </div>
 
               {uploadErrors.length > 0 && (
-                <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-800 max-h-24 overflow-y-auto">
+                <div className="rounded-lg bg-brand-terracotta/15 border border-brand-terracotta/30 px-3 py-2 text-xs text-brand-ink max-h-24 overflow-y-auto">
                   {uploadErrors.slice(0, 5).map((err, i) => (
                     <p key={i}>{err}</p>
                   ))}
@@ -409,16 +409,16 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
               )}
 
               {prospects.length > 0 && (
-                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                    <span className="text-xs font-medium text-gray-600">
+                <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
+                  <div className="px-3 py-2 bg-brand-bg border-b border-brand-secondary/30 flex justify-between items-center">
+                    <span className="text-xs font-medium text-brand-stone">
                       Preview ({prospects.length} prospects)
                     </span>
                   </div>
                   <div className="overflow-x-auto max-h-48">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-left text-gray-500 border-b border-gray-100">
+                        <tr className="text-left text-brand-stone border-b border-brand-secondary/15">
                           <th className="px-3 py-2 font-medium">Name</th>
                           <th className="px-3 py-2 font-medium">First</th>
                           <th className="px-3 py-2 font-medium">Company</th>
@@ -427,22 +427,22 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                           <th className="px-3 py-2 font-medium">Email</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody className="divide-y divide-brand-secondary/15">
                         {prospects.slice(0, 8).map((p, i) => (
                           <tr key={i}>
-                            <td className="px-3 py-1.5 text-gray-900">{p.name}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{p.firstName || "—"}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{p.company || "—"}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{p.jobTitle || "—"}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{p.painPoint || "—"}</td>
-                            <td className="px-3 py-1.5 text-gray-600">{p.email || "—"}</td>
+                            <td className="px-3 py-1.5 text-brand-ink">{p.name}</td>
+                            <td className="px-3 py-1.5 text-brand-stone">{p.firstName || "—"}</td>
+                            <td className="px-3 py-1.5 text-brand-stone">{p.company || "—"}</td>
+                            <td className="px-3 py-1.5 text-brand-stone">{p.jobTitle || "—"}</td>
+                            <td className="px-3 py-1.5 text-brand-stone">{p.painPoint || "—"}</td>
+                            <td className="px-3 py-1.5 text-brand-stone">{p.email || "—"}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   {prospects.length > 8 && (
-                    <p className="text-xs text-gray-400 px-3 py-2 border-t border-gray-100">
+                    <p className="text-xs text-brand-steel px-3 py-2 border-t border-brand-secondary/15">
                       +{prospects.length - 8} more rows
                     </p>
                   )}
@@ -453,7 +453,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
 
           {step === 2 && (
             <div className="space-y-4">
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-brand-stone">
                 Templates are optional. For WhatsApp, select from your approved provider
                 templates. For email and LinkedIn, add stage templates manually. AI calling
                 is not available yet.
@@ -479,15 +479,15 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
 
           {step === 3 && (
             <div className="space-y-4 text-sm">
-              <div className="rounded-lg border border-gray-200 p-4 space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <div className="rounded-lg border border-brand-secondary/30 p-4 space-y-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-brand-stone">
                   Campaign
                 </h4>
-                <p className="font-medium text-gray-900">{campaign.name}</p>
+                <p className="font-medium text-brand-ink">{campaign.name}</p>
                 {campaign.description && (
-                  <p className="text-xs text-gray-600">{campaign.description}</p>
+                  <p className="text-xs text-brand-stone">{campaign.description}</p>
                 )}
-                <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                <div className="flex flex-wrap gap-3 text-xs text-brand-stone">
                   {campaign.targetSegment && (
                     <span>Segment: {campaign.targetSegment}</span>
                   )}
@@ -497,18 +497,18 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                   )}
                 </div>
               </div>
-              <div className="rounded-lg border border-gray-200 p-4">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+              <div className="rounded-lg border border-brand-secondary/30 p-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-brand-stone mb-1">
                   Prospects
                 </h4>
-                <p className="text-gray-900 font-medium">{prospects.length} contacts</p>
+                <p className="text-brand-ink font-medium">{prospects.length} contacts</p>
               </div>
-              <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <div className="rounded-lg border border-brand-secondary/30 p-4 space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-brand-stone">
                   Templates
                 </h4>
                 {templates.length === 0 ? (
-                  <p className="text-xs text-gray-500">None — can add later from campaign details.</p>
+                  <p className="text-xs text-brand-stone">None — can add later from campaign details.</p>
                 ) : (
                   [...templates]
                     .sort(
@@ -518,21 +518,21 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                     .map((t) => (
                       <div
                         key={t.id}
-                        className="text-xs border-t border-gray-100 pt-2 first:border-0 first:pt-0"
+                        className="text-xs border-t border-brand-secondary/15 pt-2 first:border-0 first:pt-0"
                       >
-                        <p className="font-medium text-gray-800">
+                        <p className="font-medium text-brand-ink">
                           {CHANNEL_LABELS[t.channel]} · Stage {t.stage}
                         </p>
                         {t.channel === "whatsapp" && (
-                          <p className="text-gray-500">
+                          <p className="text-brand-stone">
                             Template: {t.whatsappTemplateId}
                           </p>
                         )}
                         {t.channel === "email" && (
-                          <p className="text-gray-500">Subject: {t.subject}</p>
+                          <p className="text-brand-stone">Subject: {t.subject}</p>
                         )}
-                        <p className="text-gray-600 line-clamp-2 mt-0.5">{t.body}</p>
-                        <p className="text-gray-400 mt-0.5">
+                        <p className="text-brand-stone line-clamp-2 mt-0.5">{t.body}</p>
+                        <p className="text-brand-steel mt-0.5">
                           CTA: {CTA_OPTIONS.find((c) => c.value === t.cta)?.label}
                         </p>
                       </div>

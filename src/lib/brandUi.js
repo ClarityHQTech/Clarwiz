@@ -47,4 +47,25 @@ export const ui = {
   alertWarn: "rounded-xl border border-brand-terracotta/40 bg-brand-terracotta/15 px-4 py-2.5 text-sm text-brand-ink",
   iconAction: "flex h-8 w-8 items-center justify-center rounded-full bg-brand-terracotta/25 text-brand-ink",
   iconReply: "flex h-8 w-8 items-center justify-center rounded-full bg-brand-sage/30 text-brand-ink",
+  /* Mobile nav */
+  mobileFab:
+    "lg:hidden flex justify-center items-center bg-brand-dark rounded-lg p-2 z-50 fixed top-6 right-6 shadow-lg shadow-brand-ink/15",
+  mobileDrawerHeader: "bg-brand-dark !border-brand-ink/30",
+  mobileDrawerBody: "bg-brand-dark",
+  mobileDrawerTitle: "text-brand-bg font-serif font-semibold text-xl",
+  mobileNavItem:
+    "flex items-center gap-4 w-full text-brand-bg rounded-md p-2 px-4 font-medium transition-colors",
+  mobileNavItemActive: "bg-brand-sage/30",
+  mobileCloseBtn: "!text-brand-secondary !border-2 !border-brand-secondary/50",
+  /* Semantic text */
+  textPrimary: "text-brand-ink",
+  textSecondary: "text-brand-stone",
+  textMuted: "text-brand-steel",
+  section: "rounded-xl border border-brand-secondary/30 bg-white p-5 shadow-sm",
+  sectionTitle: "font-serif text-base font-semibold text-brand-ink",
+  badgeAdmin: "rounded-full bg-brand-sage/25 px-2.5 py-0.5 text-xs font-medium text-brand-ink",
+  code: "text-xs bg-brand-bg border border-brand-secondary/20 px-1 rounded font-mono",
+  success: "text-brand-ink",
+  successBg: "bg-brand-sage/20 text-brand-ink",
+  error: "text-red-700",
 };

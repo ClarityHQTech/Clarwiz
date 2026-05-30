@@ -180,10 +180,10 @@ export default function CampaignTemplatesModal({
       <ModalOverlay backdropFilter="blur(4px)" />
       <ModalContent mx={3} maxH="92vh" borderRadius="xl">
         <ModalHeader borderBottomWidth="1px" py={4} pr={12}>
-          <p className="text-base font-semibold text-gray-900">
+          <p className="text-base font-semibold text-brand-ink">
             Communication templates
           </p>
-          <p className="text-xs font-normal text-gray-500 mt-0.5">
+          <p className="text-xs font-normal text-brand-stone mt-0.5">
             Select WhatsApp templates from your provider account, or create email and
             LinkedIn stage templates.
           </p>
@@ -206,12 +206,12 @@ export default function CampaignTemplatesModal({
             return (
               <div
                 key={channel}
-                className="rounded-lg border border-gray-200 overflow-hidden"
+                className="rounded-lg border border-brand-secondary/30 overflow-hidden"
               >
-                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
-                  <h4 className="text-sm font-semibold text-gray-900">
+                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-bg border-b border-brand-secondary/30">
+                  <h4 className="text-sm font-semibold text-brand-ink">
                     {CHANNEL_LABELS[channel]}
-                    <span className="ml-2 text-xs font-normal text-gray-500">
+                    <span className="ml-2 text-xs font-normal text-brand-stone">
                       {channelTemplates.length} template
                       {channelTemplates.length === 1 ? "" : "s"}
                     </span>
@@ -219,7 +219,7 @@ export default function CampaignTemplatesModal({
                   <button
                     type="button"
                     onClick={() => startCreate(channel)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg"
                   >
                     <HiOutlinePlus className="h-3.5 w-3.5" />
                     New template
@@ -228,7 +228,7 @@ export default function CampaignTemplatesModal({
 
                 <div className="p-4 space-y-3 bg-white">
                   {channelTemplates.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-2">
+                    <p className="text-xs text-brand-steel text-center py-2">
                       No templates for {CHANNEL_LABELS[channel]} yet.
                     </p>
                   ) : (
@@ -239,7 +239,7 @@ export default function CampaignTemplatesModal({
                           type="button"
                           disabled={deletingId === t.id}
                           onClick={() => deleteTemplate(t.id)}
-                          className="absolute top-3 right-3 p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-3 right-3 p-1.5 rounded-md text-brand-steel hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
                           aria-label="Delete template"
                         >
                           <HiOutlineTrash className="h-4 w-4" />
@@ -253,15 +253,15 @@ export default function CampaignTemplatesModal({
           })}
 
           {creating && draft && draft.channel !== "whatsapp" && (
-            <div className="rounded-lg border-2 border-sky-200 bg-sky-50/30 p-4 space-y-3">
+            <div className="rounded-lg border-2 border-brand-sage/30 bg-brand-sage/15/30 p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-gray-900">
+                <h4 className="text-sm font-semibold text-brand-ink">
                   New template — {CHANNEL_LABELS[draft.channel]}
                 </h4>
                 <button
                   type="button"
                   onClick={resetDraft}
-                  className="text-xs text-gray-500 hover:text-gray-700"
+                  className="text-xs text-brand-stone hover:text-brand-stone"
                 >
                   Cancel
                 </button>

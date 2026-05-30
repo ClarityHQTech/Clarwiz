@@ -107,14 +107,14 @@ export default function WhatsAppTemplatePickerModal({
       <ModalOverlay backdropFilter="blur(4px)" />
       <ModalContent mx={3} maxH="88vh" borderRadius="xl">
         <ModalHeader borderBottomWidth="1px" py={4} pr={12}>
-          <p className="text-base font-semibold text-gray-900">{title}</p>
-          <p className="text-xs font-normal text-gray-500 mt-0.5">{description}</p>
+          <p className="text-base font-semibold text-brand-ink">{title}</p>
+          <p className="text-xs font-normal text-brand-stone mt-0.5">{description}</p>
         </ModalHeader>
         <ModalCloseButton />
 
         <ModalBody py={4} px={{ base: 4, md: 5 }}>
           <div className="flex items-center justify-between gap-2 mb-3">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-brand-stone">
               {availableTemplates.length} available
               {alreadyLinkedTemplates.filter((t) => t.channel === "whatsapp")
                 .length > 0
@@ -125,7 +125,7 @@ export default function WhatsAppTemplatePickerModal({
               type="button"
               onClick={() => loadTemplates(true)}
               disabled={refreshing || loading}
-              className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800 disabled:opacity-50"
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand-terracotta hover:text-brand-ink disabled:opacity-50"
             >
               <HiOutlineArrowPath
                 className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
@@ -135,31 +135,31 @@ export default function WhatsAppTemplatePickerModal({
           </div>
 
           {loading ? (
-            <p className="text-sm text-gray-500 py-8 text-center">
+            <p className="text-sm text-brand-stone py-8 text-center">
               Loading templates…
             </p>
           ) : loadError ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="rounded-lg border border-brand-terracotta/40 bg-brand-terracotta/15 px-4 py-3 text-sm text-brand-ink">
               <p>{loadError}</p>
-              <p className="text-xs mt-2 text-amber-800">
+              <p className="text-xs mt-2 text-brand-ink">
                 Connect WhatsApp in Settings, then refresh templates.
               </p>
             </div>
           ) : availableTemplates.length === 0 ? (
-            <p className="text-sm text-gray-500 py-6 text-center">
+            <p className="text-sm text-brand-stone py-6 text-center">
               {templates.length === 0
                 ? "No approved templates found. Refresh from your provider or connect WhatsApp in Settings."
                 : "All available templates are already linked to this campaign."}
             </p>
           ) : (
-            <ul className="rounded-lg border border-gray-200 divide-y divide-gray-100 max-h-[50vh] overflow-y-auto">
+            <ul className="rounded-lg border border-brand-secondary/30 divide-y divide-brand-secondary/15 max-h-[50vh] overflow-y-auto">
               {availableTemplates.map((t) => {
                 const key = whatsAppTemplateKey(t);
                 const checked = selectedKeys.has(key);
                 const expanded = expandedKey === key;
                 return (
                   <li key={key} className="text-sm bg-white">
-                    <div className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50/80">
+                    <div className="flex items-start gap-3 px-4 py-3 hover:bg-brand-bg/60">
                       <Checkbox
                         mt={0.5}
                         isChecked={checked}
@@ -174,10 +174,10 @@ export default function WhatsAppTemplatePickerModal({
                             setExpandedKey(expanded ? null : key)
                           }
                         >
-                          <p className="font-medium text-gray-900 truncate">
+                          <p className="font-medium text-brand-ink truncate">
                             {t.displayName || t.name}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-brand-stone mt-0.5">
                             {t.name} · {t.language} · {t.status}
                             {t.category ? ` · ${t.category}` : ""}
                             {(() => {
@@ -191,7 +191,7 @@ export default function WhatsAppTemplatePickerModal({
                           </p>
                         </button>
                         {expanded && t.body ? (
-                          <p className="mt-2 text-xs text-gray-600 whitespace-pre-wrap font-mono leading-relaxed border-l-2 border-sky-200 pl-2">
+                          <p className="mt-2 text-xs text-brand-stone whitespace-pre-wrap font-mono leading-relaxed border-l-2 border-brand-sage/30 pl-2">
                             {t.body}
                           </p>
                         ) : null}

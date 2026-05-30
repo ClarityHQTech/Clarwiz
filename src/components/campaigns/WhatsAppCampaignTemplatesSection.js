@@ -24,13 +24,13 @@ export default function WhatsAppCampaignTemplatesSection({
 
   return (
     <>
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+      <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-bg border-b border-brand-secondary/30">
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">
+            <h4 className="text-sm font-semibold text-brand-ink">
               {CHANNEL_LABELS.whatsapp}
             </h4>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-brand-stone mt-0.5">
               Select approved templates from your connected WhatsApp account.
             </p>
           </div>
@@ -38,7 +38,7 @@ export default function WhatsAppCampaignTemplatesSection({
             <button
               type="button"
               onClick={onOpen}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 shrink-0"
+              className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg shrink-0"
             >
               <HiOutlinePlus className="h-3.5 w-3.5" />
               Select templates
@@ -46,9 +46,9 @@ export default function WhatsAppCampaignTemplatesSection({
           )}
         </div>
 
-        <div className="p-4 space-y-3 bg-gray-50/30">
+        <div className="p-4 space-y-3 bg-brand-bg/30">
           {channelTemplates.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-2">
+            <p className="text-xs text-brand-steel text-center py-2">
               No WhatsApp templates selected — skip or choose templates to use in
               outreach.
             </p>
@@ -56,18 +56,18 @@ export default function WhatsAppCampaignTemplatesSection({
             channelTemplates.map((t) => (
               <div
                 key={t.id}
-                className="rounded-lg border border-gray-200 bg-white p-3 text-sm relative group"
+                className="rounded-lg border border-brand-secondary/30 bg-white p-3 text-sm relative group"
               >
                 <div className="flex justify-between gap-2 items-start">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-brand-ink">
                       {t.whatsappTemplateId}
-                      <span className="ml-2 text-xs font-normal text-gray-500">
+                      <span className="ml-2 text-xs font-normal text-brand-stone">
                         Stage {t.stage}
                       </span>
                     </p>
                     {t.body && (
-                      <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap line-clamp-3 border-l-2 border-emerald-200 pl-2">
+                      <p className="text-xs text-brand-stone mt-1 whitespace-pre-wrap line-clamp-3 border-l-2 border-brand-sage/40 pl-2">
                         {t.body}
                       </p>
                     )}
@@ -81,7 +81,7 @@ export default function WhatsAppCampaignTemplatesSection({
                     <button
                       type="button"
                       onClick={() => onRemove(t.id)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                      className="p-1.5 rounded-md text-brand-steel hover:text-red-600 hover:bg-red-50 shrink-0"
                       aria-label="Remove template"
                     >
                       <HiOutlineTrash className="h-4 w-4" />

@@ -18,9 +18,9 @@ export default function TenantWorkspaces() {
   }
 
   return (
-    <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-gray-900">Your workspaces</h2>
-      <p className="mt-1 text-sm text-gray-600">
+    <section className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
+      <h2 className="text-base font-semibold text-brand-ink">Your workspaces</h2>
+      <p className="mt-1 text-sm text-brand-stone">
         Select a workspace to manage. Your role may differ per workspace.
       </p>
       <ul className="mt-4 space-y-2">
@@ -34,24 +34,24 @@ export default function TenantWorkspaces() {
                 disabled={loading || isActive}
                 className={`w-full rounded-lg border px-4 py-3 text-left transition-colors ${
                   isActive
-                    ? "border-sky-600 bg-sky-50 ring-1 ring-sky-600"
-                    : "border-gray-200 bg-white hover:border-sky-300 hover:bg-gray-50"
+                    ? "border-brand-sage bg-brand-sage/15 ring-1 ring-brand-sage"
+                    : "border-brand-secondary/30 bg-white hover:border-brand-sage/40 hover:bg-brand-bg"
                 } disabled:cursor-default`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900 truncate">
+                    <p className="font-medium text-brand-ink truncate">
                       {m.tenantName}
                     </p>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <p className="text-sm text-brand-stone mt-0.5">
                       {roleLabel(m.role)}
                       {!m.payment_status && (
-                        <span className="text-amber-600"> · Subscription inactive</span>
+                        <span className="text-brand-terracotta"> · Subscription inactive</span>
                       )}
                     </p>
                   </div>
                   {isActive && (
-                    <span className="shrink-0 rounded-full bg-sky-700 px-2.5 py-0.5 text-xs font-medium text-white">
+                    <span className="shrink-0 rounded-full bg-brand-dark px-2.5 py-0.5 text-xs font-medium text-white">
                       Active
                     </span>
                   )}

@@ -18,7 +18,7 @@ const AdminSidebar = () => {
         className="flex items-center justify-start gap-2 h-[5vh] w-full p-2 pb-4"
       >
         <img className="h-8" src="/logo.svg" alt="ClarWiz" />
-        <h1 className="font-semibold text-lg text-gray-200">Admin Panel</h1>
+        <h1 className="font-semibold text-lg text-brand-bg">Admin Panel</h1>
       </Link>
       <div className="h-[90vh] flex flex-col items-start justify-between w-full text-white">
         <div className="flex flex-col gap-4 w-full">
@@ -50,7 +50,7 @@ const LinkButton = ({ url = "/", title = "Home", icon, active }) => (
   <Link
     href={url}
     className={`relative flex items-center gap-4 ${
-      active ? "p-2 bg-gradient-to-tr from-cyan-500/90 to-cyan-100/30 rounded-lg" : "p-2"
+      active ? "p-2 bg-gradient-to-tr from-brand-sage/90 to-brand-sage/30 rounded-lg" : "p-2"
     }`}
   >
     {icon}

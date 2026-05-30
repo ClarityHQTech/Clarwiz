@@ -14,7 +14,7 @@ const Footer = () => {
   return (
     <div className="pt-20 sm:pt-10 bg-brand-dark">
       <div className="flex flex-col gap-12 lg:flex-row lg:justify-between lg:items-center max-w-[90vw] sm:max-w-6xl mx-auto">
-        <div className="text-gray-400 max-w-md">
+        <div className="text-brand-steel max-w-md">
           <div className="flex gap-4 items-center">
             <a target="_blank" href="https://www.linkedin.com/company/nextscale-ai/"><FaLinkedin size={32} color="white" /></a>
             <a target="_blank"><FaFacebook size={30} color="white" /></a>

@@ -39,7 +39,7 @@ export default function ActiveTenantIndicator({ collapsed = false }) {
         className="mt-2 flex justify-center"
         title={`Managing: ${tenantName}${role ? ` (${role})` : ""}`}
       >
-        <span className="rounded-lg border border-sky-600/60 bg-sky-900/50 p-2.5 text-gray-200">
+        <span className="rounded-lg border border-brand-sage/60 bg-brand-ink/50 p-2.5 text-brand-bg">
           <FaBuilding size={18} />
         </span>
       </div>
@@ -47,14 +47,14 @@ export default function ActiveTenantIndicator({ collapsed = false }) {
   }
 
   return (
-    <div className="mt-2 rounded-lg border border-sky-600/60 bg-sky-900/50 px-3 py-2.5">
-      <p className="text-[10px] uppercase tracking-wide text-gray-400">
+    <div className="mt-2 rounded-lg border border-brand-sage/60 bg-brand-ink/50 px-3 py-2.5">
+      <p className="text-[10px] uppercase tracking-wide text-brand-secondary">
         Managing
       </p>
-      <p className="text-sm font-medium text-white truncate" title={tenantName}>
+      <p className="text-sm font-medium text-brand-bg truncate" title={tenantName}>
         {tenantName}
       </p>
-      {role ? <p className="text-xs text-gray-400 mt-0.5">{role}</p> : null}
+      {role ? <p className="text-xs text-brand-secondary mt-0.5">{role}</p> : null}
     </div>
   );
 }

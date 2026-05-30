@@ -11,12 +11,12 @@ import {
 function FieldShell({ label, required, hint, children }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
+      <label className="block text-xs font-medium text-brand-stone mb-1">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-brand-steel mt-1">{hint}</p>}
     </div>
   );
 }

@@ -121,28 +121,28 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
       <div className="flex flex-wrap items-center gap-2">
         <IntegrationStatusBadge status={status} />
         {connected && activeMode && (
-          <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+          <span className="text-xs text-brand-stone bg-brand-bg px-2 py-0.5 rounded-full">
             Mode: {modeLabel(activeMode)}
           </span>
         )}
         {webhooksActive && (
-          <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+          <span className="text-xs text-brand-ink bg-brand-sage/20 px-2 py-0.5 rounded-full">
             Webhooks: invitee.created, invitee.canceled
           </span>
         )}
       </div>
 
       {connected && integration?.ownerEmail && (
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-brand-stone">
           Connected as <span className="font-medium">{integration.ownerEmail}</span>
         </p>
       )}
 
-      <p className="text-sm text-gray-500 leading-relaxed">
+      <p className="text-sm text-brand-stone leading-relaxed">
         Choose how ClarWiz qualifies prospects from Calendly. Your Calendly{" "}
-        <span className="font-medium text-gray-700">account plan</span> must match the option
+        <span className="font-medium text-brand-stone">account plan</span> must match the option
         you connect — Free accounts cannot register API webhooks (Calendly returns an upgrade
-        error for <code className="text-xs bg-gray-100 px-1 rounded">webhooks:write</code>).
+        error for <code className="text-xs bg-brand-bg px-1 rounded">webhooks:write</code>).
         You can disconnect and switch after upgrading.
       </p>
 
@@ -154,40 +154,40 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
               key={option.mode}
               className={`rounded-xl border p-4 flex flex-col ${
                 isActive
-                  ? "border-sky-300 bg-sky-50/40 ring-1 ring-sky-200"
-                  : "border-gray-200 bg-white"
+                  ? "border-brand-sage/40 bg-brand-sage/10 ring-1 ring-brand-sage/30"
+                  : "border-brand-secondary/30 bg-white"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">{option.title}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">{option.subtitle}</p>
+                  <h3 className="text-sm font-semibold text-brand-ink">{option.title}</h3>
+                  <p className="text-xs text-brand-stone mt-0.5">{option.subtitle}</p>
                 </div>
                 {option.recommended && !isActive && (
-                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded">
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-brand-terracotta bg-brand-sage/20 px-1.5 py-0.5 rounded">
                     Recommended
                   </span>
                 )}
                 {isActive && (
-                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-brand-ink bg-brand-sage/25 px-1.5 py-0.5 rounded">
                     Active
                   </span>
                 )}
               </div>
 
-              <p className="text-xs text-gray-500 mt-2">{option.calendlyPlan}</p>
+              <p className="text-xs text-brand-stone mt-2">{option.calendlyPlan}</p>
 
-              <ul className="mt-3 space-y-1.5 text-xs text-gray-600 flex-1">
+              <ul className="mt-3 space-y-1.5 text-xs text-brand-stone flex-1">
                 {option.benefits.map((item) => (
                   <li key={item} className="flex gap-1.5">
-                    <span className="text-emerald-600 shrink-0">✓</span>
+                    <span className="text-brand-sage shrink-0">✓</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
 
               {option.limitations?.length > 0 && (
-                <ul className="mt-2 space-y-1 text-xs text-gray-400">
+                <ul className="mt-2 space-y-1 text-xs text-brand-steel">
                   {option.limitations.map((item) => (
                     <li key={item} className="flex gap-1.5">
                       <span className="shrink-0">·</span>
@@ -203,8 +203,8 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
                   onClick={() => connect(option.mode)}
                   className={`mt-4 w-full rounded-lg px-3 py-2 text-sm font-medium ${
                     option.mode === MODES.WEBHOOKS
-                      ? "bg-sky-700 text-white hover:bg-sky-800"
-                      : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                      ? "bg-brand-dark text-white hover:bg-brand-ink"
+                      : "border border-brand-secondary/40 bg-white text-brand-stone hover:bg-brand-bg"
                   }`}
                 >
                   {option.connectLabel}
@@ -215,7 +215,7 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
                 <button
                   type="button"
                   onClick={() => connect(option.mode)}
-                  className="mt-4 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="mt-4 w-full rounded-lg border border-brand-secondary/40 bg-white px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
                 >
                   Switch to {option.title}
                 </button>
@@ -226,25 +226,25 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
       </div>
 
       {activeMode === MODES.WEBHOOKS && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50/80 px-3 py-2.5">
-          <p className="text-xs font-medium text-gray-700">
+        <div className="rounded-lg border border-brand-secondary/30 bg-brand-bg/60 px-3 py-2.5">
+          <p className="text-xs font-medium text-brand-stone">
             Webhook endpoint (registered on Standard+ connect)
           </p>
-          <p className="text-xs text-gray-500 mt-1 break-all font-mono">{webhookUrl}</p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-brand-stone mt-1 break-all font-mono">{webhookUrl}</p>
+          <p className="text-xs text-brand-steel mt-1">
             For local dev, set{" "}
-            <code className="bg-gray-100 px-0.5">CALENDLY_WEBHOOK_URL</code> to a public HTTPS
+            <code className="bg-brand-bg px-0.5">CALENDLY_WEBHOOK_URL</code> to a public HTTPS
             URL (e.g. ngrok). Calendly rejects localhost.
           </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Set <code className="bg-gray-100 px-0.5">CALENDLY_WEBHOOK_SIGNING_KEY</code> from the
+          <p className="text-xs text-brand-steel mt-1">
+            Set <code className="bg-brand-bg px-0.5">CALENDLY_WEBHOOK_SIGNING_KEY</code> from the
             subscription signing key to verify signatures.
           </p>
         </div>
       )}
 
       {connected && activeMode === MODES.BOOKING_LINK && (
-        <p className="text-xs text-gray-500 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2">
+        <p className="text-xs text-brand-stone rounded-lg border border-brand-terracotta/40 bg-brand-terracotta/15 px-3 py-2">
           Add your Calendly scheduling URL on each campaign. Outreach stage 2+ and reply
           follow-ups append a tracked link that qualifies on click — not when the invitee
           finishes booking in Calendly.
@@ -257,14 +257,14 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
             type="button"
             disabled={disconnecting}
             onClick={disconnect}
-            className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center rounded-lg border border-brand-secondary/40 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
           >
             {disconnecting ? "Disconnecting…" : "Disconnect"}
           </button>
           <button
             type="button"
             onClick={() => connect(activeMode || MODES.WEBHOOKS)}
-            className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center rounded-lg border border-brand-secondary/40 bg-white px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
           >
             Reconnect
           </button>

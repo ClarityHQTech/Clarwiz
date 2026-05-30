@@ -84,30 +84,30 @@ export default function TeamSection() {
   };
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading team…</p>;
+    return <p className="text-sm text-brand-stone">Loading team…</p>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">Team</h2>
-        <p className="text-sm text-gray-600 mt-1">
+        <h2 className="text-lg font-semibold text-brand-ink">Team</h2>
+        <p className="text-sm text-brand-stone mt-1">
           Invite users to run campaigns and integrations on behalf of your workspace.
         </p>
       </div>
 
-      <form onSubmit={invite} className="rounded-lg border border-gray-200 p-4 space-y-4">
-        <h3 className="font-medium text-gray-900">Invite by email</h3>
+      <form onSubmit={invite} className="rounded-lg border border-brand-secondary/30 p-4 space-y-4">
+        <h3 className="font-medium text-brand-ink">Invite by email</h3>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="colleague@company.com"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-brand-secondary/40 px-3 py-2 text-sm"
           required
         />
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Permissions</p>
+          <p className="text-sm font-medium text-brand-stone">Permissions</p>
           {ALL_PERMISSIONS.map((key) => (
             <label key={key} className="flex items-center gap-2 text-sm">
               <input
@@ -122,21 +122,21 @@ export default function TeamSection() {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+          className="rounded-lg bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
         >
           {submitting ? "Sending…" : "Send invitation"}
         </button>
       </form>
 
       <div>
-        <h3 className="font-medium text-gray-900 mb-2">Members</h3>
-        <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200">
+        <h3 className="font-medium text-brand-ink mb-2">Members</h3>
+        <ul className="divide-y divide-brand-secondary/30 rounded-lg border border-brand-secondary/30">
           {members.map((m) => (
             <li key={m.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <div>
                 <p className="font-medium">{m.name || m.email}</p>
-                <p className="text-gray-500">{m.email}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-brand-stone">{m.email}</p>
+                <p className="text-xs text-brand-steel mt-0.5">
                   {m.role === "ADMIN" ? "Admin" : `Assigned · ${m.scopes?.join(", ") || "no scopes"}`}
                 </p>
               </div>
@@ -156,10 +156,10 @@ export default function TeamSection() {
 
       {invitations.length > 0 && (
         <div>
-          <h3 className="font-medium text-gray-900 mb-2">Pending invitations</h3>
-          <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200">
+          <h3 className="font-medium text-brand-ink mb-2">Pending invitations</h3>
+          <ul className="divide-y divide-brand-secondary/30 rounded-lg border border-brand-secondary/30">
             {invitations.map((i) => (
-              <li key={i.id} className="px-4 py-3 text-sm text-gray-600">
+              <li key={i.id} className="px-4 py-3 text-sm text-brand-stone">
                 {i.email} · expires {new Date(i.expiresAt).toLocaleDateString()}
               </li>
             ))}

@@ -39,10 +39,10 @@ function SlotRow({ slotIndex, value, onChange, disabled }) {
   };
 
   return (
-    <div className="rounded-md border border-gray-100 bg-gray-50/50 p-3 space-y-2 text-xs">
+    <div className="rounded-md border border-brand-secondary/15 bg-brand-bg/50 p-3 space-y-2 text-xs">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-gray-600 w-10 shrink-0">{`{{${slotIndex}}}`}</span>
-        <span className="text-gray-400">→</span>
+        <span className="font-mono text-brand-stone w-10 shrink-0">{`{{${slotIndex}}}`}</span>
+        <span className="text-brand-steel">→</span>
         <Select
           size="sm"
           flex="1"
@@ -63,7 +63,7 @@ function SlotRow({ slotIndex, value, onChange, disabled }) {
       </div>
       {isCustom && (
         <div className="space-y-1.5">
-          <label className="block text-[11px] font-medium text-gray-600">
+          <label className="block text-[11px] font-medium text-brand-stone">
             Custom value for {"{{"}
             {slotIndex}
             {"}}"}
@@ -80,7 +80,7 @@ function SlotRow({ slotIndex, value, onChange, disabled }) {
             bg="white"
             autoFocus
           />
-          <p className="text-[11px] text-gray-500 leading-relaxed">
+          <p className="text-[11px] text-brand-stone leading-relaxed">
             Type fixed text and insert tokens: {WHATSAPP_CUSTOM_TEXT_TOKENS.join(", ")}
           </p>
         </div>
@@ -106,7 +106,7 @@ export default function WhatsAppTemplateVariableMapping({
 
   if (bodyCount === 0 && headerCount === 0) {
     return (
-      <p className="text-xs text-gray-500 mt-2">
+      <p className="text-xs text-brand-stone mt-2">
         No dynamic variables in this template — sends as-is.
       </p>
     );
@@ -137,15 +137,15 @@ export default function WhatsAppTemplateVariableMapping({
   };
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
-      <p className="text-xs font-medium text-gray-700">Variable mapping</p>
-      <p className="text-xs text-gray-500">
+    <div className="mt-3 pt-3 border-t border-brand-secondary/15 space-y-3">
+      <p className="text-xs font-medium text-brand-stone">Variable mapping</p>
+      <p className="text-xs text-brand-stone">
         Map each WhatsApp placeholder to a prospect field or custom fixed text
         (with tokens like {"{{prospect_id}}"}).
       </p>
       {bodyCount > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-brand-steel">
             Body
           </p>
           {Array.from({ length: bodyCount }, (_, i) => (
@@ -161,7 +161,7 @@ export default function WhatsAppTemplateVariableMapping({
       )}
       {headerCount > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-brand-steel">
             Header
           </p>
           {Array.from({ length: headerCount }, (_, i) => (

@@ -106,25 +106,25 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
   if (isConnected) {
     return (
       <div className="space-y-5">
-        <section className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <section className="rounded-lg border border-brand-secondary/30 bg-brand-bg/50 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
             Account
           </h3>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <IntegrationStatusBadge status="connected" />
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-brand-stone">
               {integration.accountName || integration.email}
             </span>
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
             <div>
-              <dt className="text-xs text-gray-400">Proxy region</dt>
-              <dd className="mt-0.5 font-medium text-gray-800">{integration.country}</dd>
+              <dt className="text-xs text-brand-steel">Proxy region</dt>
+              <dd className="mt-0.5 font-medium text-brand-ink">{integration.country}</dd>
             </div>
             {integration.connectedAt ? (
               <div>
-                <dt className="text-xs text-gray-400">Connected</dt>
-                <dd className="mt-0.5 font-medium text-gray-800">
+                <dt className="text-xs text-brand-steel">Connected</dt>
+                <dd className="mt-0.5 font-medium text-brand-ink">
                   {new Date(integration.connectedAt).toLocaleString()}
                 </dd>
               </div>
@@ -133,8 +133,8 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
         </section>
 
         <section className="rounded-lg border border-red-100 bg-red-50/30 p-4">
-          <h3 className="text-sm font-medium text-gray-900">Disconnect</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <h3 className="text-sm font-medium text-brand-ink">Disconnect</h3>
+          <p className="mt-1 text-sm text-brand-stone">
             Remove this LinkedIn account from your workspace. Campaign steps using LinkedIn will
             stop until you reconnect.
           </p>
@@ -154,12 +154,12 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
   if (needsCheckpoint) {
     return (
       <div className="space-y-4">
-        <section className="rounded-lg border border-amber-200 bg-amber-50/40 p-4">
+        <section className="rounded-lg border border-brand-terracotta/40 bg-brand-terracotta/15 p-4">
           <div className="flex flex-wrap items-center gap-2">
             <IntegrationStatusBadge status="checkpoint_required" />
-            <span className="text-sm text-gray-600">{integration.email}</span>
+            <span className="text-sm text-brand-stone">{integration.email}</span>
           </div>
-          <p className="mt-3 text-sm text-gray-700 leading-relaxed">
+          <p className="mt-3 text-sm text-brand-stone leading-relaxed">
             {checkpointMessage ||
               (isAppChallenge
                 ? "Approve the sign-in request in your LinkedIn mobile app, then confirm below."
@@ -170,7 +170,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
         <form onSubmit={handleCheckpoint} className="space-y-4">
           {!isAppChallenge ? (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-xs font-medium text-brand-stone mb-1">
                 Verification code
               </label>
               <input
@@ -180,7 +180,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
-                className="w-full max-w-xs rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="w-full max-w-xs rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink placeholder:text-brand-steel focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
               />
             </div>
           ) : null}
@@ -188,7 +188,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
             <button
               type="submit"
               disabled={loading || (!isAppChallenge && !code.trim())}
-              className="rounded-md bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+              className="rounded-md bg-brand-dark px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
             >
               {loading ? "Verifying…" : isAppChallenge ? "I've approved in the app" : "Verify & connect"}
             </button>
@@ -196,7 +196,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
               type="button"
               onClick={handleDisconnect}
               disabled={disconnecting}
-              className="rounded-md border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-md border border-brand-secondary/30 px-3.5 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
             >
               Cancel
             </button>
@@ -208,7 +208,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600 leading-relaxed">
+      <p className="text-sm text-brand-stone leading-relaxed">
         Sign in with your LinkedIn credentials. ClarWiz uses LinkupAPI for profile visits,
         messages, and connection requests. We store only the account ID and connection status.
       </p>
@@ -216,7 +216,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
       <form onSubmit={handleLogin} className="space-y-4">
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+            <label className="block text-xs font-medium text-brand-stone mb-1">
               LinkedIn email
             </label>
             <input
@@ -225,25 +225,25 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink placeholder:text-brand-steel focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Password</label>
+            <label className="block text-xs font-medium text-brand-stone mb-1">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Proxy region</label>
+            <label className="block text-xs font-medium text-brand-stone mb-1">Proxy region</label>
             <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
             >
               {PROXY_COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>

@@ -22,41 +22,41 @@ function TemplateList({ templates, defaultOpen = true }) {
 
   if (!templates?.length) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-brand-stone">
         No templates loaded yet. Connect your account and refresh templates.
       </p>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
+    <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 bg-gray-50/80 px-4 py-3 text-left hover:bg-gray-100/80 transition-colors"
+        className="flex w-full items-center justify-between gap-3 bg-brand-bg/60 px-4 py-3 text-left hover:bg-brand-bg/80 transition-colors"
         aria-expanded={open}
       >
         <div className="flex items-start gap-2 min-w-0">
           {open ? (
-            <HiOutlineChevronDown className="h-4 w-4 shrink-0 text-gray-500 mt-0.5" />
+            <HiOutlineChevronDown className="h-4 w-4 shrink-0 text-brand-stone mt-0.5" />
           ) : (
-            <HiOutlineChevronRight className="h-4 w-4 shrink-0 text-gray-500 mt-0.5" />
+            <HiOutlineChevronRight className="h-4 w-4 shrink-0 text-brand-stone mt-0.5" />
           )}
           <div className="min-w-0">
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-brand-ink">
               Approved templates
             </span>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-brand-stone">
               {templates.length} template{templates.length === 1 ? "" : "s"} from your
               connected account
             </p>
           </div>
         </div>
-        <span className="shrink-0 text-xs text-gray-400">{open ? "Hide" : "Show"}</span>
+        <span className="shrink-0 text-xs text-brand-steel">{open ? "Hide" : "Show"}</span>
       </button>
 
       {open ? (
-        <ul className="border-t border-gray-200 divide-y divide-gray-100 max-h-80 overflow-y-auto">
+        <ul className="border-t border-brand-secondary/30 divide-y divide-brand-secondary/15 max-h-80 overflow-y-auto">
           {templates.map((t) => {
             const key = `${t.name}-${t.language}-${t.id}`;
             const isExpanded = expandedId === key;
@@ -65,36 +65,36 @@ function TemplateList({ templates, defaultOpen = true }) {
                 <button
                   type="button"
                   onClick={() => setExpandedId(isExpanded ? null : key)}
-                  className="flex w-full items-start justify-between gap-2 px-4 py-2.5 text-left hover:bg-gray-50"
+                  className="flex w-full items-start justify-between gap-2 px-4 py-2.5 text-left hover:bg-brand-bg"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900 truncate">
+                    <p className="font-medium text-brand-ink truncate">
                       {t.displayName || t.name}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-brand-stone mt-0.5">
                       {t.name} · {t.language} · {t.status}
                       {t.category ? ` · ${t.category}` : ""}
                     </p>
                   </div>
                   {isExpanded ? (
-                    <HiOutlineChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                    <HiOutlineChevronDown className="h-4 w-4 shrink-0 text-brand-steel" />
                   ) : (
-                    <HiOutlineChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                    <HiOutlineChevronRight className="h-4 w-4 shrink-0 text-brand-steel" />
                   )}
                 </button>
                 {isExpanded ? (
-                  <div className="px-4 pb-3 space-y-1.5 text-xs text-gray-600 bg-gray-50/50">
+                  <div className="px-4 pb-3 space-y-1.5 text-xs text-brand-stone bg-brand-bg/50">
                     {t.body ? (
                       <p className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
                         {t.body}
                       </p>
                     ) : null}
                     {t.variableCount > 0 ? (
-                      <p className="text-gray-500">
+                      <p className="text-brand-stone">
                         {t.variableCount} body variable{t.variableCount === 1 ? "" : "s"}
                       </p>
                     ) : null}
-                    <p className="text-gray-400">ID: {t.id}</p>
+                    <p className="text-brand-steel">ID: {t.id}</p>
                   </div>
                 ) : null}
               </li>
@@ -108,7 +108,7 @@ function TemplateList({ templates, defaultOpen = true }) {
 
 function ComingSoonProviderCard({ label }) {
   return (
-    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-3 py-2.5 text-sm text-gray-500">
+    <div className="rounded-lg border border-dashed border-brand-secondary/30 bg-brand-bg/50 px-3 py-2.5 text-sm text-brand-stone">
       {label} — available soon
     </div>
   );
@@ -233,7 +233,7 @@ export default function WhatsAppIntegrationSection({
   };
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading WhatsApp configuration…</p>;
+    return <p className="text-sm text-brand-stone">Loading WhatsApp configuration…</p>;
   }
 
   const isConnected = integration?.status === "connected";
@@ -241,15 +241,15 @@ export default function WhatsAppIntegrationSection({
   if (isConnected) {
     return (
       <div className="space-y-5">
-        <section className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 space-y-3">
+        <section className="rounded-lg border border-brand-secondary/30 bg-brand-bg/50 p-4 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <IntegrationStatusBadge status="connected" />
-            <span className="text-sm text-gray-700 capitalize">
+            <span className="text-sm text-brand-stone capitalize">
               {integration.mode === "meta" ? "Meta Cloud API" : "Interakt"}
             </span>
           </div>
           {integration.businessName || integration.businessPhone ? (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-brand-stone">
               {integration.businessName}
               {integration.businessName && integration.businessPhone ? " · " : ""}
               {integration.businessPhone}
@@ -259,22 +259,22 @@ export default function WhatsAppIntegrationSection({
             <>
               <dl className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <dt className="text-gray-400">Phone number ID</dt>
-                  <dd className="font-mono text-gray-700 mt-0.5">{integration.phoneNumberId}</dd>
+                  <dt className="text-brand-steel">Phone number ID</dt>
+                  <dd className="font-mono text-brand-stone mt-0.5">{integration.phoneNumberId}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-400">WABA ID</dt>
-                  <dd className="font-mono text-gray-700 mt-0.5">{integration.wabaId}</dd>
+                  <dt className="text-brand-steel">WABA ID</dt>
+                  <dd className="font-mono text-brand-stone mt-0.5">{integration.wabaId}</dd>
                 </div>
               </dl>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-brand-stone leading-relaxed">
                 Incoming customer messages are written to the matching prospect&apos;s
                 comm log (by phone number or reply context). Subscribe to{" "}
                 <strong>messages</strong> in Meta Developer Console.
               </p>
             </>
           ) : (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-brand-stone">
               Send templates via Interakt&apos;s API. Delivery, read receipts, and
               incoming messages arrive via the webhook below.
             </p>
@@ -283,11 +283,11 @@ export default function WhatsAppIntegrationSection({
 
         <TemplateList templates={integration.templates} />
 
-        <section className="rounded-lg border border-gray-200 p-4 space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <section className="rounded-lg border border-brand-secondary/30 p-4 space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
             {integration.mode === "meta" ? "Meta webhook URL" : "Interakt webhook URL"}
           </h3>
-          <p className="text-xs text-gray-500 leading-relaxed">
+          <p className="text-xs text-brand-stone leading-relaxed">
             {integration.mode === "meta" ? (
               <>
                 Add this callback URL in{" "}
@@ -295,7 +295,7 @@ export default function WhatsAppIntegrationSection({
                   href="https://developers.facebook.com/apps/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sky-700 hover:underline"
+                  className="text-brand-terracotta hover:underline"
                 >
                   Meta Developer Console
                 </a>{" "}
@@ -309,7 +309,7 @@ export default function WhatsAppIntegrationSection({
                   href="https://app.interakt.ai/settings/developer-setting"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sky-700 hover:underline"
+                  className="text-brand-terracotta hover:underline"
                 >
                   Interakt Developer Settings
                 </a>
@@ -318,7 +318,7 @@ export default function WhatsAppIntegrationSection({
             )}
           </p>
           <div className="flex gap-2 items-center">
-            <code className="flex-1 text-[11px] bg-gray-50 border border-gray-200 rounded px-2 py-1.5 break-all">
+            <code className="flex-1 text-[11px] bg-brand-bg border border-brand-secondary/30 rounded px-2 py-1.5 break-all">
               {integration.mode === "meta" ? metaWebhookUrl : interaktWebhookUrl}
             </code>
             <button
@@ -329,7 +329,7 @@ export default function WhatsAppIntegrationSection({
                   integration.mode === "meta" ? "Meta" : "Interakt"
                 )
               }
-              className="shrink-0 inline-flex items-center gap-1 text-xs text-sky-700 hover:text-sky-800"
+              className="shrink-0 inline-flex items-center gap-1 text-xs text-brand-terracotta hover:text-brand-ink"
             >
               <HiOutlineClipboardCopy className="h-3.5 w-3.5" />
               Copy
@@ -342,14 +342,14 @@ export default function WhatsAppIntegrationSection({
             type="button"
             onClick={handleRefreshTemplates}
             disabled={refreshingTemplates}
-            className="text-sm text-sky-700 hover:underline disabled:opacity-50"
+            className="text-sm text-brand-terracotta hover:underline disabled:opacity-50"
           >
             {refreshingTemplates ? "Refreshing templates…" : "Refresh templates"}
           </button>
           <button
             type="button"
             onClick={() => onRefresh?.(true)}
-            className="text-sm text-gray-600 hover:underline"
+            className="text-sm text-brand-stone hover:underline"
           >
             Reload status
           </button>
@@ -375,7 +375,7 @@ export default function WhatsAppIntegrationSection({
           className={`rounded-md px-3 py-1.5 text-sm font-medium ${
             provider === "meta"
               ? "bg-[#25D366] text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              : "bg-brand-bg text-brand-stone hover:bg-brand-secondary/20"
           }`}
         >
           Meta (official)
@@ -386,7 +386,7 @@ export default function WhatsAppIntegrationSection({
           className={`rounded-md px-3 py-1.5 text-sm font-medium ${
             provider === "third_party"
               ? "bg-[#25D366] text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              : "bg-brand-bg text-brand-stone hover:bg-brand-secondary/20"
           }`}
         >
           Third-party BSP
@@ -395,13 +395,13 @@ export default function WhatsAppIntegrationSection({
 
       {provider === "meta" ? (
         <>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm text-brand-stone leading-relaxed">
             Connect your{" "}
             <a
               href="https://developers.facebook.com/documentation/business-messaging/whatsapp/overview"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sky-700 hover:underline"
+              className="text-brand-terracotta hover:underline"
             >
               Meta WhatsApp Cloud API
             </a>{" "}
@@ -410,7 +410,7 @@ export default function WhatsAppIntegrationSection({
           </p>
           <form onSubmit={handleMetaConnect} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-xs font-medium text-brand-stone mb-1">
                 Access token
               </label>
               <input
@@ -419,34 +419,34 @@ export default function WhatsAppIntegrationSection({
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="EAA…"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm font-mono"
+                className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-brand-stone mb-1">
                   Phone number ID
                 </label>
                 <input
                   required
                   value={phoneNumberId}
                   onChange={(e) => setPhoneNumberId(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm font-mono"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-brand-stone mb-1">
                   WABA ID
                 </label>
                 <input
                   required
                   value={wabaId}
                   onChange={(e) => setWabaId(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm font-mono"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
                 />
               </div>
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-brand-steel">
               Credentials are encrypted at rest. Incoming messages and read receipts require
               Meta webhooks (configure in Meta Developer Console).
             </p>
@@ -472,10 +472,10 @@ export default function WhatsAppIntegrationSection({
                 onClick={() => p.available && setThirdPartyId(p.id)}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium ${
                   thirdPartyId === p.id
-                    ? "bg-sky-700 text-white"
+                    ? "bg-brand-dark text-white"
                     : p.available
-                      ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      : "bg-gray-50 text-gray-400 cursor-not-allowed"
+                      ? "bg-brand-bg text-brand-stone hover:bg-brand-secondary/20"
+                      : "bg-brand-bg text-brand-steel cursor-not-allowed"
                 }`}
               >
                 {p.label}
@@ -486,13 +486,13 @@ export default function WhatsAppIntegrationSection({
 
           {thirdPartyId === "interakt" ? (
             <>
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-sm text-brand-stone leading-relaxed">
                 Connect via{" "}
                 <a
                   href="https://www.interakt.shop/resource-center/how-to-send-whatsapp-templates-using-apis-webhooks/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sky-700 hover:underline"
+                  className="text-brand-terracotta hover:underline"
                 >
                   Interakt&apos;s Template API
                 </a>
@@ -501,7 +501,7 @@ export default function WhatsAppIntegrationSection({
               </p>
               <form onSubmit={handleInteraktConnect} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                  <label className="block text-xs font-medium text-brand-stone mb-1">
                     Interakt API key
                   </label>
                   <input
@@ -509,45 +509,45 @@ export default function WhatsAppIntegrationSection({
                     required
                     value={interaktApiKey}
                     onChange={(e) => setInteraktApiKey(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                   />
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-brand-steel">
                     From{" "}
                     <a
                       href="https://app.interakt.ai/settings/developer-setting"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sky-700 hover:underline"
+                      className="text-brand-terracotta hover:underline"
                     >
                       Interakt Developer Settings
                     </a>
                     . Sent as Authorization: Basic &lt;key&gt;.
                   </p>
                 </div>
-                <div className="rounded-lg border border-dashed border-gray-200 p-3 space-y-3">
-                  <p className="text-xs font-medium text-gray-600">
+                <div className="rounded-lg border border-dashed border-brand-secondary/30 p-3 space-y-3">
+                  <p className="text-xs font-medium text-brand-stone">
                     Optional — sync templates via Meta Graph API
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                      <label className="block text-xs font-medium text-brand-stone mb-1">
                         WABA ID
                       </label>
                       <input
                         value={interaktWabaId}
                         onChange={(e) => setInteraktWabaId(e.target.value)}
-                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm font-mono"
+                        className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                      <label className="block text-xs font-medium text-brand-stone mb-1">
                         Meta access token
                       </label>
                       <input
                         type="password"
                         value={interaktMetaToken}
                         onChange={(e) => setInteraktMetaToken(e.target.value)}
-                        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm font-mono"
+                        className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
                       />
                     </div>
                   </div>
@@ -555,7 +555,7 @@ export default function WhatsAppIntegrationSection({
                 <button
                   type="submit"
                   disabled={connecting}
-                  className="rounded-md bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+                  className="rounded-md bg-brand-dark px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
                 >
                   {connecting ? "Connecting…" : "Connect Interakt"}
                 </button>

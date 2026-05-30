@@ -33,58 +33,58 @@ function CommLogCard({ log }) {
   const tokens = log.providerUsage?.total_tokens;
 
   return (
-    <article className="rounded-lg border border-gray-200 bg-white p-3 text-sm space-y-2">
+    <article className="rounded-lg border border-brand-secondary/30 bg-white p-3 text-sm space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium text-gray-900 truncate">
+          <p className="font-medium text-brand-ink truncate">
             {log.prospectName ?? "Prospect"}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-brand-stone mt-0.5">
             {channelLabel}
             {log.stage != null ? ` · Stage ${log.stage}` : ""} ·{" "}
             <span className="capitalize">{log.status}</span>
           </p>
         </div>
-        <time className="text-xs text-gray-400 whitespace-nowrap">
+        <time className="text-xs text-brand-steel whitespace-nowrap">
           {formatDateTime(log.sentAt)}
         </time>
       </div>
 
       {log.subject && (
-        <p className="text-xs text-gray-700">
+        <p className="text-xs text-brand-stone">
           <span className="font-medium">Subject:</span> {log.subject}
         </p>
       )}
 
       {log.status !== "skipped" && log.message && (
-        <p className="text-xs text-gray-800 whitespace-pre-wrap border-l-2 border-sky-200 pl-2">
+        <p className="text-xs text-brand-ink whitespace-pre-wrap border-l-2 border-brand-sage/30 pl-2">
           {log.message}
         </p>
       )}
 
       {log.status === "skipped" && (
-        <p className="text-xs text-amber-800 bg-amber-50 rounded px-2 py-1">
+        <p className="text-xs text-brand-ink bg-brand-terracotta/15 rounded px-2 py-1">
           {log.message || log.decisionReason || "Skipped"}
         </p>
       )}
 
       {log.decisionReason && log.status !== "skipped" && (
-        <p className="text-xs text-gray-500 italic">{log.decisionReason}</p>
+        <p className="text-xs text-brand-stone italic">{log.decisionReason}</p>
       )}
 
       {log.responseContent && (
-        <div className="rounded-md bg-emerald-50 border border-emerald-100 px-2.5 py-2">
-          <p className="text-xs font-medium text-emerald-800 capitalize mb-1">
+        <div className="rounded-md bg-brand-sage/20 border border-brand-sage/30 px-2.5 py-2">
+          <p className="text-xs font-medium text-brand-ink capitalize mb-1">
             Reply {log.responseType ? `(${log.responseType})` : ""}
             {log.responseAt ? ` · ${formatDateTime(log.responseAt)}` : ""}
           </p>
-          <p className="text-xs text-gray-800 whitespace-pre-wrap">
+          <p className="text-xs text-brand-ink whitespace-pre-wrap">
             {log.responseContent}
           </p>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 pt-1 border-t border-gray-100">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-brand-stone pt-1 border-t border-brand-secondary/15">
         {log.modelUsed && <span>Model: {log.modelUsed}</span>}
         {tokens != null && <span>{tokens} tokens</span>}
         {cost && <span>{cost}</span>}
@@ -115,15 +115,15 @@ export default function CampaignCommLogsDrawer({
       <DrawerOverlay />
       <DrawerContent className="!max-w-[560px]">
         <DrawerCloseButton />
-        <DrawerHeader className="text-sm font-semibold text-gray-900 border-b">
+        <DrawerHeader className="text-sm font-semibold text-brand-ink border-b">
           Activity log
-          <p className="text-xs font-normal text-gray-500 mt-1">
+          <p className="text-xs font-normal text-brand-stone mt-1">
             All communication logs, newest first
           </p>
         </DrawerHeader>
         <DrawerBody className="px-4 py-4">
           {sorted.length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">
+            <p className="text-sm text-brand-stone py-8 text-center">
               No activity yet. Run next-best-action to plan outreach.
             </p>
           ) : (

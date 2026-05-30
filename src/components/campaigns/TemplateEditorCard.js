@@ -12,12 +12,12 @@ import {
 function Field({ label, required, children, hint }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
+      <label className="block text-xs font-medium text-brand-stone mb-1">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-brand-steel mt-1">{hint}</p>}
     </div>
   );
 }
@@ -33,26 +33,26 @@ export default function TemplateEditorCard({
 
   if (readOnly) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 space-y-2 text-sm">
+      <div className="rounded-lg border border-brand-secondary/30 bg-brand-bg/50 p-4 space-y-2 text-sm">
         <div className="flex justify-between items-start">
-          <span className="font-medium text-gray-900">
+          <span className="font-medium text-brand-ink">
             {CHANNEL_LABELS[channel]} · Stage {template.stage}
           </span>
         </div>
         {template.subject && (
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-brand-stone">
             <span className="font-medium">Subject:</span> {template.subject}
           </p>
         )}
         {template.whatsappTemplateId && (
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-brand-stone">
             <span className="font-medium">WA ID:</span> {template.whatsappTemplateId}
           </p>
         )}
-        <p className="text-xs text-gray-700 whitespace-pre-wrap border-l-2 border-sky-200 pl-2">
+        <p className="text-xs text-brand-stone whitespace-pre-wrap border-l-2 border-brand-sage/30 pl-2">
           {template.body}
         </p>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-brand-steel">
           CTA: {CTA_OPTIONS.find((c) => c.value === template.cta)?.label}
         </p>
       </div>
@@ -60,7 +60,7 @@ export default function TemplateEditorCard({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+    <div className="rounded-lg border border-brand-secondary/30 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 flex-wrap">
           <Field label="Stage">
@@ -79,7 +79,7 @@ export default function TemplateEditorCard({
               )}
             </Select>
           </Field>
-          <span className="text-xs font-medium text-gray-600 mt-5">
+          <span className="text-xs font-medium text-brand-stone mt-5">
             {CHANNEL_LABELS[channel]}
           </span>
         </div>
@@ -87,7 +87,7 @@ export default function TemplateEditorCard({
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
+            className="p-1.5 text-brand-steel hover:text-red-600 rounded-md hover:bg-red-50 transition-colors"
             aria-label="Remove template"
           >
             <HiOutlineTrash className="h-4 w-4" />

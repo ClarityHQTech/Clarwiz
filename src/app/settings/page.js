@@ -33,6 +33,7 @@ import {
 } from "react-icons/hi2";
 import { SiWhatsapp } from "react-icons/si";
 import { toast } from "sonner";
+import { ui } from "@/lib/brandUi";
 
 const INTEGRATIONS = [
   {
@@ -46,7 +47,7 @@ const INTEGRATIONS = [
     id: "email",
     title: "Email",
     description: "Smartlead for warmup, outreach, and tracking.",
-    icon: <HiOutlineEnvelope className="h-4 w-4 text-sky-700" />,
+    icon: <HiOutlineEnvelope className="h-4 w-4 text-brand-terracotta" />,
     available: true,
   },
   {
@@ -67,7 +68,7 @@ const INTEGRATIONS = [
     id: "ai_calling",
     title: "AI Calling",
     description: "Voice outreach and call follow-ups.",
-    icon: <HiOutlinePhone className="h-4 w-4 text-gray-600" />,
+    icon: <HiOutlinePhone className="h-4 w-4 text-brand-stone" />,
     available: false,
   },
 ];
@@ -115,25 +116,25 @@ function IntegrationListRow({ item, status, subtitle, onConfigure }) {
       disabled={!clickable}
       className={`flex w-full items-center gap-4 rounded-lg border bg-white p-4 text-left shadow-sm transition-colors ${
         clickable
-          ? "border-gray-200 hover:border-sky-200 hover:bg-sky-50/30 cursor-pointer"
-          : "border-gray-100 opacity-80 cursor-default"
+          ? "border-brand-secondary/30 hover:border-brand-sage/30 hover:bg-brand-sage/10 cursor-pointer"
+          : "border-brand-secondary/15 opacity-80 cursor-default"
       }`}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-600">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-bg text-brand-stone">
         {item.icon}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>
+          <h3 className="text-sm font-semibold text-brand-ink">{item.title}</h3>
           <IntegrationStatusBadge status={status} />
         </div>
-        <p className="mt-0.5 text-sm text-gray-500 leading-snug">{item.description}</p>
+        <p className="mt-0.5 text-sm text-brand-stone leading-snug">{item.description}</p>
         {subtitle ? (
-          <p className="mt-1 text-xs text-gray-400 truncate">{subtitle}</p>
+          <p className="mt-1 text-xs text-brand-steel truncate">{subtitle}</p>
         ) : null}
       </div>
       {clickable ? (
-        <HiOutlineChevronRight className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+        <HiOutlineChevronRight className="h-5 w-5 shrink-0 text-brand-steel" aria-hidden />
       ) : null}
     </button>
   );
@@ -141,10 +142,10 @@ function IntegrationListRow({ item, status, subtitle, onConfigure }) {
 
 function ComingSoonPanel({ title, description }) {
   return (
-    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-      <p className="text-sm font-medium text-gray-700">{title}</p>
-      <p className="mt-2 text-sm text-gray-500">{description}</p>
-      <p className="mt-4 text-xs text-gray-400">This integration is not available yet.</p>
+    <div className="rounded-lg border border-dashed border-brand-secondary/30 bg-brand-bg/50 p-6 text-center">
+      <p className="text-sm font-medium text-brand-stone">{title}</p>
+      <p className="mt-2 text-sm text-brand-stone">{description}</p>
+      <p className="mt-4 text-xs text-brand-steel">This integration is not available yet.</p>
     </div>
   );
 }
@@ -247,7 +248,7 @@ const SettingsPage = () => {
 
     if (activeItem.id === "linkedin") {
       if (loadingLinkedin) {
-        return <p className="text-sm text-gray-500">Loading LinkedIn configuration…</p>;
+        return <p className="text-sm text-brand-stone">Loading LinkedIn configuration…</p>;
       }
       return (
         <LinkedInIntegrationSection
@@ -279,7 +280,7 @@ const SettingsPage = () => {
 
     if (activeItem.id === "calendly") {
       if (loadingCalendly) {
-        return <p className="text-sm text-gray-500">Loading Calendly configuration…</p>;
+        return <p className="text-sm text-brand-stone">Loading Calendly configuration…</p>;
       }
       return (
         <CalendlyIntegrationSection
@@ -295,20 +296,20 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="p-5 lg:p-7 w-full space-y-8">
+    <div className={`${ui.page} p-5 lg:p-7 w-full space-y-8`}>
       <header>
-        <h1 className="text-lg font-semibold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className={ui.title}>Settings</h1>
+        <p className={ui.subtitle}>
           Connect channels and tools used by your outreach campaigns.
         </p>
       </header>
 
       <section className="max-w-3xl">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
             Integrations
           </h2>
-          <p className="text-xs text-gray-400">Click an integration to configure</p>
+          <p className="text-xs text-brand-steel">Click an integration to configure</p>
         </div>
         <ul className="space-y-2">
           {INTEGRATIONS.filter((item) => {
@@ -342,20 +343,20 @@ const SettingsPage = () => {
       </section>
 
       <section className="max-w-3xl">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
           Workspace
         </h2>
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          {user?.canAccessTenantIcp !== false ? <IcpContextSection /> : <p className="text-sm text-gray-500">You do not have permission to manage ICP context.</p>}
+        <div className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
+          {user?.canAccessTenantIcp !== false ? <IcpContextSection /> : <p className="text-sm text-brand-stone">You do not have permission to manage ICP context.</p>}
         </div>
       </section>
 
       {user?.canManageTeam ? (
       <section className="max-w-3xl">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
           Team
         </h2>
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
           <TeamSection />
         </div>
       </section>
@@ -367,12 +368,12 @@ const SettingsPage = () => {
           <DrawerHeader borderBottomWidth="1px" className="pr-12">
             {activeItem ? (
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-bg">
                   {activeItem.icon}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-base font-semibold text-gray-900">{activeItem.title}</p>
-                  <p className="mt-0.5 text-sm font-normal text-gray-500 leading-snug">
+                  <p className="text-base font-semibold text-brand-ink">{activeItem.title}</p>
+                  <p className="mt-0.5 text-sm font-normal text-brand-stone leading-snug">
                     {activeItem.description}
                   </p>
                   {activeItem.available ? (

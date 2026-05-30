@@ -10,6 +10,7 @@ import {
   DrawerHeader,
   DrawerOverlay,
 } from "@chakra-ui/react";
+import { ui } from "@/lib/brandUi";
 
 const Page = () => {
   const [users, setUsers] = useState([]);
@@ -121,18 +122,18 @@ const Page = () => {
   );
 
   return (
-    <div className="p-8 space-y-4">
-      <h1 className="text-2xl font-semibold">Users</h1>
-      <p className="text-sm text-gray-600">
+    <div className={`${ui.page} p-8 space-y-4`}>
+      <h1 className={ui.title}>Users</h1>
+      <p className="text-sm text-brand-stone">
         All platform users are listed here with tenant memberships and roles.
       </p>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading users...</p>
+        <p className="text-sm text-brand-stone">Loading users...</p>
       ) : (
-        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+        <div className="rounded-lg border border-brand-secondary/30 bg-white overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="bg-brand-bg text-brand-stone">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">User</th>
                 <th className="px-4 py-3 text-left font-medium">Superadmin</th>
@@ -144,25 +145,25 @@ const Page = () => {
               {users.map((user) => (
                 <tr
                   key={user.id}
-                  className="border-t border-gray-100 align-top cursor-pointer hover:bg-gray-50"
+                  className="border-t border-brand-secondary/15 align-top cursor-pointer hover:bg-brand-bg"
                   onClick={() => openUserDrawer(user)}
                 >
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{user.name || "No name"}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <p className="font-medium text-brand-ink">{user.name || "No name"}</p>
+                    <p className="text-xs text-brand-stone">{user.email}</p>
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-medium ${
                         user.is_superadmin
                           ? "bg-purple-100 text-purple-700"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-brand-bg text-brand-stone"
                       }`}
                     >
                       {user.is_superadmin ? "Yes" : "No"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">
+                  <td className="px-4 py-3 text-brand-stone">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">
@@ -171,17 +172,17 @@ const Page = () => {
                         {user.tenants.map((tenant) => (
                           <div
                             key={tenant.membershipId}
-                            className="rounded border border-gray-200 bg-gray-50 px-2.5 py-2"
+                            className="rounded border border-brand-secondary/30 bg-brand-bg px-2.5 py-2"
                           >
-                            <p className="font-medium text-gray-800">{tenant.tenantName}</p>
-                            <p className="text-xs text-gray-600">
+                            <p className="font-medium text-brand-ink">{tenant.tenantName}</p>
+                            <p className="text-xs text-brand-stone">
                               Role: {tenant.role} · Joined:{" "}
                               {tenant.joinedAt
                                 ? new Date(tenant.joinedAt).toLocaleDateString()
                                 : "-"}
                             </p>
                             {tenant.scopes?.length ? (
-                              <p className="text-xs text-gray-500 mt-0.5">
+                              <p className="text-xs text-brand-stone mt-0.5">
                                 Scopes: {tenant.scopes.join(", ")}
                               </p>
                             ) : null}
@@ -189,7 +190,7 @@ const Page = () => {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-brand-stone">
                         No tenant memberships
                       </span>
                     )}
@@ -198,7 +199,7 @@ const Page = () => {
               ))}
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-brand-stone">
                     No users found.
                   </td>
                 </tr>
@@ -215,26 +216,26 @@ const Page = () => {
           <DrawerHeader borderBottomWidth="1px">User Details</DrawerHeader>
           <DrawerBody py={4}>
             {!selectedUser ? (
-              <p className="text-sm text-gray-500">No user selected.</p>
+              <p className="text-sm text-brand-stone">No user selected.</p>
             ) : (
               <div className="space-y-5 text-sm">
                 <div>
-                  <p className="text-base font-semibold text-gray-900">
+                  <p className="text-base font-semibold text-brand-ink">
                     {selectedUser.name || "No name"}
                   </p>
-                  <p className="text-gray-500">{selectedUser.email}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-brand-stone">{selectedUser.email}</p>
+                  <p className="text-xs text-brand-stone mt-1">
                     Joined platform: {new Date(selectedUser.createdAt).toLocaleDateString()}
                   </p>
                 </div>
 
-                <div className="rounded-md border border-gray-200 p-3 space-y-3">
-                  <p className="font-medium text-gray-900">Add to Tenant</p>
+                <div className="rounded-md border border-brand-secondary/30 p-3 space-y-3">
+                  <p className="font-medium text-brand-ink">Add to Tenant</p>
                   <div className="space-y-2">
                     <select
                       value={selectedTenantId}
                       onChange={(e) => setSelectedTenantId(e.target.value)}
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      className="w-full rounded border border-brand-secondary/40 px-2 py-1.5 text-sm"
                     >
                       <option value="">Select tenant</option>
                       {availableTenants.map((tenant) => (
@@ -246,7 +247,7 @@ const Page = () => {
                     <select
                       value={selectedRole}
                       onChange={(e) => setSelectedRole(e.target.value)}
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      className="w-full rounded border border-brand-secondary/40 px-2 py-1.5 text-sm"
                     >
                       <option value="MEMBER">MEMBER</option>
                       <option value="ADMIN">ADMIN</option>
@@ -255,24 +256,24 @@ const Page = () => {
                       type="button"
                       onClick={addToTenant}
                       disabled={!selectedTenantId || savingKey === "add-membership"}
-                      className="rounded bg-cyan-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-800 disabled:opacity-60"
+                      className="rounded bg-brand-dark px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-60"
                     >
                       {savingKey === "add-membership" ? "Adding..." : "Add tenant membership"}
                     </button>
                   </div>
                 </div>
 
-                <div className="rounded-md border border-gray-200 p-3 space-y-3">
-                  <p className="font-medium text-gray-900">
+                <div className="rounded-md border border-brand-secondary/30 p-3 space-y-3">
+                  <p className="font-medium text-brand-ink">
                     Tenant Memberships ({selectedUser.tenants?.length || 0})
                   </p>
                   {(selectedUser.tenants || []).map((membership) => (
                     <div
                       key={membership.membershipId}
-                      className="rounded border border-gray-200 bg-gray-50 p-2.5"
+                      className="rounded border border-brand-secondary/30 bg-brand-bg p-2.5"
                     >
-                      <p className="font-medium text-gray-800">{membership.tenantName}</p>
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="font-medium text-brand-ink">{membership.tenantName}</p>
+                      <p className="text-xs text-brand-stone mb-2">
                         Joined:{" "}
                         {membership.joinedAt
                           ? new Date(membership.joinedAt).toLocaleDateString()
@@ -285,7 +286,7 @@ const Page = () => {
                             updateMembershipRole(membership, e.target.value)
                           }
                           disabled={savingKey === `role-${membership.membershipId}`}
-                          className="rounded border border-gray-300 px-2 py-1 text-xs"
+                          className="rounded border border-brand-secondary/40 px-2 py-1 text-xs"
                         >
                           <option value="MEMBER">MEMBER</option>
                           <option value="ADMIN">ADMIN</option>
@@ -304,7 +305,7 @@ const Page = () => {
                     </div>
                   ))}
                   {(selectedUser.tenants || []).length === 0 ? (
-                    <p className="text-xs text-gray-500">No tenant memberships.</p>
+                    <p className="text-xs text-brand-stone">No tenant memberships.</p>
                   ) : null}
                 </div>
               </div>

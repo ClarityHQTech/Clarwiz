@@ -1,5 +1,6 @@
 "use client";
 
+import { ui } from "@/lib/brandUi";
 import { useEffect, useState, Suspense } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -46,7 +47,7 @@ function InviteAcceptContent() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className={`${ui.page} min-h-screen flex items-center justify-center p-6`}>
         <p className="text-red-600">Invalid invitation link.</p>
       </div>
     );
@@ -54,13 +55,13 @@ function InviteAcceptContent() {
 
   if (status === "unauthenticated") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
-        <h1 className="text-xl font-semibold">Workspace invitation</h1>
-        <p className="text-gray-600 text-center max-w-md">{message}</p>
+      <div className={`${ui.page} min-h-screen flex flex-col items-center justify-center gap-4 p-6`}>
+        <h1 className={ui.titleSm}>Workspace invitation</h1>
+        <p className="text-brand-stone text-center max-w-md">{message}</p>
         <button
           type="button"
           onClick={() => signIn("google", { callbackUrl: `/invite/accept?token=${token}` })}
-          className="px-4 py-2 bg-black text-white rounded-lg"
+          className={ui.btnPrimary}
         >
           Sign in with Google
         </button>
@@ -69,11 +70,11 @@ function InviteAcceptContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-2 p-6">
+    <div className={`${ui.page} min-h-screen flex flex-col items-center justify-center gap-2 p-6`}>
       {error ? (
         <p className="text-red-600 text-center max-w-md">{error}</p>
       ) : (
-        <p className="text-gray-600">{message}</p>
+        <p className="text-brand-stone">{message}</p>
       )}
     </div>
   );
@@ -83,7 +84,7 @@ export default function InviteAcceptPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">Loading…</div>
+        <div className={`${ui.page} min-h-screen flex items-center justify-center text-brand-stone`}>Loading…</div>
       }
     >
       <InviteAcceptContent />

@@ -30,34 +30,34 @@ function CollapsibleDnsRecords({ records, sendingDomain, defaultOpen = false }) 
   if (!records?.length) return null;
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
+    <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 bg-gray-50/80 px-4 py-3 text-left hover:bg-gray-100/80 transition-colors"
+        className="flex w-full items-center justify-between gap-3 bg-brand-bg/60 px-4 py-3 text-left hover:bg-brand-bg/80 transition-colors"
         aria-expanded={open}
       >
         <div className="flex items-start gap-2 min-w-0">
           {open ? (
-            <HiOutlineChevronDown className="h-4 w-4 shrink-0 text-gray-500 mt-0.5" />
+            <HiOutlineChevronDown className="h-4 w-4 shrink-0 text-brand-stone mt-0.5" />
           ) : (
-            <HiOutlineChevronRight className="h-4 w-4 shrink-0 text-gray-500 mt-0.5" />
+            <HiOutlineChevronRight className="h-4 w-4 shrink-0 text-brand-stone mt-0.5" />
           )}
           <div className="min-w-0">
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-brand-ink">
               DNS records for {sendingDomain}
             </span>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-brand-stone">
               {records.length} record{records.length === 1 ? "" : "s"} · SPF, DKIM, DMARC, tracking
             </p>
           </div>
         </div>
-        <span className="shrink-0 text-xs text-gray-400">{open ? "Hide" : "Show"}</span>
+        <span className="shrink-0 text-xs text-brand-steel">{open ? "Hide" : "Show"}</span>
       </button>
 
       {open ? (
-        <div className="border-t border-gray-200 bg-white p-4 space-y-3">
-          <p className="text-xs text-gray-500 leading-relaxed">
+        <div className="border-t border-brand-secondary/30 bg-white p-4 space-y-3">
+          <p className="text-xs text-brand-stone leading-relaxed">
             Add these at your domain registrar (or DNS host). SPF, DKIM, and DMARC improve
             deliverability; the tracking CNAME is configured after you set a custom tracking domain
             in{" "}
@@ -65,7 +65,7 @@ function CollapsibleDnsRecords({ records, sendingDomain, defaultOpen = false }) 
               href="https://api.smartlead.ai/guides/best-practices"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sky-700 hover:underline"
+              className="text-brand-terracotta hover:underline"
             >
               Smartlead
             </a>
@@ -75,23 +75,23 @@ function CollapsibleDnsRecords({ records, sendingDomain, defaultOpen = false }) 
             {records.map((r) => (
               <li
                 key={r.id}
-                className="rounded border border-gray-200 bg-gray-50/50 p-2.5 text-xs space-y-1"
+                className="rounded border border-brand-secondary/30 bg-brand-bg/50 p-2.5 text-xs space-y-1"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-gray-800">
+                  <span className="font-medium text-brand-ink">
                     {r.type} · {r.host}
                   </span>
                   <button
                     type="button"
                     onClick={() => copy(r.value)}
-                    className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-800"
+                    className="inline-flex items-center gap-1 text-brand-terracotta hover:text-brand-ink"
                   >
                     <HiOutlineClipboardCopy className="h-3.5 w-3.5" />
                     Copy value
                   </button>
                 </div>
-                <p className="font-mono text-[11px] text-gray-700 break-all">{r.value}</p>
-                {r.note ? <p className="text-gray-500">{r.note}</p> : null}
+                <p className="font-mono text-[11px] text-brand-stone break-all">{r.value}</p>
+                {r.note ? <p className="text-brand-stone">{r.note}</p> : null}
               </li>
             ))}
           </ul>
@@ -103,12 +103,12 @@ function CollapsibleDnsRecords({ records, sendingDomain, defaultOpen = false }) 
 
 function MaildosoPlaceholder() {
   return (
-    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-4">
-      <p className="text-sm text-gray-600">
+    <div className="rounded-lg border border-dashed border-brand-secondary/30 bg-brand-bg/50 p-4">
+      <p className="text-sm text-brand-stone">
         Register and manage sending domains via Maildoso — purchase domains, configure DNS, and
         provision mailboxes from ClarWiz.
       </p>
-      <p className="mt-2 text-xs text-gray-400">Coming soon. Use Smartlead + your own inbox for now.</p>
+      <p className="mt-2 text-xs text-brand-steel">Coming soon. Use Smartlead + your own inbox for now.</p>
     </div>
   );
 }
@@ -248,7 +248,7 @@ export default function EmailIntegrationSection({
   };
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading email configuration…</p>;
+    return <p className="text-sm text-brand-stone">Loading email configuration…</p>;
   }
 
   const isConnected =
@@ -267,8 +267,8 @@ export default function EmailIntegrationSection({
           onClick={() => setMode("smartlead")}
           className={`rounded-md px-3 py-1.5 text-sm font-medium ${
             mode === "smartlead"
-              ? "bg-sky-700 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-brand-dark text-white"
+              : "bg-brand-bg text-brand-stone hover:bg-brand-secondary/20"
           }`}
         >
           Connect inbox + Smartlead
@@ -278,8 +278,8 @@ export default function EmailIntegrationSection({
           onClick={() => setMode("maildoso")}
           className={`rounded-md px-3 py-1.5 text-sm font-medium ${
             mode === "maildoso"
-              ? "bg-sky-700 text-white"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ? "bg-brand-dark text-white"
+              : "bg-brand-bg text-brand-stone hover:bg-brand-secondary/20"
           }`}
         >
           Register domains (Maildoso)
@@ -290,46 +290,46 @@ export default function EmailIntegrationSection({
 
       {mode === "smartlead" && (isConnected || hasSmartlead) ? (
         <>
-          <section className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <section className="rounded-lg border border-brand-secondary/30 bg-brand-bg/50 p-4 space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
               Connected inbox
             </h3>
             <div className="flex flex-wrap items-center gap-2">
               <IntegrationStatusBadge status={integration.status} />
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-brand-stone">
                 {integration.fromName} · {integration.fromEmail}
               </span>
             </div>
             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
-                <dt className="text-xs text-gray-400">SMTP</dt>
+                <dt className="text-xs text-brand-steel">SMTP</dt>
                 <dd
                   className={`mt-0.5 font-medium ${
-                    integration.isSmtpSuccess ? "text-emerald-700" : "text-red-600"
+                    integration.isSmtpSuccess ? "text-brand-ink" : "text-red-600"
                   }`}
                 >
                   {integration.isSmtpSuccess ? "OK" : "Failed"}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-400">IMAP</dt>
+                <dt className="text-xs text-brand-steel">IMAP</dt>
                 <dd
                   className={`mt-0.5 font-medium ${
-                    integration.isImapSuccess ? "text-emerald-700" : "text-red-600"
+                    integration.isImapSuccess ? "text-brand-ink" : "text-red-600"
                   }`}
                 >
                   {integration.isImapSuccess ? "OK" : "Failed"}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-400">Warmup</dt>
-                <dd className="mt-0.5 font-medium text-gray-800">
+                <dt className="text-xs text-brand-steel">Warmup</dt>
+                <dd className="mt-0.5 font-medium text-brand-ink">
                   {integration.warmupStatus || "—"}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-400">Reputation</dt>
-                <dd className="mt-0.5 font-medium text-gray-800">
+                <dt className="text-xs text-brand-steel">Reputation</dt>
+                <dd className="mt-0.5 font-medium text-brand-ink">
                   {integration.warmupReputation || "—"}
                 </dd>
               </div>
@@ -337,12 +337,12 @@ export default function EmailIntegrationSection({
           </section>
 
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
               Tracking domain
             </h3>
             <div className="flex flex-wrap gap-2 items-end">
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-brand-stone mb-1">
                   Custom tracking domain
                 </label>
                 <input
@@ -350,14 +350,14 @@ export default function EmailIntegrationSection({
                   value={effectiveTrackingDraft}
                   onChange={(e) => setTrackingDraft(e.target.value)}
                   placeholder="track.yourdomain.com"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                 />
               </div>
               <button
                 type="button"
                 onClick={handleSaveTracking}
                 disabled={savingTracking || !effectiveTrackingDraft.trim()}
-                className="rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
               >
                 {savingTracking ? "Saving…" : "Save tracking"}
               </button>
@@ -372,7 +372,7 @@ export default function EmailIntegrationSection({
             <button
               type="button"
               onClick={() => onRefresh?.(true)}
-              className="text-sm text-sky-700 hover:underline"
+              className="text-sm text-brand-terracotta hover:underline"
             >
               Refresh status
             </button>
@@ -390,7 +390,7 @@ export default function EmailIntegrationSection({
 
       {mode === "smartlead" && !isConnected && !hasSmartlead ? (
         <>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm text-brand-stone leading-relaxed">
             Connect your sending inbox to Smartlead for warmup, outreach, and open/reply tracking.
             Uses your workspace Smartlead API key — credentials are sent only to Smartlead.
           </p>
@@ -398,21 +398,21 @@ export default function EmailIntegrationSection({
           <form onSubmit={handleConnect} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">From name</label>
+                <label className="block text-xs font-medium text-brand-stone mb-1">From name</label>
                 <input
                   required
                   value={fromName}
                   onChange={(e) => setFromName(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                   placeholder="Alex Smith"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Provider</label>
+                <label className="block text-xs font-medium text-brand-stone mb-1">Provider</label>
                 <select
                   value={providerType}
                   onChange={(e) => setProviderType(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                 >
                   {PROVIDER_OPTIONS.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -422,18 +422,18 @@ export default function EmailIntegrationSection({
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">From email</label>
+                <label className="block text-xs font-medium text-brand-stone mb-1">From email</label>
                 <input
                   type="email"
                   required
                   value={fromEmail}
                   onChange={(e) => setFromEmail(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                   placeholder="alex@yourcompany.com"
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-brand-stone mb-1">
                   App password / SMTP password
                 </label>
                 <input
@@ -441,47 +441,47 @@ export default function EmailIntegrationSection({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                 />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-brand-steel">
                   Gmail: use an App Password with 2FA enabled. Never stored in ClarWiz.
                 </p>
               </div>
               {providerType === "SMTP" ? (
                 <>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                    <label className="block text-xs font-medium text-brand-stone mb-1">
                       SMTP host
                     </label>
                     <input
                       required
                       value={smtpHost}
                       onChange={(e) => setSmtpHost(e.target.value)}
-                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                      className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                    <label className="block text-xs font-medium text-brand-stone mb-1">
                       IMAP host
                     </label>
                     <input
                       required
                       value={imapHost}
                       onChange={(e) => setImapHost(e.target.value)}
-                      className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                      className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                     />
                   </div>
                 </>
               ) : null}
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-brand-stone mb-1">
                   Tracking domain (optional)
                 </label>
                 <input
                   value={customTrackingDomain}
                   onChange={(e) => setCustomTrackingDomain(e.target.value)}
                   placeholder="track.yourdomain.com"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                 />
               </div>
             </div>
@@ -490,14 +490,14 @@ export default function EmailIntegrationSection({
               <button
                 type="submit"
                 disabled={connecting}
-                className="rounded-md bg-sky-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-50"
+                className="rounded-md bg-brand-dark px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
               >
                 {connecting ? "Connecting…" : "Connect via Smartlead"}
               </button>
               <button
                 type="button"
                 onClick={previewDns}
-                className="rounded-md border border-gray-200 px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-brand-secondary/30 px-3.5 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
               >
                 Preview DNS records
               </button>

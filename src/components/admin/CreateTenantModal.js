@@ -76,22 +76,22 @@ export default function CreateTenantModal({ open, onClose, onCreated }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-tenant-title"
-        className="relative w-full max-w-lg rounded-lg border border-gray-200 bg-white shadow-xl"
+        className="relative w-full max-w-lg rounded-lg border border-brand-secondary/30 bg-white shadow-xl"
       >
         <form onSubmit={createTenant} className="p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 id="create-tenant-title" className="text-lg font-semibold text-gray-900">
+              <h2 id="create-tenant-title" className="text-lg font-semibold text-brand-ink">
                 Create tenant
               </h2>
-              <p className="mt-1 text-sm text-gray-600">
+              <p className="mt-1 text-sm text-brand-stone">
                 Set up the workspace and assign a tenant admin.
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1 text-gray-500 hover:bg-gray-100"
+              className="rounded-md p-1 text-brand-stone hover:bg-brand-bg"
             >
               ✕
             </button>
@@ -99,32 +99,32 @@ export default function CreateTenantModal({ open, onClose, onCreated }) {
 
           <div className="space-y-3">
             <label className="block text-sm">
-              <span className="font-medium text-gray-700">Name *</span>
+              <span className="font-medium text-brand-stone">Name *</span>
               <input
                 value={form.name}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, name: e.target.value }))
                 }
                 placeholder="Acme Corp"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
                 required
               />
             </label>
 
             <label className="block text-sm">
-              <span className="font-medium text-gray-700">Industry</span>
+              <span className="font-medium text-brand-stone">Industry</span>
               <input
                 value={form.industry}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, industry: e.target.value }))
                 }
                 placeholder="e.g. SaaS, Healthcare"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
               />
             </label>
 
             <label className="block text-sm">
-              <span className="font-medium text-gray-700">Website</span>
+              <span className="font-medium text-brand-stone">Website</span>
               <input
                 type="url"
                 value={form.website}
@@ -132,12 +132,12 @@ export default function CreateTenantModal({ open, onClose, onCreated }) {
                   setForm((prev) => ({ ...prev, website: e.target.value }))
                 }
                 placeholder="https://example.com"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
               />
             </label>
 
             <label className="block text-sm">
-              <span className="font-medium text-gray-700">About</span>
+              <span className="font-medium text-brand-stone">About</span>
               <textarea
                 value={form.about}
                 onChange={(e) =>
@@ -145,12 +145,12 @@ export default function CreateTenantModal({ open, onClose, onCreated }) {
                 }
                 placeholder="Brief description of the company"
                 rows={3}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm resize-y"
+                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm resize-y"
               />
             </label>
 
             <label className="block text-sm">
-              <span className="font-medium text-gray-700">Admin email</span>
+              <span className="font-medium text-brand-stone">Admin email</span>
               <input
                 type="email"
                 value={form.adminEmail}
@@ -158,11 +158,11 @@ export default function CreateTenantModal({ open, onClose, onCreated }) {
                   setForm((prev) => ({ ...prev, adminEmail: e.target.value }))
                 }
                 placeholder="admin@company.com"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
               />
             </label>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-brand-stone">
               <input
                 type="checkbox"
                 checked={form.payment_status}
@@ -181,14 +181,14 @@ export default function CreateTenantModal({ open, onClose, onCreated }) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-brand-secondary/40 px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={creating}
-              className="rounded-md bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800 disabled:opacity-60"
+              className="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
             >
               {creating ? "Creating..." : "Create tenant"}
             </button>
