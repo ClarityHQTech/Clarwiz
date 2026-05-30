@@ -114,7 +114,7 @@ const Page = () => {
             </span>
             <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-brand-ink leading-[1.1]">
               Turn brand intelligence into{' '}
-              <span className="text-brand-dark">qualified pipeline</span>
+              <span className="text-brand-gold">qualified pipeline</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-brand-stone max-w-2xl leading-relaxed">
               {BRAND.lockup} builds living Brand Intelligence Layers from your

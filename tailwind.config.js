@@ -12,7 +12,8 @@ module.exports = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         brand: {
-          bg: "#F5F5F0",
+          bg: "#FAF9F6",
+          surface: "#FEFCF9",
           ink: "#1A1410",
           stone: "#6B5C4E",
           dark: "#1C1C1C",

@@ -57,11 +57,11 @@ function MetricCard({ label, value, sub, highlight }) {
   return (
     <div
       className={`${ui.statCard} ${
-        highlight ? "border-brand-sage/50 bg-brand-sage/10" : ""
+        highlight ? "border-brand-sage/50 bg-brand-sage/25" : ""
       }`}
     >
       <p className={ui.label}>{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-brand-ink font-serif">
+      <p className={ui.statValue}>
         {value}
       </p>
       {sub && (
@@ -78,7 +78,7 @@ function ProgressBar({ percent, label }) {
     <div>
       <div className="flex justify-between text-xs mb-1">
         <span className="text-brand-stone">{label}</span>
-        <span className="font-medium text-brand-ink tabular-nums">{percent}%</span>
+        <span className="font-medium text-brand-dark tabular-nums">{percent}%</span>
       </div>
       <div className={ui.progressTrack}>
         <div className={ui.progressBar} style={{ width: `${percent}%` }} />
@@ -442,21 +442,21 @@ const Page = () => {
           <h2 className={`${ui.titleSm} text-base`}>Progress</h2>
           <ProgressBar label="Outreach sent" percent={progress.sentPercent} />
           <div className="grid sm:grid-cols-3 gap-3 pt-1">
-            <div className="rounded-md bg-brand-bg px-3 py-2">
+            <div className={ui.miniStat}>
               <p className="text-xs text-brand-stone">Templates</p>
-              <p className="text-sm font-semibold text-brand-ink">
+              <p className="text-sm font-semibold text-brand-dark tabular-nums">
                 {progress.templateCount}
               </p>
             </div>
-            <div className="rounded-md bg-brand-bg px-3 py-2">
+            <div className={ui.miniStat}>
               <p className="text-xs text-brand-stone">Max stage</p>
-              <p className="text-sm font-semibold text-brand-ink">
+              <p className="text-sm font-semibold text-brand-dark tabular-nums">
                 {progress.maxStage || "—"}
               </p>
             </div>
-            <div className="rounded-md bg-brand-bg px-3 py-2">
+            <div className={ui.miniStat}>
               <p className="text-xs text-brand-stone">Channels</p>
-              <p className="text-sm font-semibold text-brand-ink truncate">
+              <p className="text-sm font-semibold text-brand-dark truncate">
                 {progress.channelsConfigured.length
                   ? progress.channelsConfigured.join(", ")
                   : "None"}

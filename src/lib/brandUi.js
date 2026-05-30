@@ -23,8 +23,11 @@ export const ui = {
   body: "text-sm text-brand-stone",
   card: "rounded-xl border border-brand-secondary/30 bg-white shadow-sm",
   cardMuted: "rounded-xl border border-brand-secondary/25 bg-white/80",
-  statCard: "rounded-xl border border-brand-secondary/30 bg-white px-4 py-3",
-  tableWrap: "rounded-xl border border-brand-secondary/30 bg-white overflow-hidden shadow-sm",
+  statCard: "rounded-xl border border-brand-secondary/30 bg-brand-surface px-4 py-3",
+  statValue: "mt-1 text-2xl font-semibold text-brand-ink tabular-nums",
+  miniStat: "rounded-md bg-brand-surface border border-brand-secondary/15 px-3 py-2",
+  tableWrap: "rounded-xl border border-brand-secondary/30 bg-brand-surface overflow-hidden shadow-sm",
+  tableCellMetric: "px-4 py-3 text-right text-brand-ink tabular-nums",
   tableHead: "border-b border-brand-secondary/25 bg-brand-bg/60",
   tableHeadCell:
     "text-left text-xs font-medium text-brand-stone uppercase tracking-wider px-4 py-3",

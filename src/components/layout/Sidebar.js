@@ -70,7 +70,7 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 </button>
                 <Link
                     href="/profile"
-                    className={`flex items-center w-full ${collapsed ? 'justify-center p-2.5' : 'gap-2 p-4'} ${params === 'profile' ? 'bg-brand-bg text-brand-ink rounded-lg' : 'text-white'}`}
+                    className={`flex items-center w-full ${collapsed ? 'justify-center p-2.5' : 'gap-2 p-4'} ${params === 'profile' ? 'bg-brand-sage/30 text-white rounded-lg' : 'text-white'}`}
                     title="Profile"
                 >
                     <FaUserCircle size={25} />
@@ -93,7 +93,7 @@ const LinkButton = ({ url = '/', title = 'Home', icon, active, collapsed = false
       title={title}
       className={`relative flex items-center w-full ${
         collapsed ? 'justify-center' : 'gap-4'
-      } ${active ? 'p-2 bg-brand-bg text-brand-ink rounded-lg' : 'p-2 text-white hover:bg-brand-ink/40'}`}
+      } ${active ? 'p-2 bg-brand-sage/30 text-white rounded-lg' : 'p-2 text-white hover:bg-brand-ink/40'}`}
     >
       {icon}
       {!collapsed && title}

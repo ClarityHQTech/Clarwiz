@@ -51,7 +51,7 @@ const LinkButton = ({ url = "/", title = "Home", icon, active }) => (
   <Link
     href={url}
     className={`relative flex items-center gap-4 ${
-      active ? "p-2 bg-gradient-to-tr from-brand-sage/90 to-brand-sage/30 rounded-lg" : "p-2"
+      active ? "p-2 bg-brand-sage/30 text-white rounded-lg" : "p-2 hover:bg-brand-ink/40"
     }`}
   >
     {icon}

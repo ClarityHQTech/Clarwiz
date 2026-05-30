@@ -91,7 +91,7 @@ const Page = () => {
         ].map(({ label, value }) => (
           <div key={label} className={ui.statCard}>
             <p className={ui.label}>{label}</p>
-            <p className="mt-1 text-xl font-semibold text-brand-ink tabular-nums font-serif">
+            <p className={ui.statValue}>
               {loading ? "—" : value}
             </p>
           </div>
@@ -147,19 +147,19 @@ const Page = () => {
                     <td className="px-4 py-3">
                       <StatusBadge status={campaign.status} />
                     </td>
-                    <td className="px-4 py-3 text-right text-brand-stone tabular-nums">
+                    <td className={ui.tableCellMetric}>
                       {campaign.prospects.toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-right text-brand-stone tabular-nums">
+                    <td className={ui.tableCellMetric}>
                       {campaign.sent.toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-right text-brand-stone tabular-nums">
+                    <td className={ui.tableCellMetric}>
                       {formatPercent(campaign.openRate)}
                     </td>
-                    <td className="px-4 py-3 text-right text-brand-stone tabular-nums">
+                    <td className={ui.tableCellMetric}>
                       {formatPercent(campaign.replyRate)}
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-brand-ink tabular-nums">
+                    <td className={`${ui.tableCellMetric} font-medium text-brand-dark`}>
                       {campaign.qualifiedLeads}
                     </td>
                     <td className="px-4 py-3 text-brand-stone text-xs whitespace-nowrap">
