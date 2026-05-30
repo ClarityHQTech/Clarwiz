@@ -209,7 +209,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-brand-stone leading-relaxed">
-        Sign in with your LinkedIn credentials. ClarWiz uses LinkupAPI for profile visits,
+        Sign in with your LinkedIn credentials. Clarwiz uses LinkupAPI for profile visits,
         messages, and connection requests. We store only the account ID and connection status.
       </p>
 

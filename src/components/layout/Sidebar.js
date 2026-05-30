@@ -12,6 +12,8 @@ import Link from 'next/link';
 import ConfirmBox from '../dialog/ConfirmBox';
 import ActiveTenantIndicator from './ActiveTenantIndicator';
 import { signOut } from 'next-auth/react';
+import BrandLockup from '@/components/brand/BrandLockup';
+import { BRAND } from '@/lib/brandUi';
 // import ContactUs from '../dialogs/ContactUs';
 
 const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
@@ -32,10 +34,8 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
         <div className='w-full'>
             <div className='flex items-center justify-between h-[5vh] w-full p-2 pb-4'>
                 <Link href={'/'} className={`flex items-center ${collapsed ? 'justify-center w-full' : 'justify-start gap-2'}`}>
-                    <img className='h-8' src="/logo.svg" alt="ClarityHQ" />
-                    {!collapsed && (
-                        <h1 className='font-serif font-semibold text-lg text-brand-bg'>ClarityHQ</h1>
-                    )}
+                    <img className='h-8' src="/logo.svg" alt={BRAND.lockup} />
+                    {!collapsed && <BrandLockup />}
                 </Link>
                 <button
                     onClick={onToggleCollapse}

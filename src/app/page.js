@@ -1,6 +1,7 @@
 'use client'
 
 import AppLayout from '@/components/layout/AppLayout'
+import BrandLockup from '@/components/brand/BrandLockup'
 import { BRAND } from '@/lib/brandUi'
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
@@ -69,7 +70,7 @@ const values = [
 const faqs = [
   {
     q: `What is ${BRAND.productName}?`,
-    a: `${BRAND.productName} is the growth execution surface of ${BRAND.displayName}—a human-first outreach engine for ambitious D2C brands and agencies. Run qualified lead campaigns across email, LinkedIn, WhatsApp, and AI calling from one source of truth.`,
+    a: `${BRAND.lockup} is a human-first outreach engine for ambitious D2C brands and agencies—powered by a living Brand Intelligence Layer. Run qualified lead campaigns across email, LinkedIn, WhatsApp, and AI calling from one source of truth.`,
   },
   {
     q: 'Who is it for?',
@@ -88,8 +89,19 @@ const Page = () => {
 
   return (
     <main className="text-brand-ink bg-brand-bg">
+      {/* Mobile header brand — fixed so it sits above hero content; hidden lg+ (desktop uses Header) */}
+      <div className="fixed top-6 left-4 z-40 max-w-[calc(100%-5.5rem)] lg:hidden">
+        <Link href="/" className="flex items-center gap-2 min-w-0">
+          <img className="h-8 w-8 shrink-0" src="/logo.svg" alt={BRAND.lockup} />
+          <BrandLockup
+            productClassName="font-serif font-semibold text-base text-brand-ink leading-tight"
+            parentClassName="block text-[10px] text-brand-stone font-sans leading-tight"
+          />
+        </Link>
+      </div>
+
       {/* Hero */}
-      <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-brand-bg pt-24 lg:pt-28">
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-brand-bg pt-14 lg:pt-28">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-brand-sage/25 blur-3xl" />
           <div className="absolute bottom-0 -left-24 h-80 w-80 rounded-full bg-brand-terracotta/20 blur-3xl" />
@@ -105,9 +117,9 @@ const Page = () => {
               <span className="text-brand-dark">qualified pipeline</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-brand-stone max-w-2xl leading-relaxed">
-              {BRAND.displayName} builds living Brand Intelligence Layers from your
+              {BRAND.lockup} builds living Brand Intelligence Layers from your
               assets and signals—then powers campaigns, creative, and growth execution
-              for ambitious D2C brands and agencies through {BRAND.productName}.
+              for ambitious D2C brands and agencies.
             </p>
             <ul className="mt-6 flex flex-wrap gap-2">
               {values.map((v) => (

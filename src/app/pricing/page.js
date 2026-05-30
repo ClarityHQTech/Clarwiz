@@ -21,7 +21,7 @@ const PricingPage = () => {
         </p>
         <div className="mt-4">
           <Link
-            href="mailto:sales@clarwiz.com?subject=Activate%20ClarWiz%20subscription"
+            href="mailto:sales@clarwiz.com?subject=Activate%20Clarwiz%20by%20ClarityHQ%20subscription"
             className={ui.btnPrimary}
           >
             Contact sales to activate

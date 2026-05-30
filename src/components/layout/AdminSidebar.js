@@ -6,6 +6,7 @@ import { MdDashboard } from "react-icons/md";
 import { FiUsers } from "react-icons/fi";
 import { HiOutlineWrenchScrewdriver } from "react-icons/hi2";
 import { FaBuildingUser } from "react-icons/fa6";
+import { BRAND } from "@/lib/brandUi";
 
 const AdminSidebar = () => {
   const pathname = usePathname();
@@ -17,7 +18,7 @@ const AdminSidebar = () => {
         href="/"
         className="flex items-center justify-start gap-2 h-[5vh] w-full p-2 pb-4"
       >
-        <img className="h-8" src="/logo.svg" alt="ClarWiz" />
+        <img className="h-8" src="/logo.svg" alt={BRAND.lockup} />
         <h1 className="font-semibold text-lg text-brand-bg">Admin Panel</h1>
       </Link>
       <div className="h-[90vh] flex flex-col items-start justify-between w-full text-white">

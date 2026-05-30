@@ -21,7 +21,7 @@ const CONNECTION_OPTIONS = [
     ],
     limitations: [
       "Does not auto-qualify when someone completes a booking in Calendly",
-      "Requires a separate ClarWiz OAuth app (users:read only)",
+      "Requires a separate Clarwiz OAuth app (users:read only)",
     ],
     calendlyPlan: "Works with Calendly Free",
     connectLabel: "Connect (Free plan)",
@@ -37,7 +37,7 @@ const CONNECTION_OPTIONS = [
     ],
     limitations: [
       "Your connected Calendly account must be on Standard or above",
-      "Uses ClarWiz Standard OAuth app (users:read, scheduled_events:read, webhooks:write)",
+      "Uses Clarwiz Standard OAuth app (users:read, scheduled_events:read, webhooks:write)",
       "Webhook callback must be public HTTPS (ngrok or deployed URL)",
     ],
     calendlyPlan: "Requires Calendly Standard, Teams, or Enterprise",
@@ -139,7 +139,7 @@ export default function CalendlyIntegrationSection({ integration, onRefresh }) {
       )}
 
       <p className="text-sm text-brand-stone leading-relaxed">
-        Choose how ClarWiz qualifies prospects from Calendly. Your Calendly{" "}
+        Choose how Clarwiz qualifies prospects from Calendly. Your Calendly{" "}
         <span className="font-medium text-brand-stone">account plan</span> must match the option
         you connect — Free accounts cannot register API webhooks (Calendly returns an upgrade
         error for <code className="text-xs bg-brand-bg px-1 rounded">webhooks:write</code>).

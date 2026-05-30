@@ -10,7 +10,8 @@ import { signIn, useSession } from "next-auth/react";
 import { useUser } from '@/context/UserContext';
 // import ContactUs from '../dialogs/ContactUs';
 import Loader from '../shared/Loader';
-import { ui } from '@/lib/brandUi';
+import { BRAND, ui } from '@/lib/brandUi';
+import BrandLockup from '@/components/brand/BrandLockup';
 
 
 const Header = () => {
@@ -62,9 +63,9 @@ const Header = () => {
     >
       <div className="flex gap-16 items-center">
           <Link className='flex gap-2 items-center' href="/">
-          <img src='/logo.svg' className='h-8' alt="ClarityHQ"/>
-          <h1 className="font-serif font-semibold text-xl text-brand-ink transition-colors duration-300">
-            ClarityHQ
+          <img src='/logo.svg' className='h-8' alt={BRAND.lockup}/>
+          <h1 className="transition-colors duration-300">
+            <BrandLockup inline />
           </h1>
         </Link>
       </div>
@@ -113,7 +114,12 @@ const Header = () => {
             <div className="flex justify-between items-center">
               <Link className='flex items-center justify-start gap-2 w-full' href={'/'} onClick={onClose}>
                 <img className='h-8' src="/logo_white.svg" alt="" />
-                <h1 className={ui.mobileDrawerTitle}>ClarityHQ</h1>
+                <div className={ui.mobileDrawerTitle}>
+                  <span className="font-serif font-semibold">{BRAND.productName}</span>
+                  <span className="block text-xs font-sans text-brand-secondary font-normal">
+                    by {BRAND.parentBrand}
+                  </span>
+                </div>
               </Link>
               <DrawerCloseButton className={ui.mobileCloseBtn} />
             </div>

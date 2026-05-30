@@ -106,7 +106,7 @@ function MaildosoPlaceholder() {
     <div className="rounded-lg border border-dashed border-brand-secondary/30 bg-brand-bg/50 p-4">
       <p className="text-sm text-brand-stone">
         Register and manage sending domains via Maildoso — purchase domains, configure DNS, and
-        provision mailboxes from ClarWiz.
+        provision mailboxes from Clarwiz.
       </p>
       <p className="mt-2 text-xs text-brand-steel">Coming soon. Use Smartlead + your own inbox for now.</p>
     </div>
@@ -444,7 +444,7 @@ export default function EmailIntegrationSection({
                   className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
                 />
                 <p className="mt-1 text-xs text-brand-steel">
-                  Gmail: use an App Password with 2FA enabled. Never stored in ClarWiz.
+                  Gmail: use an App Password with 2FA enabled. Never stored in Clarwiz.
                 </p>
               </div>
               {providerType === "SMTP" ? (

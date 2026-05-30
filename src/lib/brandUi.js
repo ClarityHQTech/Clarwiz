@@ -1,8 +1,9 @@
 /** ClarityHQ brand tokens — aligned with Brand Context Protocol visual + verbal */
 
 export const BRAND = {
-  displayName: "ClarityHQ",
-  productName: "ClarWiz",
+  productName: "Clarwiz",
+  parentBrand: "ClarityHQ",
+  lockup: "Clarwiz by ClarityHQ",
 };
 
 export const STATUS_STYLES = {

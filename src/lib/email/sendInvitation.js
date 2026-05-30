@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { getAppBaseUrl } from "@/lib/appUrl";
+import { BRAND } from "@/lib/brandUi";
 
 function getTransport() {
   const host = process.env.SMTP_HOST?.trim();
@@ -26,9 +27,9 @@ export async function sendTenantInvitationEmail({
   const acceptUrl = `${baseUrl}/invite/accept?token=${encodeURIComponent(token)}`;
   const from = process.env.SMTP_FROM?.trim() || process.env.SMTP_USER?.trim();
 
-  const subject = `You've been invited to ${tenantName} on ClarWiz`;
-  const text = `${invitedByName || "A team admin"} invited you to collaborate on ${tenantName} in ClarWiz.\n\nAccept your invitation: ${acceptUrl}\n\nThis link expires in 7 days.`;
-  const html = `<p>${invitedByName || "A team admin"} invited you to collaborate on <strong>${tenantName}</strong> in ClarWiz.</p><p><a href="${acceptUrl}">Accept invitation</a></p><p>This link expires in 7 days.</p>`;
+  const subject = `You've been invited to ${tenantName} on ${BRAND.lockup}`;
+  const text = `${invitedByName || "A team admin"} invited you to collaborate on ${tenantName} in ${BRAND.lockup}.\n\nAccept your invitation: ${acceptUrl}\n\nThis link expires in 7 days.`;
+  const html = `<p>${invitedByName || "A team admin"} invited you to collaborate on <strong>${tenantName}</strong> in ${BRAND.lockup}.</p><p><a href="${acceptUrl}">Accept invitation</a></p><p>This link expires in 7 days.</p>`;
 
   const transport = getTransport();
   if (!transport) {

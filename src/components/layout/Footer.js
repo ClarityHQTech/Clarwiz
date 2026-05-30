@@ -1,4 +1,5 @@
 "use client"
+import { BRAND } from "@/lib/brandUi"
 import { useDisclosure } from "@chakra-ui/react"
 import Link from "next/link"
 import { DiGithub } from "react-icons/di"
@@ -20,7 +21,7 @@ const Footer = () => {
             <a target="_blank"><FaFacebook size={30} color="white" /></a>
             <a target="_blank"><FaInstagram size={35} color="white" /></a>
           </div>
-          <p className="mt-8">ClarityHQ powers human-led growth execution for ambitious D2C brands and agencies—unified brand context, one source of truth.</p>
+          <p className="mt-8">{BRAND.lockup} powers human-led growth execution for ambitious D2C brands and agencies—unified brand context, one source of truth.</p>
           <p className="mt-16">
             For support, email us at <br />
             <a href="mailto:nextscale.ai@gmail.com" className="text-brand-terracotta">nextscale.ai@gmail.com</a>
@@ -42,7 +43,7 @@ const Footer = () => {
 
       <div className="max-w-6xl mx-auto flex justify-between mt-10 md:mt-0">
         <p className="text-[3.5rem] sm:text-[10rem] text-brand-secondary/30 font-serif font-semibold -pb-[2rem]">
-          ClarityHQ
+          {BRAND.lockup}
         </p>
       </div>
 

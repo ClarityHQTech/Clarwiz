@@ -1,5 +1,6 @@
 import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
+import { BRAND } from '@/lib/brandUi'
 import { Toaster } from 'sonner'
 import { Providers } from './providers'
 import { UserProvider } from '@/context/UserContext'
@@ -16,7 +17,7 @@ const cormorant = Cormorant_Garamond({
 })
 
 export const metadata = {
-  title: "ClarityHQ · ClarWiz",
+  title: BRAND.lockup,
   description: "Human-led growth execution powered by your Brand Intelligence Layer",
 };
 

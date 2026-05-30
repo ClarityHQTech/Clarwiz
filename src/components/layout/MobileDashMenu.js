@@ -57,7 +57,12 @@ const MobileDashMenu = () => {
                 onClick={onClose}
               >
                 <img className="h-8" src="/logo_white.svg" alt="" />
-                <h1 className={ui.mobileDrawerTitle}>{BRAND.displayName}</h1>
+                <div className={ui.mobileDrawerTitle}>
+                  <span className="font-serif font-semibold">{BRAND.productName}</span>
+                  <span className="block text-xs font-sans text-brand-secondary font-normal">
+                    by {BRAND.parentBrand}
+                  </span>
+                </div>
               </Link>
               <DrawerCloseButton className={ui.mobileCloseBtn} />
             </div>

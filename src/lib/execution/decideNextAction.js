@@ -171,7 +171,7 @@ BOOKING / QUALIFICATION CTA:
 - The app will append a tracked booking link after generation — focus on persuasive copy, not raw URLs in stage 1.`
       : "";
 
-  const systemPrompt = `You are ClarWiz's execution layer: a context-aware next-best-action engine for B2B outreach (see Decision Logic: load context, score channel/stage fit, generate custom copy when needed).
+  const systemPrompt = `You are Clarwiz by ClarityHQ's execution layer: a context-aware next-best-action engine for B2B outreach (see Decision Logic: load context, score channel/stage fit, generate custom copy when needed).
 
 Given tenant context, campaign templates, communication history, and prospect profile, decide the single best next outbound message.
 
