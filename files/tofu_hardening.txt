@@ -1,0 +1,107 @@
+Data model behavior
+
+One 'BusinessUser' can belong to one 'Company'
+One 'Contact' per tenant per business user
+One 'ContactCampaig'n per contact per campaign
+Campaign-specific fields moved off the old prospect row:
+ status, qualifiedAt, qualifiedReason
+ outreachDeliveryTime, nextScheduledOutreachAt, lastOutreachDate
+
+
+model BusinessUser {
+  id          String               @id @default(cuid())
+  companyId   String?
+  company     Company?             @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  name        String
+  firstName   String?
+  lastName    String?
+  jobTitle    String?
+  department  String?
+  seniority   String?
+  email       String?
+  phone       String?
+  whatsapp    String?
+  linkedinUrl String?
+  twitterId   String?
+  location    String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  contacts    Contact[]
+  signals     BusinessUserSignal[]
+
+  @@index([email])
+  @@index([linkedinUrl])
+  @@index([companyId])
+}
+
+model Company {
+  id            String         @id @default(cuid())
+  name          String
+  domain        String?
+  industry      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  businessUsers BusinessUser[]
+
+  @@unique([name])
+}
+
+model Contact {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessUserId   String
+  businessUser     BusinessUser      @relation(fields: [businessUserId], references: [id], onDelete: Restrict)
+  persona          ContactPersona    @default(OTHER)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  contactCampaigns ContactCampaign[]
+
+  @@unique([tenantId, businessUserId])
+  @@index([tenantId])
+  @@index([businessUserId])
+}
+
+model ContactCampaign {
+  id                      String                @id @default(cuid())
+  contactId               String
+  campaignId              String
+  status                  ContactCampaignStatus @default(PENDING)
+  qualifiedAt             DateTime?
+  qualifiedReason         String?
+  outreachDeliveryTime    String?
+  nextScheduledOutreachAt DateTime?
+  lastOutreachDate        DateTime?             @db.Date
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  contact                 Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign                Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  commLogs                CommunicationLog[]
+
+  @@unique([contactId, campaignId])
+  @@index([campaignId])
+  @@index([campaignId, nextScheduledOutreachAt])
+  @@index([campaignId, status])
+}
+
+
+
+Hardening:
+Modes (copilot vs autopilot)
+Copilot (draft / paused): manual outreach and manual tracking; buttons only show in this state.
+Autopilot (active): scheduled daily outreach via cron; tracking via webhooks only (no track button, no LinkedIn/email polling).
+
+Cron
+POST/GET /api/cron/outreach — runs every minute; sends due outreach and processes retries.
+vercel.json — Vercel cron every minute in production.
+
+Webhooks & tracking
+New routes: /api/webhooks/smartlead/[token], /api/webhooks/linkup/[token].
+WhatsApp Meta/Interakt webhooks verify secrets from DB (env fallback for migration).
+Shared webhookTracking.js — updates comm logs, triggers next-best-action on replies.
+Auto-register webhooks on email connect, LinkedIn login, campaign start.
+Settings → Webhooks panel — status, last event, what events are read, copy URL.
+
+Retries
+Failed sends → retry_pending with backoff (up to 3 retries).
+Original decision stored in deliveryMeta.plannedDecision for re-push.
