@@ -25,23 +25,28 @@ export async function findProspectByWhatsAppPhone(tenantId, phone) {
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
-  const prospects = await prisma.prospect.findMany({
+  const rows = await prisma.contactCampaign.findMany({
     where: { campaign: { tenantId } },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      whatsapp: true,
-      campaignId: true,
+    include: {
+      contact: { include: { businessUser: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return (
-    prospects.find((p) =>
-      phonesMatch(p.whatsapp || p.phone, normalized)
-    ) ?? null
-  );
+  const match = rows.find((cc) => {
+    const bu = cc.contact.businessUser;
+    return phonesMatch(bu.whatsapp || bu.phone, normalized);
+  });
+  if (!match) return null;
+
+  const bu = match.contact.businessUser;
+  return {
+    id: match.id,
+    name: bu.name,
+    phone: bu.phone,
+    whatsapp: bu.whatsapp,
+    campaignId: match.campaignId,
+  };
 }
 
 /**
@@ -55,7 +60,7 @@ export async function findWhatsAppCommLogForProspect({
 }) {
   const baseWhere = {
     tenantId,
-    prospectId,
+    contactCampaignId: prospectId,
     channel: "whatsapp",
     ...(campaignId ? { campaignId } : {}),
   };
@@ -151,7 +156,7 @@ export async function recordWhatsAppInboundMessage({
       stored: false,
       reason: "duplicate",
       commLogId: log.id,
-      prospectId: log.prospectId,
+      prospectId: log.contactCampaignId,
     };
   }
 
@@ -199,7 +204,8 @@ export async function recordWhatsAppInboundMessage({
   let ranExecution = false;
   if (triggerExecution) {
     await runExecutionForCampaign(updated.campaignId, {
-      prospectIds: [updated.prospectId],
+      contactCampaignIds: [updated.contactCampaignId],
+      skipDailyLimit: true,
     });
     ranExecution = true;
   }
@@ -207,7 +213,7 @@ export async function recordWhatsAppInboundMessage({
   return {
     stored: true,
     commLogId: updated.id,
-    prospectId: updated.prospectId,
+    prospectId: updated.contactCampaignId,
     campaignId: updated.campaignId,
     responseContent,
     ranExecution,

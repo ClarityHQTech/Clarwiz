@@ -6,6 +6,7 @@ import {
   serializeLinkedInIntegration,
   upsertLinkedInFromLogin,
 } from "@/lib/linkedinIntegration";
+import { registerWebhooksForTenant } from "@/lib/execution/registerIntegrationWebhooks";
 
 const COUNTRIES = ["US", "UK", "FR", "DE", "NL", "IT", "IL", "CA", "BR", "ES", "IN"];
 
@@ -62,6 +63,12 @@ export async function POST(request) {
     accountName,
     country,
   });
+
+  if (record.status === "connected") {
+    registerWebhooksForTenant(ctx.tenantId).catch((err) =>
+      console.warn("[linkedin/login] webhook registration:", err.message)
+    );
+  }
 
   return NextResponse.json({
     integration: serializeLinkedInIntegration(record),

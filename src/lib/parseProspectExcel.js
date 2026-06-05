@@ -71,6 +71,14 @@ export const PROSPECT_COLUMN_ALIASES = {
     "public linkedin",
     "public linkedin url",
   ],
+  persona: [
+    "persona",
+    "role type",
+    "buyer type",
+    "buyer persona",
+    "contact type",
+  ],
+  twitterId: ["twitter", "twitter id", "twitter handle", "x handle", "x id"],
 };
 
 export function normalizeHeader(value) {
@@ -147,13 +155,16 @@ function rowToProspect(row, mapping) {
   return {
     name,
     firstName,
+    lastName: cellValue(row, mapping.lastName) || null,
     company,
     jobTitle,
     painPoint,
+    persona: cellValue(row, mapping.persona) || null,
     phone: cellValue(row, mapping.phone) || null,
     whatsapp: cellValue(row, mapping.whatsapp) || null,
     email: cellValue(row, mapping.email) || null,
     linkedinUrl: resolveLinkedIn(row, mapping),
+    twitterId: cellValue(row, mapping.twitterId) || null,
   };
 }
 

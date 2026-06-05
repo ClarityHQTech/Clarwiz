@@ -9,33 +9,54 @@ import {
   serializeCommLogDetail,
 } from "@/lib/campaignMetrics";
 import { getCalendlyIntegration } from "@/lib/calendlyIntegration";
+import { CONTACT_CAMPAIGN_STATUS_LABELS } from "@/lib/contactCampaignStatus";
+import { CONTACT_PERSONA_LABELS } from "@/lib/contactPersona";
+import { flattenContactCampaign } from "@/lib/resolveBusinessUser";
 
 function ctaLabel(value) {
   return CTA_OPTIONS.find((c) => c.value === value)?.label ?? value;
 }
 
+export const contactCampaignInclude = {
+  contact: {
+    include: {
+      businessUser: { include: { company: true } },
+    },
+  },
+};
+
 export const campaignDetailInclude = {
-  prospects: { orderBy: { name: "asc" } },
+  contactCampaigns: {
+    include: contactCampaignInclude,
+    orderBy: { createdAt: "asc" },
+  },
   templates: { orderBy: [{ channel: "asc" }, { stage: "asc" }] },
   commLogs: { orderBy: { sentAt: "desc" }, take: 200 },
 };
 
 export async function serializeCampaignDetail(campaign, { calendlyConnected = null } = {}) {
-  const prospectCount = campaign.prospects.length;
-  const qualifiedCount = campaign.prospects.filter((p) => p.qualifiedAt).length;
+  const contactCampaigns = campaign.contactCampaigns ?? [];
+  const prospectCount = contactCampaigns.length;
+  const qualifiedCount = contactCampaigns.filter(
+    (cc) => cc.status === "QUALIFIED"
+  ).length;
   const commLogs = campaign.commLogs ?? [];
   const metrics = computeCampaignMetrics(commLogs, prospectCount, qualifiedCount);
 
-  const prospectNameById = Object.fromEntries(
-    campaign.prospects.map((p) => [p.id, p.name])
+  const nameByContactCampaignId = Object.fromEntries(
+    contactCampaigns.map((cc) => [
+      cc.id,
+      cc.contact?.businessUser?.name ?? "Contact",
+    ])
   );
 
-  const logsByProspect = {};
+  const logsByContactCampaign = {};
   for (const log of commLogs) {
-    if (!logsByProspect[log.prospectId]) logsByProspect[log.prospectId] = [];
-    logsByProspect[log.prospectId].push(
+    const key = log.contactCampaignId;
+    if (!logsByContactCampaign[key]) logsByContactCampaign[key] = [];
+    logsByContactCampaign[key].push(
       serializeCommLogDetail(log, {
-        prospectName: prospectNameById[log.prospectId],
+        contactName: nameByContactCampaignId[key],
       })
     );
   }
@@ -65,6 +86,8 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
     calendlyConnected:
       calendlyConnected === null ? undefined : Boolean(calendlyConnected),
     startDate: campaign.startDate?.toISOString() ?? null,
+    outreachTimezone: campaign.outreachTimezone ?? "UTC",
+    defaultOutreachTime: campaign.defaultOutreachTime ?? "11:00",
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString(),
     metrics: {
@@ -87,7 +110,7 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
     },
     commLogs: commLogs.map((log) =>
       serializeCommLogDetail(log, {
-        prospectName: prospectNameById[log.prospectId],
+        contactName: nameByContactCampaignId[log.contactCampaignId],
       })
     ),
     templates: campaign.templates
@@ -116,30 +139,52 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
             ? countWhatsAppNumberedVariables(t.body)
             : 0,
       })),
-    prospects: campaign.prospects.map((p) => {
-      const communications = logsByProspect[p.id] ?? [];
+    contacts: serializeContactCampaignRows(contactCampaigns, logsByContactCampaign),
+    prospects: serializeContactCampaignRows(contactCampaigns, logsByContactCampaign),
+  };
+}
+
+function serializeContactCampaignRows(contactCampaigns, logsByContactCampaign) {
+  return [...contactCampaigns]
+    .sort((a, b) =>
+      (a.contact?.businessUser?.name ?? "").localeCompare(
+        b.contact?.businessUser?.name ?? ""
+      )
+    )
+    .map((cc) => {
+      const flat = flattenContactCampaign(cc);
+      const communications = logsByContactCampaign[cc.id] ?? [];
       const hasReply = communications.some((c) => c.responseType);
       return {
-        id: p.id,
-        name: p.name,
-        firstName: p.firstName,
-        company: p.company,
-        jobTitle: p.jobTitle,
-        painPoint: p.painPoint,
-        phone: p.phone,
-        whatsapp: p.whatsapp,
-        email: p.email,
-        linkedinUrl: p.linkedinUrl,
-        qualifiedAt: p.qualifiedAt?.toISOString?.() ?? null,
-        qualifiedReason: p.qualifiedReason ?? null,
-        isQualified: Boolean(p.qualifiedAt),
+        id: cc.id,
+        contactId: cc.contactId,
+        status: cc.status,
+        statusLabel: CONTACT_CAMPAIGN_STATUS_LABELS[cc.status] ?? cc.status,
+        persona: flat.persona,
+        personaLabel: CONTACT_PERSONA_LABELS[flat.persona] ?? flat.persona,
+        name: flat.name,
+        firstName: flat.firstName,
+        lastName: flat.lastName,
+        company: flat.company,
+        jobTitle: flat.jobTitle,
+        phone: flat.phone,
+        whatsapp: flat.whatsapp,
+        email: flat.email,
+        linkedinUrl: flat.linkedinUrl,
+        twitterId: flat.twitterId,
+        qualifiedAt: cc.qualifiedAt?.toISOString?.() ?? null,
+        qualifiedReason: cc.qualifiedReason ?? null,
+        isQualified: cc.status === "QUALIFIED",
+        outreachDeliveryTime: cc.outreachDeliveryTime ?? null,
+        nextScheduledOutreachAt:
+          cc.nextScheduledOutreachAt?.toISOString?.() ?? null,
+        lastOutreachDate: cc.lastOutreachDate?.toISOString?.() ?? null,
         communications,
         messageCount: communications.filter((c) => c.status !== "skipped")
           .length,
         hasReply,
       };
-    }),
-  };
+    });
 }
 
 export async function getOwnedCampaignDetail(id, tenantId) {

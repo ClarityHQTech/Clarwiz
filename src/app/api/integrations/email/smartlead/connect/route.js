@@ -13,6 +13,7 @@ import {
   saveEmailAccount,
   updateEmailAccount,
 } from "@/lib/smartleadApi";
+import { registerWebhooksForTenant } from "@/lib/execution/registerIntegrationWebhooks";
 
 export async function POST(request) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
@@ -135,6 +136,10 @@ export async function POST(request) {
         "Inbox connected — account id was resolved from your Smartlead account list."
       );
     }
+
+    registerWebhooksForTenant(ctx.tenantId).catch((err) =>
+      console.warn("[smartlead/connect] webhook registration:", err.message)
+    );
 
     return NextResponse.json({
       integration: serializeEmailIntegration(record, { dnsRecords }),

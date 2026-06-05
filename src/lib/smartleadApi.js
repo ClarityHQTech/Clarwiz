@@ -10,7 +10,7 @@ function getApiKey() {
   return key;
 }
 
-async function smartleadRequest(path, { method = "GET", body, query = {} } = {}) {
+export async function smartleadRequest(path, { method = "GET", body, query = {} } = {}) {
   const url = new URL(`${SMARTLEAD_BASE}${path}`);
   url.searchParams.set("api_key", getApiKey());
   for (const [key, value] of Object.entries(query)) {

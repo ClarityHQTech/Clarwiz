@@ -10,7 +10,8 @@
     "lint": "next lint",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "cron:outreach": "node scripts/dev-outreach-cron.js"
   },
   "dependencies": {
     "@chakra-ui/next-js": "^2.4.2",

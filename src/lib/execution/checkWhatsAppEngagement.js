@@ -146,24 +146,25 @@ export async function findWhatsAppCommLogByPhone({
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
-  const prospects = await prisma.prospect.findMany({
+  const rows = await prisma.contactCampaign.findMany({
     where: campaignId
       ? { campaignId }
       : { campaign: { tenantId } },
-    select: { id: true, phone: true, whatsapp: true, campaignId: true },
+    include: { contact: { include: { businessUser: true } } },
   });
 
-  const prospect = prospects.find((p) => {
-    const pPhone = normalizePhone(p.whatsapp || p.phone);
+  const match = rows.find((cc) => {
+    const bu = cc.contact.businessUser;
+    const pPhone = normalizePhone(bu.whatsapp || bu.phone);
     return pPhone && (pPhone === normalized || pPhone.endsWith(normalized.slice(-10)));
   });
-  if (!prospect) return null;
+  if (!match) return null;
 
   return prisma.communicationLog.findFirst({
     where: {
       tenantId,
-      prospectId: prospect.id,
-      campaignId: campaignId ?? prospect.campaignId,
+      contactCampaignId: match.id,
+      campaignId: campaignId ?? match.campaignId,
       channel: "whatsapp",
       responseType: null,
     },

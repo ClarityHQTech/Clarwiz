@@ -17,9 +17,8 @@ export async function GET(request, { params }) {
     include: {
       _count: {
         select: {
-          prospects: true,
+          contactCampaigns: true,
           commLogs: true,
-          signals: true,
         },
       },
     },
@@ -28,13 +27,17 @@ export async function GET(request, { params }) {
     return error(request, 404, ExternalErrorCodes.NOT_FOUND, "Campaign not found.");
   }
 
+  const businessUserSignals = await prisma.businessUserSignal.count({
+    where: { campaignId: campaign.id },
+  });
+
   return ok(request, {
     campaignId: campaign.id,
     tenantId: campaign.tenantId,
     metrics: {
-      prospects: campaign._count.prospects,
+      prospects: campaign._count.contactCampaigns,
       communicationLogs: campaign._count.commLogs,
-      prospectSignals: campaign._count.signals,
+      businessUserSignals,
       sentCount: campaign.sentCount,
       openRate: campaign.openRate,
       replyRate: campaign.replyRate,

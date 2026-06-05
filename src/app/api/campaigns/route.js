@@ -8,6 +8,11 @@ import {
   normalizeWhatsAppVariableMapping,
   validateWhatsAppVariableMapping,
 } from "@/lib/whatsappTemplateVariables";
+import {
+  enrollContactInCampaign,
+  resolveOrCreateContact,
+} from "@/lib/resolveBusinessUser";
+import { computeNextOutreachAt } from "@/lib/execution/outreachSchedule";
 
 const CTA_VALUES = ["book_demo", "reply_email", "connect_linkedin", "visit_website"];
 
@@ -20,7 +25,7 @@ function serializeCampaign(campaign) {
     goals: campaign.goals,
     status: campaign.status,
     startDate: campaign.startDate?.toISOString() ?? null,
-    prospects: campaign._count?.prospects ?? 0,
+    prospects: campaign._count?.contactCampaigns ?? 0,
     sent: campaign.sentCount,
     openRate: campaign.openRate,
     replyRate: campaign.replyRate,
@@ -37,7 +42,7 @@ export async function GET() {
   const campaigns = await prisma.campaign.findMany({
     where: { tenantId: ctx.tenantId },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { prospects: true } } },
+    include: { _count: { select: { contactCampaigns: true } } },
   });
 
   return NextResponse.json(campaigns.map(serializeCampaign));
@@ -150,20 +155,32 @@ export async function POST(request) {
         },
       });
 
-      await tx.prospect.createMany({
-        data: prospects.map((p) => ({
+      for (const p of prospects) {
+        const contact = await resolveOrCreateContact(tx, ctx.tenantId, {
+          company: p.company,
+          name: p.name,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          jobTitle: p.jobTitle,
+          persona: p.persona,
+          phone: p.phone,
+          whatsapp: p.whatsapp,
+          email: p.email,
+          linkedinUrl: p.linkedinUrl,
+          twitterId: p.twitterId,
+        });
+
+        const nextAt = computeNextOutreachAt({
+          campaign: created,
+          contactCampaign: { outreachDeliveryTime: null },
+        });
+
+        await enrollContactInCampaign(tx, {
+          contactId: contact.id,
           campaignId: created.id,
-          name: p.name.trim(),
-          firstName: p.firstName?.trim() || null,
-          company: p.company?.trim() || null,
-          jobTitle: p.jobTitle?.trim() || null,
-          painPoint: p.painPoint?.trim() || null,
-          phone: p.phone?.trim() || null,
-          whatsapp: p.whatsapp?.trim() || null,
-          email: p.email?.trim() || null,
-          linkedinUrl: p.linkedinUrl?.trim() || null,
-        })),
-      });
+          nextScheduledOutreachAt: nextAt,
+        });
+      }
 
       if (templates.length > 0) {
         await tx.communicationTemplate.createMany({
@@ -186,7 +203,7 @@ export async function POST(request) {
 
       return tx.campaign.findUnique({
         where: { id: created.id },
-        include: { _count: { select: { prospects: true } } },
+        include: { _count: { select: { contactCampaigns: true } } },
       });
     });
 

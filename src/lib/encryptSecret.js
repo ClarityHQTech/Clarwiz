@@ -8,6 +8,7 @@ const SCRYPT_SALT_LINKUP = "clarwiz-linkup-account-id";
 const SCRYPT_SALT_SMARTLEAD = "clarwiz-smartlead-email-account-id";
 const SCRYPT_SALT_WHATSAPP = "clarwiz-whatsapp-access-token";
 const SCRYPT_SALT_CALENDLY = "clarwiz-calendly-oauth-token";
+const SCRYPT_SALT_WEBHOOK = "clarwiz-integration-webhook-secret";
 
 function deriveKey(salt) {
   const secret = process.env.SECRET?.trim();
@@ -112,5 +113,19 @@ export function decryptCalendlyToken(stored) {
     return decryptWithSalt(stored, SCRYPT_SALT_CALENDLY, /^[A-Za-z0-9._-]{20,}$/);
   } catch {
     throw new Error("Failed to decrypt Calendly credential");
+  }
+}
+
+/** Encrypts webhook signing secrets and verify tokens for storage. */
+export function encryptWebhookSecret(plainText) {
+  return encryptWithSalt(String(plainText), SCRYPT_SALT_WEBHOOK);
+}
+
+/** Decrypts a stored webhook secret. */
+export function decryptWebhookSecret(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_WEBHOOK, /^.{8,}$/);
+  } catch {
+    throw new Error("Failed to decrypt webhook secret");
   }
 }

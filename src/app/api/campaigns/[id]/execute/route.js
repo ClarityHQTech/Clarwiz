@@ -7,6 +7,7 @@ import {
   runExecutionForCampaign,
   serializeCommLog,
 } from "@/lib/execution/runCampaignExecution";
+import { isCronRequestAuthorized } from "@/lib/cronAuth";
 
 async function getOwnedCampaign(id, tenantId) {
   return prisma.campaign.findFirst({
@@ -32,9 +33,31 @@ export async function POST(request, { params }) {
     body = {};
   }
 
-  if (body.mode && body.mode !== "run") {
+  const mode = body.mode || "run";
+  if (!["run", "copilot_sequential"].includes(mode)) {
     return NextResponse.json(
-      { error: `Unknown mode: ${body.mode}. Use mode "run".` },
+      { error: `Unknown mode: ${mode}. Use mode "run" or "copilot_sequential".` },
+      { status: 400 }
+    );
+  }
+
+  const cronAuth = isCronRequestAuthorized(request);
+  if (campaign.status === "active" && !cronAuth && !body.prospectIds?.length) {
+    return NextResponse.json(
+      {
+        error:
+          "Active campaigns use autopilot scheduling. Pause the campaign for manual copilot runs, or pass prospectIds for a single prospect.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (campaign.status === "active" && !cronAuth && body.prospectIds?.length) {
+    return NextResponse.json(
+      {
+        error:
+          "Manual execution on active campaigns is disabled. Pause for copilot mode or wait for scheduled outreach.",
+      },
       { status: 400 }
     );
   }
@@ -42,6 +65,8 @@ export async function POST(request, { params }) {
   try {
     const execution = await runExecutionForCampaign(campaign.id, {
       prospectIds: body.prospectIds,
+      skipDailyLimit: mode === "copilot_sequential" || campaign.status !== "active",
+      useProspectSchedule: campaign.status === "active",
     });
 
     const commLogs = await fetchCommLogsForTenant(ctx.tenantId, {

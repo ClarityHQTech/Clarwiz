@@ -6,16 +6,21 @@ import { checkLinkedInEngagementForCampaign } from "@/lib/execution/checkLinkedI
 import { checkWhatsAppEngagementForCampaign } from "@/lib/execution/checkWhatsAppEngagement";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
 import { runPostTrackQualification } from "@/lib/execution/qualifyProspect";
+import { contactCampaignInclude } from "@/lib/campaignDetail";
+import { flattenContactCampaign } from "@/lib/resolveBusinessUser";
 
 const PENDING_STATUSES = ["planned", "queued", "sent", "delivered"];
 
-async function loadTrackingContext(campaignId, prospectIds) {
+async function loadTrackingContext(campaignId, contactCampaignIds) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
     include: {
-      prospects: {
-        orderBy: { name: "asc" },
-        ...(prospectIds?.length ? { where: { id: { in: prospectIds } } } : {}),
+      contactCampaigns: {
+        include: contactCampaignInclude,
+        ...(contactCampaignIds?.length
+          ? { where: { id: { in: contactCampaignIds } } }
+          : {}),
+        orderBy: { createdAt: "asc" },
       },
     },
   });
@@ -27,7 +32,9 @@ async function loadTrackingContext(campaignId, prospectIds) {
       responseType: null,
       status: { in: PENDING_STATUSES },
       channel: { in: ["email", "linkedin", "whatsapp"] },
-      ...(prospectIds?.length ? { prospectId: { in: prospectIds } } : {}),
+      ...(contactCampaignIds?.length
+        ? { contactCampaignId: { in: contactCampaignIds } }
+        : {}),
     },
     orderBy: { sentAt: "desc" },
   });
@@ -36,11 +43,13 @@ async function loadTrackingContext(campaignId, prospectIds) {
     where: {
       campaignId,
       channel: "linkedin",
-      ...(prospectIds?.length ? { prospectId: { in: prospectIds } } : {}),
+      ...(contactCampaignIds?.length
+        ? { contactCampaignId: { in: contactCampaignIds } }
+        : {}),
     },
     select: {
       id: true,
-      prospectId: true,
+      contactCampaignId: true,
       ctaType: true,
       status: true,
       sentAt: true,
@@ -51,37 +60,46 @@ async function loadTrackingContext(campaignId, prospectIds) {
     orderBy: { sentAt: "desc" },
   });
 
-  const pendingLogsByProspect = new Map();
+  const pendingLogsByCc = new Map();
   for (const log of pendingLogs) {
-    const list = pendingLogsByProspect.get(log.prospectId) ?? [];
+    const list = pendingLogsByCc.get(log.contactCampaignId) ?? [];
     list.push(log);
-    pendingLogsByProspect.set(log.prospectId, list);
+    pendingLogsByCc.set(log.contactCampaignId, list);
   }
 
-  const linkedInLogsByProspect = new Map();
+  const linkedInLogsByCc = new Map();
   for (const log of linkedInLogs) {
-    const list = linkedInLogsByProspect.get(log.prospectId) ?? [];
+    const list = linkedInLogsByCc.get(log.contactCampaignId) ?? [];
     list.push(log);
-    linkedInLogsByProspect.set(log.prospectId, list);
+    linkedInLogsByCc.set(log.contactCampaignId, list);
   }
+
+  const prospects = campaign.contactCampaigns.map((cc) => flattenContactCampaign(cc));
 
   return {
     campaign,
-    prospects: campaign.prospects,
-    pendingLogsByProspect,
-    linkedInLogsByProspect,
+    prospects,
+    contactCampaigns: campaign.contactCampaigns,
+    pendingLogsByProspect: pendingLogsByCc,
+    linkedInLogsByProspect: linkedInLogsByCc,
   };
 }
 
-/**
- * Track engagement across email, LinkedIn, and WhatsApp for all campaign prospects.
- */
 export async function trackCampaignEngagement(
   campaignId,
-  { tenantId, prospectIds } = {}
+  { tenantId, prospectIds, contactCampaignIds, mode = "copilot" } = {}
 ) {
+  const ids = contactCampaignIds ?? prospectIds;
   const { campaign, prospects, pendingLogsByProspect, linkedInLogsByProspect } =
-    await loadTrackingContext(campaignId, prospectIds);
+    await loadTrackingContext(campaignId, ids);
+
+  if (mode === "autopilot" || campaign.status === "active") {
+    return {
+      results: [],
+      summary: { tracked: 0, updated: 0, reran: 0 },
+      message: "Autopilot campaigns use webhooks for tracking",
+    };
+  }
 
   if (!prospects.length) {
     return {
@@ -163,7 +181,10 @@ export async function trackCampaignEngagement(
     );
     if (alreadyRan) continue;
 
-    await runExecutionForCampaign(campaignId, { prospectIds: [prospectId] });
+    await runExecutionForCampaign(campaignId, {
+      contactCampaignIds: [prospectId],
+      skipDailyLimit: true,
+    });
     reran += 1;
     const idx = allResults.findIndex(
       (r) => r.prospectId === prospectId && r.activity === "reply"
@@ -182,7 +203,7 @@ export async function trackCampaignEngagement(
   const qualificationResults =
     qualifyProspectIds.length > 0
       ? await runPostTrackQualification(prisma, campaignId, {
-          prospectIds: [...qualifyProspectIds],
+          contactCampaignIds: [...qualifyProspectIds],
         })
       : [];
 

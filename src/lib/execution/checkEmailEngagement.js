@@ -25,20 +25,25 @@ export async function checkEmailEngagementForProspect({
     throw new Error("Campaign not found");
   }
 
-  const prospect = await prisma.prospect.findFirst({
+  const cc = await prisma.contactCampaign.findFirst({
     where: { id: prospectId, campaignId },
+    include: { contact: { include: { businessUser: true } } },
   });
-  if (!prospect) {
-    throw new Error("Prospect not found");
+  if (!cc) {
+    throw new Error("Contact not found");
   }
+  const prospect = {
+    id: cc.id,
+    email: cc.contact.businessUser.email,
+  };
   if (!prospect.email?.trim()) {
-    throw new Error("Prospect has no email address");
+    throw new Error("Contact has no email address");
   }
 
   const pendingLog = await prisma.communicationLog.findFirst({
     where: {
       campaignId,
-      prospectId,
+      contactCampaignId: prospectId,
       channel: "email",
       responseType: null,
       status: { in: ["planned", "queued", "sent", "delivered"] },
@@ -130,6 +135,7 @@ export async function checkEmailEngagementForProspect({
   if (activity === "reply") {
     execution = await runExecutionForCampaign(campaignId, {
       prospectIds: [prospectId],
+      skipDailyLimit: true,
     });
   }
 

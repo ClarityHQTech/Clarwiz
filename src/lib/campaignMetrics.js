@@ -14,14 +14,12 @@ export function computeCampaignMetrics(commLogs, prospectCount = 0, qualifiedCou
   const withReply = commLogs.filter((l) => l.responseType);
   const replyCount = withReply.length;
 
-  const contactedProspectIds = new Set(outbound.map((l) => l.prospectId));
-  const repliedProspectIds = new Set(withReply.map((l) => l.prospectId));
+  const contactedIds = new Set(outbound.map((l) => l.contactCampaignId));
+  const repliedIds = new Set(withReply.map((l) => l.contactCampaignId));
 
   const openRate = sent > 0 ? (opened / sent) * 100 : 0;
   const replyRate =
-    contactedProspectIds.size > 0
-      ? (repliedProspectIds.size / contactedProspectIds.size) * 100
-      : 0;
+    contactedIds.size > 0 ? (repliedIds.size / contactedIds.size) * 100 : 0;
 
   return {
     prospectCount,
@@ -29,22 +27,26 @@ export function computeCampaignMetrics(commLogs, prospectCount = 0, qualifiedCou
     openRate,
     replyRate,
     replyCount,
-    repliedProspects: repliedProspectIds.size,
+    repliedProspects: repliedIds.size,
     qualifiedLeads: qualifiedCount,
     opened,
   };
 }
 
 export async function syncCampaignMetrics(prisma, campaignId) {
-  const [logs, prospectCount, qualifiedCount] = await Promise.all([
+  const [logs, contactCampaignCount, qualifiedCount] = await Promise.all([
     prisma.communicationLog.findMany({ where: { campaignId } }),
-    prisma.prospect.count({ where: { campaignId } }),
-    prisma.prospect.count({
-      where: { campaignId, qualifiedAt: { not: null } },
+    prisma.contactCampaign.count({ where: { campaignId } }),
+    prisma.contactCampaign.count({
+      where: { campaignId, status: "QUALIFIED" },
     }),
   ]);
 
-  const metrics = computeCampaignMetrics(logs, prospectCount, qualifiedCount);
+  const metrics = computeCampaignMetrics(
+    logs,
+    contactCampaignCount,
+    qualifiedCount
+  );
 
   return prisma.campaign.update({
     where: { id: campaignId },
@@ -57,11 +59,14 @@ export async function syncCampaignMetrics(prisma, campaignId) {
   });
 }
 
-export function serializeCommLogForUi(log, { prospectName } = {}) {
+export function serializeCommLogForUi(log, { contactName, prospectName } = {}) {
+  const name = contactName ?? prospectName ?? null;
   return {
     id: log.id,
-    prospectId: log.prospectId,
-    prospectName: prospectName ?? null,
+    contactCampaignId: log.contactCampaignId,
+    prospectId: log.contactCampaignId,
+    contactName: name,
+    prospectName: name,
     channel: log.channel,
     channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,
     stage: log.stage,
@@ -88,6 +93,6 @@ export function serializeCommLogForUi(log, { prospectName } = {}) {
   };
 }
 
-export function serializeCommLogDetail(log, { prospectName } = {}) {
-  return serializeCommLogForUi(log, { prospectName });
+export function serializeCommLogDetail(log, opts = {}) {
+  return serializeCommLogForUi(log, opts);
 }

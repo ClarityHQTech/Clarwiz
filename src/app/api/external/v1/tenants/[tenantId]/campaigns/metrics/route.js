@@ -20,14 +20,14 @@ export async function GET(request, { params }) {
   const campaigns = await prisma.campaign.findMany({
     where: { tenantId: params.tenantId },
     include: {
-      _count: { select: { prospects: true } },
+      _count: { select: { contactCampaigns: true } },
     },
   });
 
   const totals = campaigns.reduce(
     (acc, campaign) => {
       acc.totalCampaigns += 1;
-      acc.totalProspects += campaign._count.prospects;
+      acc.totalProspects += campaign._count.contactCampaigns;
       acc.totalSent += campaign.sentCount;
       acc.totalQualifiedLeads += campaign.qualifiedLeads;
       acc.openRateSum += campaign.openRate;

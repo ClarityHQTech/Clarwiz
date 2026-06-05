@@ -34,7 +34,7 @@ export async function GET(request) {
 
   const prospectCounts = await Promise.all(
     tenants.map((tenant) =>
-      prisma.prospect.count({
+      prisma.contactCampaign.count({
         where: { campaign: { tenantId: tenant.id } },
       })
     )

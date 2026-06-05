@@ -2,10 +2,11 @@
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import CampaignActionsModal from "@/components/campaigns/CampaignActionsModal";
-import ProspectCommThread from "@/components/campaigns/ProspectCommThread";
+import CampaignCopilotRunner from "@/components/campaigns/CampaignCopilotRunner";
+import ContactCommThread from "@/components/campaigns/ContactCommThread";
 import CampaignTemplatesModal from "@/components/campaigns/CampaignTemplatesModal";
 import CampaignCommLogsDrawer from "@/components/campaigns/CampaignCommLogsDrawer";
-import AddProspectModal from "@/components/campaigns/AddProspectModal";
+import AddContactModal from "@/components/campaigns/AddContactModal";
 import ConfirmBox from "@/components/dialog/ConfirmBox";
 import {
   Drawer,
@@ -129,6 +130,11 @@ const Page = () => {
   const [deleteProspectLoading, setDeleteProspectLoading] = useState(false);
   const [calendlyUrlEdit, setCalendlyUrlEdit] = useState("");
   const [savingCalendlyUrl, setSavingCalendlyUrl] = useState(false);
+  const [outreachTzEdit, setOutreachTzEdit] = useState("UTC");
+  const [defaultOutreachTimeEdit, setDefaultOutreachTimeEdit] = useState("11:00");
+  const [savingOutreachSchedule, setSavingOutreachSchedule] = useState(false);
+  const [prospectDeliveryTime, setProspectDeliveryTime] = useState("");
+  const [savingProspectTime, setSavingProspectTime] = useState(false);
 
   const fetchCampaign = useCallback(async () => {
     if (!id) return;
@@ -141,6 +147,8 @@ const Page = () => {
       const data = await res.json();
       setCampaign(data);
       setCalendlyUrlEdit(data.calendlyBookingUrl ?? "");
+      setOutreachTzEdit(data.outreachTimezone ?? "UTC");
+      setDefaultOutreachTimeEdit(data.defaultOutreachTime ?? "11:00");
     } catch (err) {
       toast.error(err.message);
       setCampaign(null);
@@ -148,6 +156,16 @@ const Page = () => {
       setLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (selectedProspect) {
+      setProspectDeliveryTime(
+        selectedProspect.outreachDeliveryTime ||
+          campaign?.defaultOutreachTime ||
+          "11:00"
+      );
+    }
+  }, [selectedProspect, campaign?.defaultOutreachTime]);
 
   useEffect(() => {
     setLoading(true);
@@ -247,13 +265,13 @@ const Page = () => {
     setDeleteProspectLoading(true);
     try {
       const res = await fetch(
-        `/api/campaigns/${id}/prospects/${selectedProspect.id}`,
+        `/api/campaigns/${id}/contact-campaigns/${selectedProspect.id}`,
         { method: "DELETE" }
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete prospect");
       setCampaign(data);
-      toast.success("Prospect removed.");
+      toast.success("Contact removed from campaign.");
       closeProspectDrawer();
       setSelectedProspect(null);
       closeDeleteProspectConfirm();
@@ -264,8 +282,9 @@ const Page = () => {
     }
   };
 
-  const filteredProspects =
-    campaign?.prospects.filter((p) => {
+  const contactList = campaign?.contacts ?? campaign?.prospects ?? [];
+
+  const filteredContacts = contactList.filter((p) => {
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return [p.name, p.company, p.jobTitle, p.email, p.phone]
@@ -300,7 +319,9 @@ const Page = () => {
   const canStart =
     campaign.status === "draft" || campaign.status === "paused";
   const canPause = campaign.status === "active";
-  const isRunning = campaign.status === "active";
+  const isAutopilot = campaign.status === "active";
+  const isCopilot =
+    campaign.status === "draft" || campaign.status === "paused";
 
   return (
     <div className={`${ui.page} ${ui.container} space-y-6`}>
@@ -361,25 +382,25 @@ const Page = () => {
             <HiOutlineClipboardDocumentList className="h-4 w-4" />
             Activity log
           </button>
-          {isRunning && (
+          {isCopilot && metrics.prospectCount > 0 && (
             <>
               <button
                 type="button"
-                disabled={runLoading || metrics.prospectCount === 0}
+                disabled={runLoading}
                 onClick={runNextBestAction}
-                className={`${ui.btnPrimary} disabled:opacity-50`}
+                className={`${ui.btnSecondarySurface} disabled:opacity-50`}
               >
                 <HiOutlineBolt className="h-4 w-4" />
-                {runLoading ? "Running…" : "Run next-best-action"}
+                {runLoading ? "Running…" : "Run outreach (all)"}
               </button>
               <button
                 type="button"
-                disabled={trackLoading || metrics.prospectCount === 0}
+                disabled={trackLoading}
                 onClick={trackEngagement}
                 className={`${ui.btnSecondarySurface} disabled:opacity-50`}
               >
                 <HiOutlineArrowPath className="h-4 w-4" />
-                {trackLoading ? "Tracking…" : "Track engagement"}
+                {trackLoading ? "Tracking…" : "Track (all)"}
               </button>
             </>
           )}
@@ -398,6 +419,70 @@ const Page = () => {
           to auto-qualify prospects when meetings are booked.
         </div>
       )}
+
+      {isCopilot && (
+        <CampaignCopilotRunner
+          campaignId={id}
+          prospects={contactList}
+          onComplete={fetchCampaign}
+        />
+      )}
+
+      <div className={`${ui.cardSurface} px-4 py-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-3`}>
+        <div>
+          <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+            Outreach timezone
+          </label>
+          <input
+            type="text"
+            value={outreachTzEdit}
+            onChange={(e) => setOutreachTzEdit(e.target.value)}
+            placeholder="America/New_York"
+            className={ui.inputSurface}
+          />
+        </div>
+        <div>
+          <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+            Default send time
+          </label>
+          <input
+            type="time"
+            value={defaultOutreachTimeEdit}
+            onChange={(e) => setDefaultOutreachTimeEdit(e.target.value)}
+            className={ui.inputSurface}
+          />
+        </div>
+        <div className="sm:col-span-2 flex items-end">
+          <button
+            type="button"
+            disabled={savingOutreachSchedule}
+            onClick={async () => {
+              setSavingOutreachSchedule(true);
+              try {
+                const res = await fetch(`/api/campaigns/${id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    outreachTimezone: outreachTzEdit,
+                    defaultOutreachTime: defaultOutreachTimeEdit,
+                  }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Save failed");
+                setCampaign(data);
+                toast.success("Outreach schedule saved");
+              } catch (err) {
+                toast.error(err.message);
+              } finally {
+                setSavingOutreachSchedule(false);
+              }
+            }}
+            className={`${ui.btnPrimary} disabled:opacity-50`}
+          >
+            {savingOutreachSchedule ? "Saving…" : "Save schedule"}
+          </button>
+        </div>
+      </div>
 
       <div className={`${ui.cardSurface} px-4 py-3 flex flex-col sm:flex-row sm:items-end gap-3`}>
         <div className="flex-1 min-w-0">
@@ -422,11 +507,17 @@ const Page = () => {
         </button>
       </div>
 
-      {isRunning && (
+      {isAutopilot && (
         <div className={`${ui.alertInfo} space-y-1`}>
           <p>
-            Campaign is active. Use Run next-best-action to send outreach and Track
-            engagement to sync replies, opens, and connection accepts into comm logs.
+            Autopilot is on. Outreach runs once per prospect per day at the scheduled
+            time (default {campaign.defaultOutreachTime ?? "11:00"}{" "}
+            {campaign.outreachTimezone ?? "UTC"}). Tracking is via webhooks — configure
+            them in{" "}
+            <Link href="/settings" className="font-medium underline text-brand-ink">
+              Settings
+            </Link>
+            .
           </p>
           {whatsappTemplates.length > 0 ? (
             <p className="text-xs text-brand-stone">
@@ -445,7 +536,7 @@ const Page = () => {
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <MetricCard
-          label="Prospects"
+          label="Contacts"
           value={metrics.prospectCount.toLocaleString()}
         />
         <MetricCard
@@ -561,10 +652,10 @@ const Page = () => {
         <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 ${ui.tableToolbar}`}>
           <div>
             <h2 className={`${ui.titleSm} text-base`}>
-              Prospects ({campaign.prospects.length})
+              Contacts ({contactList.length})
             </h2>
             <p className="text-xs text-brand-stone mt-0.5">
-              Click a prospect to view details and conversations (drawer)
+              Click a contact to view details and conversations (drawer)
             </p>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -574,7 +665,7 @@ const Page = () => {
               className={ui.btnSecondarySurface}
             >
               <HiOutlinePlus className="h-4 w-4" />
-              Add prospect
+              Add contact
             </button>
             <input
               type="search"
@@ -595,21 +686,21 @@ const Page = () => {
                 <th className={`${ui.tableHeadCell} py-2.5`}>Email</th>
                 <th className={`${ui.tableHeadCell} text-center py-2.5`}>Msgs</th>
                 <th className={`${ui.tableHeadCell} text-center py-2.5`}>Reply</th>
-                <th className={`${ui.tableHeadCell} text-center py-2.5`}>Qualified</th>
+                <th className={`${ui.tableHeadCell} text-center py-2.5`}>Status</th>
               </tr>
             </thead>
             <tbody className={ui.divider}>
-              {filteredProspects.length === 0 ? (
+              {filteredContacts.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
                     className="px-4 py-8 text-center text-sm text-brand-stone"
                   >
-                    {search ? "No prospects match your search." : "No prospects."}
+                    {search ? "No contacts match your search." : "No contacts."}
                   </td>
                 </tr>
               ) : (
-                filteredProspects.map((p) => (
+                filteredContacts.map((p) => (
                   <tr
                     key={p.id}
                     onClick={() => {
@@ -651,16 +742,20 @@ const Page = () => {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-center">
-                      {p.isQualified ? (
-                        <span
-                          className={ui.badgeQualified}
-                          title={p.qualifiedReason ?? ""}
-                        >
-                          Yes
-                        </span>
-                      ) : (
-                        <span className="text-xs text-brand-steel">—</span>
-                      )}
+                      <span
+                        className={
+                          p.status === "QUALIFIED"
+                            ? ui.badgeQualified
+                            : p.status === "REPLIED" || p.status === "IN_OUTREACH"
+                              ? ui.badgeHighlight
+                              : p.status === "DISQUALIFIED"
+                                ? "text-xs font-medium text-red-700"
+                                : "text-xs text-brand-steel"
+                        }
+                        title={p.qualifiedReason ?? p.statusLabel ?? ""}
+                      >
+                        {p.statusLabel ?? p.status ?? "—"}
+                      </span>
                     </td>
                   </tr>
                 ))
@@ -683,12 +778,12 @@ const Page = () => {
         <DrawerContent className="!max-w-[520px] !bg-brand-surface">
           <DrawerCloseButton />
           <DrawerHeader className={`${ui.titleSm} text-base !bg-brand-surface`}>
-            {selectedProspect?.name ?? "Prospect"}
+            {selectedProspect?.name ?? "Contact"}
           </DrawerHeader>
 
           <DrawerBody className="px-4 pb-6 !bg-brand-surface">
             {!selectedProspect ? (
-              <p className={ui.body}>No prospect selected.</p>
+              <p className={ui.body}>No contact selected.</p>
             ) : (
               <div className="space-y-5">
                 <div className={`${ui.cardSurface} p-4`}>
@@ -704,12 +799,22 @@ const Page = () => {
                     <div className="text-xs text-brand-stone text-right whitespace-nowrap">
                       <p className="font-medium text-brand-ink">{selectedProspect.messageCount} msgs</p>
                       <p className="mt-1">
-                        {selectedProspect.isQualified ? (
-                          <span className={ui.badgeQualified}>Qualified</span>
-                        ) : selectedProspect.hasReply ? (
-                          <span className={ui.badgeHighlight}>Reply received</span>
-                        ) : (
-                          <span className="text-xs text-brand-steel">No reply yet</span>
+                        <span
+                          className={
+                            selectedProspect.status === "QUALIFIED"
+                              ? ui.badgeQualified
+                              : selectedProspect.status === "REPLIED" ||
+                                  selectedProspect.status === "IN_OUTREACH"
+                                ? ui.badgeHighlight
+                                : "text-xs text-brand-steel"
+                          }
+                        >
+                          {selectedProspect.statusLabel ?? selectedProspect.status}
+                        </span>
+                        {selectedProspect.personaLabel && (
+                          <span className="block text-xs text-brand-stone mt-1">
+                            {selectedProspect.personaLabel}
+                          </span>
                         )}
                       </p>
                     </div>
@@ -753,11 +858,69 @@ const Page = () => {
                       )}
                     </p>
                   </div>
+
+                  <div className="mt-4 pt-4 border-t border-brand-sand/50">
+                    <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                      Delivery time (override)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="time"
+                        value={prospectDeliveryTime}
+                        onChange={(e) => setProspectDeliveryTime(e.target.value)}
+                        className={`flex-1 ${ui.inputSurface}`}
+                      />
+                      <button
+                        type="button"
+                        disabled={savingProspectTime}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setSavingProspectTime(true);
+                          try {
+                            const res = await fetch(
+                              `/api/campaigns/${id}/contact-campaigns/${selectedProspect.id}`,
+                              {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  outreachDeliveryTime: prospectDeliveryTime,
+                                }),
+                              }
+                            );
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || "Save failed");
+                            setCampaign(data);
+                            const rows = data.contacts ?? data.prospects ?? [];
+                            const updated = rows.find(
+                              (p) => p.id === selectedProspect.id
+                            );
+                            if (updated) setSelectedProspect(updated);
+                            toast.success("Delivery time saved");
+                          } catch (err) {
+                            toast.error(err.message);
+                          } finally {
+                            setSavingProspectTime(false);
+                          }
+                        }}
+                        className={`shrink-0 ${ui.btnSecondarySurface} disabled:opacity-50`}
+                      >
+                        {savingProspectTime ? "…" : "Save"}
+                      </button>
+                    </div>
+                    {selectedProspect.nextScheduledOutreachAt && (
+                      <p className="text-xs text-brand-stone mt-1">
+                        Next scheduled:{" "}
+                        {new Date(
+                          selectedProspect.nextScheduledOutreachAt
+                        ).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <p className={ui.label}>Conversations</p>
-                  <ProspectCommThread
+                  <ContactCommThread
                     communications={selectedProspect.communications}
                   />
                 </div>
@@ -770,7 +933,7 @@ const Page = () => {
                     className="inline-flex items-center gap-1.5 text-sm font-medium text-red-700 hover:text-red-800 disabled:opacity-50"
                   >
                     <HiOutlineTrash className="h-4 w-4" />
-                    Delete prospect
+                    Remove from campaign
                   </button>
                 </div>
               </div>
@@ -779,7 +942,7 @@ const Page = () => {
         </DrawerContent>
       </Drawer>
 
-      <AddProspectModal
+      <AddContactModal
         isOpen={addProspectModalOpen}
         onClose={closeAddProspectModal}
         campaignId={campaign.id}
@@ -789,7 +952,7 @@ const Page = () => {
       <ConfirmBox
         isOpen={deleteProspectConfirmOpen}
         onClose={closeDeleteProspectConfirm}
-        action="Delete prospect"
+        action="Remove contact from campaign"
         handler={deleteProspect}
       />
 
@@ -813,7 +976,7 @@ const Page = () => {
         campaignId={campaign.id}
         campaignName={campaign.name}
         campaignStatus={campaign.status}
-        prospects={campaign.prospects}
+          prospects={contactList}
         templates={campaign.templates}
         onCampaignUpdate={(data) => {
           setCampaign(data);

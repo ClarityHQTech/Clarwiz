@@ -240,13 +240,37 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 
 ---
 
-## 14. File map (implementation)
+## 14. Copilot vs autopilot
+
+| Mode | Campaign `status` | Outreach | Tracking |
+|------|-------------------|----------|----------|
+| **Copilot** | `draft` or `paused` | Manual execute (UI or sequential runner); no daily limit | Manual `POST .../track` (polling Smartlead / Linkup) |
+| **Autopilot** | `active` | Minute cron at `nextScheduledOutreachAt`; **one** outbound per prospect per calendar day (campaign timezone) | Webhooks only (Smartlead, Linkup, WhatsApp Meta/Interakt) |
+
+- Default send time: `Campaign.defaultOutreachTime` (`11:00`) in `Campaign.outreachTimezone` (default `UTC`). Prospect may override `outreachDeliveryTime`.
+- **Reply override:** Any reply webhook or copilot track rerun calls `runExecutionForCampaign` with `skipDailyLimit: true` on that prospect.
+- **Retries:** Failed push → `retry_pending` on comm log; cron retries up to 3 times (`retryCount`, `nextRetryAt`).
+
+---
+
+## 15. Webhook secrets
+
+- Provider signing/verify tokens are stored encrypted on `IntegrationWebhook` (not `.env` long-term). Env vars are bootstrapped once if DB row is missing.
+- Public URLs: `/api/webhooks/smartlead/[token]`, `/api/webhooks/linkup/[token]`; WhatsApp uses existing Meta/Interakt routes.
+
+---
+
+## 16. File map (implementation)
 
 | Concern | Primary files |
 |---------|----------------|
 | Rules + guards | `src/lib/execution/executionRules.js` |
 | LLM decision | `src/lib/execution/decideNextAction.js` |
 | Run loop | `src/lib/execution/runCampaignExecution.js` |
+| Schedule | `src/lib/execution/outreachSchedule.js` |
+| Cron | `src/app/api/cron/outreach/route.js` |
+| Webhooks | `src/lib/execution/webhookTracking.js`, `src/lib/integrationWebhooks.js` |
+| Retries | `src/lib/execution/outreachRetry.js` |
 | Track + rerun | `src/lib/execution/trackCampaignEngagement.js` |
 | LinkedIn gate / engagement | `src/lib/execution/checkLinkedInEngagement.js` |
 | Humanize copy | `src/lib/execution/humanizeOutboundMessage.js` |
@@ -266,3 +290,4 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 | 2026-05-27 | LinkedIn track: fix `list_inbox` params (`count`/`cursor`); DM replies via `get_conversation` by prospect profile URL |
 | 2026-05-27 | LinkedIn connection note capped at 200 chars (truncate + LLM rule) to avoid Linkup `CUSTOM_MESSAGE_TOO_LONG` |
 | 2026-05-27 | Qualified leads: Calendly OAuth + webhooks, tracked booking link, reply-intent LLM; same-channel reply priority; stop outreach when qualified |
+| 2026-06-05 | Autopilot scheduled outreach (cron), copilot manual mode, webhook tracking, retry queue |

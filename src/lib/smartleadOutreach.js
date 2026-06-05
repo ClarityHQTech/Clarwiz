@@ -4,6 +4,11 @@ import {
   getEmailIntegration,
 } from "@/lib/emailIntegration";
 import {
+  buildProspectSmartleadSchedule,
+  resolveDeliveryTime,
+  resolveTimezone,
+} from "@/lib/execution/outreachSchedule";
+import {
   addCampaignLeads,
   createCampaign,
   extractReplyBodyFromInboxRow,
@@ -400,6 +405,7 @@ export async function sendPlannedEmailViaSmartlead({
   subject,
   message,
   commHistory = [],
+  useProspectSchedule = false,
 }) {
   const { emailAccountId } = await requireConnectedEmailIntegration(
     campaign.tenantId
@@ -433,7 +439,17 @@ export async function sendPlannedEmailViaSmartlead({
   const { first_name, last_name } = splitName(prospect.name);
   const toEmail = prospect.email.trim();
 
-  await applyImmediateTestSchedule(smartleadCampaignId);
+  if (useProspectSchedule) {
+    await setCampaignSchedule(
+      smartleadCampaignId,
+      buildProspectSmartleadSchedule({
+        timezone: resolveTimezone(campaign),
+        deliveryTime: resolveDeliveryTime(prospect, campaign),
+      })
+    );
+  } else {
+    await applyImmediateTestSchedule(smartleadCampaignId);
+  }
   await ensureCampaignSequenceTemplate(smartleadCampaignId);
 
   const leadPayload = {

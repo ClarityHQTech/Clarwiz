@@ -11,25 +11,43 @@ function formatActionLabel(log) {
   return "Message planned";
 }
 
+function contactFromLog(log) {
+  const bu = log.contactCampaign?.contact?.businessUser;
+  return {
+    name: bu?.name ?? "Contact",
+    company: bu?.company?.name ?? null,
+  };
+}
+
 export async function GET() {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
   if (auth.error) return auth.error;
   const { ctx } = auth;
 
+  const logInclude = {
+    campaign: { select: { id: true, name: true } },
+    contactCampaign: {
+      include: {
+        contact: {
+          include: {
+            businessUser: { include: { company: true } },
+          },
+        },
+      },
+    },
+  };
+
   const [campaigns, recentLogs, replyLogs] = await Promise.all([
     prisma.campaign.findMany({
       where: { tenantId: ctx.tenantId },
-      include: { commLogs: true, _count: { select: { prospects: true } } },
+      include: { commLogs: true, _count: { select: { contactCampaigns: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.communicationLog.findMany({
       where: { tenantId: ctx.tenantId },
       orderBy: { sentAt: "desc" },
       take: 25,
-      include: {
-        prospect: { select: { id: true, name: true, company: true } },
-        campaign: { select: { id: true, name: true } },
-      },
+      include: logInclude,
     }),
     prisma.communicationLog.findMany({
       where: {
@@ -38,10 +56,7 @@ export async function GET() {
       },
       orderBy: { responseAt: "desc" },
       take: 15,
-      include: {
-        prospect: { select: { id: true, name: true, company: true } },
-        campaign: { select: { id: true, name: true } },
-      },
+      include: logInclude,
     }),
   ]);
 
@@ -50,39 +65,45 @@ export async function GET() {
   const activeCampaigns = campaigns.filter((c) => c.status === "active").length;
 
   for (const c of campaigns) {
-    const m = computeCampaignMetrics(c.commLogs, c._count.prospects);
+    const m = computeCampaignMetrics(c.commLogs, c._count.contactCampaigns);
     totalReplies += m.replyCount;
     totalSent += m.sent;
   }
 
-  const recentReplies = replyLogs.map((log) => ({
-    id: log.id,
-    campaignId: log.campaignId,
-    campaignName: log.campaign.name,
-    prospectId: log.prospectId,
-    prospectName: log.prospect.name,
-    company: log.prospect.company,
-    channel: log.channel,
-    channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,
-    responseContent: log.responseContent,
-    responseAt: log.responseAt?.toISOString() ?? null,
-    message: log.message,
-  }));
+  const recentReplies = replyLogs.map((log) => {
+    const contact = contactFromLog(log);
+    return {
+      id: log.id,
+      campaignId: log.campaignId,
+      campaignName: log.campaign.name,
+      prospectId: log.contactCampaignId,
+      prospectName: contact.name,
+      company: contact.company,
+      channel: log.channel,
+      channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,
+      responseContent: log.responseContent,
+      responseAt: log.responseAt?.toISOString() ?? null,
+      message: log.message,
+    };
+  });
 
-  const recentActions = recentLogs.map((log) => ({
-    id: log.id,
-    type: log.responseType ? "reply" : log.status === "skipped" ? "skipped" : "outbound",
-    label: formatActionLabel(log),
-    campaignId: log.campaignId,
-    campaignName: log.campaign.name,
-    prospectId: log.prospectId,
-    prospectName: log.prospect.name,
-    channel: log.channel,
-    channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,
-    message: log.message,
-    responseContent: log.responseContent,
-    at: (log.responseAt ?? log.sentAt).toISOString(),
-  }));
+  const recentActions = recentLogs.map((log) => {
+    const contact = contactFromLog(log);
+    return {
+      id: log.id,
+      type: log.responseType ? "reply" : log.status === "skipped" ? "skipped" : "outbound",
+      label: formatActionLabel(log),
+      campaignId: log.campaignId,
+      campaignName: log.campaign.name,
+      prospectId: log.contactCampaignId,
+      prospectName: contact.name,
+      channel: log.channel,
+      channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,
+      message: log.message,
+      responseContent: log.responseContent,
+      at: (log.responseAt ?? log.sentAt).toISOString(),
+    };
+  });
 
   return NextResponse.json({
     summary: {

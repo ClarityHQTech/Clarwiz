@@ -9,7 +9,7 @@ import { trackCampaignEngagement } from "@/lib/execution/trackCampaignEngagement
 async function getOwnedCampaign(id, tenantId) {
   return prisma.campaign.findFirst({
     where: { id, tenantId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
 }
 
@@ -30,10 +30,21 @@ export async function POST(request, { params }) {
     body = {};
   }
 
+  if (campaign.status === "active") {
+    return NextResponse.json(
+      {
+        error:
+          "Tracking on active campaigns is handled by webhooks. Pause the campaign for manual copilot tracking.",
+      },
+      { status: 400 }
+    );
+  }
+
   try {
     const tracking = await trackCampaignEngagement(campaign.id, {
       tenantId: ctx.tenantId,
       prospectIds: body.prospectIds,
+      mode: "copilot",
     });
 
     const commLogs = await fetchCommLogsForTenant(ctx.tenantId, {

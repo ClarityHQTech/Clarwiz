@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
 import {
-  markProspectQualified,
+  markContactCampaignQualified,
   QUALIFICATION_REASONS,
-} from "@/lib/execution/qualifyProspect";
+} from "@/lib/execution/qualifyContact";
 
 export async function GET(request, { params }) {
   const campaignId = params.id;
@@ -27,16 +27,16 @@ export async function GET(request, { params }) {
     );
   }
 
-  const prospect = await prisma.prospect.findFirst({
+  const cc = await prisma.contactCampaign.findFirst({
     where: { id: prospectId, campaignId },
   });
 
-  if (!prospect) {
-    return NextResponse.json({ error: "Prospect not found" }, { status: 404 });
+  if (!cc) {
+    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
   const latestLog = await prisma.communicationLog.findFirst({
-    where: { campaignId, prospectId },
+    where: { campaignId, contactCampaignId: prospectId },
     orderBy: { sentAt: "desc" },
   });
 
@@ -47,8 +47,8 @@ export async function GET(request, { params }) {
     });
   }
 
-  await markProspectQualified(prisma, {
-    prospectId,
+  await markContactCampaignQualified(prisma, {
+    contactCampaignId: prospectId,
     campaignId,
     reason: QUALIFICATION_REASONS.CALENDLY_LINK_CLICKED,
     sourceMeta: { trackedLink: true },

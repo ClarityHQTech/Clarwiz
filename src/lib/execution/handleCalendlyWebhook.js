@@ -5,9 +5,9 @@ import {
   findCalendlyIntegrationByUserUri,
 } from "@/lib/calendlyIntegration";
 import {
-  markProspectQualified,
+  markContactCampaignQualified,
   QUALIFICATION_REASONS,
-} from "@/lib/execution/qualifyProspect";
+} from "@/lib/execution/qualifyContact";
 
 function extractInviteeEmail(payload) {
   if (!payload || typeof payload !== "object") return null;
@@ -49,23 +49,27 @@ async function resolveTenantIdFromWebhook(body) {
   return null;
 }
 
-async function findProspectsForInvitee(tenantId, email) {
+async function findContactCampaignsForInvitee(tenantId, email) {
   if (!email) return [];
-  return prisma.prospect.findMany({
+  return prisma.contactCampaign.findMany({
     where: {
-      email: { equals: email, mode: "insensitive" },
-      campaign: {
+      contact: {
+        businessUser: {
+          email: { equals: email, mode: "insensitive" },
+        },
         tenantId,
+      },
+      campaign: {
         status: { in: ["active", "paused", "draft", "completed"] },
       },
     },
-    include: { campaign: { select: { id: true, status: true } } },
+    include: {
+      contact: { select: { businessUserId: true } },
+      campaign: { select: { id: true, status: true } },
+    },
   });
 }
 
-/**
- * Handle Calendly invitee.created / invitee.canceled webhook payloads.
- */
 export async function handleCalendlyWebhookEvent(body) {
   const event = body?.event;
   const payload = body?.payload ?? {};
@@ -79,14 +83,14 @@ export async function handleCalendlyWebhookEvent(body) {
 
   if (event === "invitee.canceled") {
     const rescheduled = payload.rescheduled === true;
-    const prospects = await findProspectsForInvitee(tenantId, email);
-    for (const prospect of prospects) {
-      await prisma.prospectSignal
+    const rows = await findContactCampaignsForInvitee(tenantId, email);
+    for (const cc of rows) {
+      await prisma.businessUserSignal
         .create({
           data: {
+            businessUserId: cc.contact.businessUserId,
             tenantId,
-            campaignId: prospect.campaignId,
-            prospectId: prospect.id,
+            campaignId: cc.campaignId,
             type: "calendly_canceled",
             source: "calendly",
             content: JSON.stringify({
@@ -101,7 +105,7 @@ export async function handleCalendlyWebhookEvent(body) {
     return {
       ok: true,
       event,
-      logged: prospects.length,
+      logged: rows.length,
       rescheduled,
     };
   }
@@ -111,14 +115,15 @@ export async function handleCalendlyWebhookEvent(body) {
       return { ok: true, event, skipped: "canceled_invitee" };
     }
 
-    const prospects = await findProspectsForInvitee(tenantId, email);
+    const rows = await findContactCampaignsForInvitee(tenantId, email);
     const qualified = [];
 
-    for (const prospect of prospects) {
-      const result = await markProspectQualified(prisma, {
-        prospectId: prospect.id,
-        campaignId: prospect.campaignId,
+    for (const cc of rows) {
+      const result = await markContactCampaignQualified(prisma, {
+        contactCampaignId: cc.id,
+        campaignId: cc.campaignId,
         reason: QUALIFICATION_REASONS.CALENDLY_BOOKED,
+        businessUserId: cc.contact.businessUserId,
         sourceMeta: {
           email,
           eventUri: payload.uri ?? null,
@@ -129,8 +134,8 @@ export async function handleCalendlyWebhookEvent(body) {
         },
       });
       if (result.updated) {
-        qualified.push(prospect.id);
-        await syncCampaignMetrics(prisma, prospect.campaignId);
+        qualified.push(cc.id);
+        await syncCampaignMetrics(prisma, cc.campaignId);
       }
     }
 
@@ -138,7 +143,7 @@ export async function handleCalendlyWebhookEvent(body) {
       ok: true,
       event,
       email,
-      matchedProspects: prospects.length,
+      matchedProspects: rows.length,
       newlyQualified: qualified.length,
     };
   }

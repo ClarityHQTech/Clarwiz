@@ -11,6 +11,7 @@ export async function pushEmail({
   subject,
   message,
   commHistory = [],
+  useProspectSchedule = false,
 }) {
   if (!prospect.email?.trim()) {
     return buildPushResult({
@@ -28,6 +29,7 @@ export async function pushEmail({
       subject,
       message,
       commHistory,
+      useProspectSchedule,
     });
 
     return buildPushResult({
@@ -53,6 +55,7 @@ export async function pushEmailIfConnected({
   subject,
   message,
   commHistory = [],
+  useProspectSchedule = false,
 }) {
   const { getEmailIntegration } = await import("@/lib/emailIntegration");
   const integration = await getEmailIntegration(campaign.tenantId);
@@ -65,5 +68,12 @@ export async function pushEmailIfConnected({
     return buildSkippedPush("smartlead_not_connected", "smartlead");
   }
 
-  return pushEmail({ campaign, prospect, subject, message, commHistory });
+  return pushEmail({
+    campaign,
+    prospect,
+    subject,
+    message,
+    commHistory,
+    useProspectSchedule,
+  });
 }

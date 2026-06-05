@@ -115,7 +115,7 @@ export default function CampaignActionsModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start campaign");
       onCampaignUpdate?.(data);
-      toast.success("Campaign is active — run next-best-action when ready");
+      toast.success("Campaign is active — autopilot outreach and webhooks enabled");
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -175,24 +175,33 @@ export default function CampaignActionsModal({
                 Activate campaign
               </button>
             )}
-            <button
-              type="button"
-              onClick={runExecution}
-              disabled={running || !prospects?.length}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-dark px-3 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
-            >
-              <HiOutlineBolt className="h-4 w-4" />
-              {running ? "Running…" : "Run next-best-action"}
-            </button>
-            <button
-              type="button"
-              onClick={trackEngagement}
-              disabled={tracking || !prospects?.length}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-secondary/40 bg-brand-surface px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
-            >
-              <HiOutlineArrowPath className="h-4 w-4" />
-              {tracking ? "Tracking…" : "Track engagement"}
-            </button>
+            {needsActivate && (
+              <>
+                <button
+                  type="button"
+                  onClick={runExecution}
+                  disabled={running || !prospects?.length}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-dark px-3 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
+                >
+                  <HiOutlineBolt className="h-4 w-4" />
+                  {running ? "Running…" : "Run outreach"}
+                </button>
+                <button
+                  type="button"
+                  onClick={trackEngagement}
+                  disabled={tracking || !prospects?.length}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-brand-secondary/40 bg-brand-surface px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
+                >
+                  <HiOutlineArrowPath className="h-4 w-4" />
+                  {tracking ? "Tracking…" : "Track engagement"}
+                </button>
+              </>
+            )}
+            {!needsActivate && (
+              <p className="text-xs text-brand-stone py-2">
+                Active campaigns use scheduled autopilot outreach and webhook tracking.
+              </p>
+            )}
           </div>
 
           {results.length > 0 && (

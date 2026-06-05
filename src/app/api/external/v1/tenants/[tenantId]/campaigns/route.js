@@ -16,7 +16,7 @@ function serializeCampaign(campaign) {
     openRate: campaign.openRate,
     replyRate: campaign.replyRate,
     qualifiedLeads: campaign.qualifiedLeads,
-    prospectCount: campaign._count.prospects,
+    prospectCount: campaign._count.contactCampaigns,
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString(),
   };
@@ -33,7 +33,7 @@ export async function GET(request, { params }) {
   const [campaigns, total] = await Promise.all([
     prisma.campaign.findMany({
       where: { tenantId: params.tenantId },
-      include: { _count: { select: { prospects: true } } },
+      include: { _count: { select: { contactCampaigns: true } } },
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,

@@ -19,15 +19,91 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum ContactPersona {
+  DECISION_MAKER
+  INFLUENCER
+  CHAMPION
+  GATEKEEPER
+  ECONOMIC_BUYER
+  TECHNICAL_BUYER
+  END_USER
+  OTHER
+}
+
+enum ContactCampaignStatus {
+  PENDING
+  IN_OUTREACH
+  REPLIED
+  QUALIFIED
+  NOT_QUALIFIED
+  DISQUALIFIED
+  PAUSED
+}
+
+model Company {
+  id            String         @id @default(cuid())
+  name          String
+  domain        String?
+  industry      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  businessUsers BusinessUser[]
+
+  @@unique([name])
+}
+
+model BusinessUser {
+  id          String               @id @default(cuid())
+  companyId   String?
+  company     Company?             @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  name        String
+  firstName   String?
+  lastName    String?
+  jobTitle    String?
+  department  String?
+  seniority   String?
+  email       String?
+  phone       String?
+  whatsapp    String?
+  linkedinUrl String?
+  twitterId   String?
+  location    String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  contacts    Contact[]
+  signals     BusinessUserSignal[]
+
+  @@index([email])
+  @@index([linkedinUrl])
+  @@index([companyId])
+}
+
+model BusinessUserSignal {
+  id             String       @id @default(cuid())
+  businessUserId String
+  businessUser   BusinessUser @relation(fields: [businessUserId], references: [id], onDelete: Cascade)
+  tenantId       String?
+  campaignId     String?
+  type           String
+  source         String
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@index([businessUserId])
+  @@index([tenantId])
+  @@index([campaignId])
+  @@index([businessUserId, campaignId])
+}
+
 model User {
-  id           String            @id @default(cuid())
-  email        String            @unique
-  name         String?
-  image        String?
-  is_superadmin Boolean          @default(false)
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  memberships  TenantMembership[]
+  id              String             @id @default(cuid())
+  email           String             @unique
+  name            String?
+  image           String?
+  is_superadmin   Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  memberships     TenantMembership[]
   invitationsSent TenantInvitation[] @relation("InvitedBy")
 }
 
@@ -41,30 +117,31 @@ model Tenant {
   memberships         TenantMembership[]
   invitations         TenantInvitation[]
   campaigns           Campaign[]
+  contacts            Contact[]
   commLogs            CommunicationLog[]
-  signals             ProspectSignal[]
   apiKeys             ExternalApiKey[]
   linkedInIntegration LinkedInIntegration?
   emailIntegration    EmailIntegration?
   whatsappIntegration WhatsAppIntegration?
   calendlyIntegration CalendlyIntegration?
   tenantIcpContext    TenantIcpContext?
+  integrationWebhooks IntegrationWebhook[]
 }
 
 model ExternalApiKey {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name       String
   prefix     String
-  keyHash    String   @unique
-  scopes     String[] @default([])
+  keyHash    String    @unique
+  scopes     String[]  @default([])
   createdBy  String
   lastUsedAt DateTime?
   expiresAt  DateTime?
   revokedAt  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, revokedAt])
@@ -72,15 +149,15 @@ model ExternalApiKey {
 }
 
 model TenantMembership {
-  id          String     @id @default(cuid())
-  tenantId    String     @map("tenant_id")
-  userId      String     @map("user_id")
-  role        TenantRole
-  scopes      String[]   @default([])
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String     @id @default(cuid())
+  tenantId  String     @map("tenant_id")
+  userId    String     @map("user_id")
+  role      TenantRole
+  scopes    String[]   @default([])
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId])
   @@index([userId])
@@ -117,7 +194,7 @@ model TenantIcpContext {
   accountData      String?   @db.Text
   status           String    @default("draft")
   currentStep      String?
-  icpGapAnalysis    String?   @db.Text
+  icpGapAnalysis   String?   @db.Text
   marketResearch   String?   @db.Text
   valueProposition String?   @db.Text
   icpWorkbook      String?   @db.Text
@@ -202,108 +279,135 @@ model WhatsAppIntegration {
 }
 
 model Campaign {
-  id                 String                  @id @default(cuid())
-  tenantId           String
-  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name               String
-  description        String?
-  targetSegment      String?
-  goals              String?
-  startDate          DateTime?
-  status             String                  @default("draft")
-  sentCount          Int                     @default(0)
-  openRate           Float                   @default(0)
-  replyRate          Float                   @default(0)
-  qualifiedLeads     Int                     @default(0)
-  calendlyBookingUrl String?
+  id                  String                  @id @default(cuid())
+  tenantId            String
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?
+  targetSegment       String?
+  goals               String?
+  startDate           DateTime?
+  status              String                  @default("draft")
+  sentCount           Int                     @default(0)
+  openRate            Float                   @default(0)
+  replyRate           Float                   @default(0)
+  qualifiedLeads      Int                     @default(0)
+  calendlyBookingUrl  String?
   smartleadCampaignId Int?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-  prospects          Prospect[]
-  templates          CommunicationTemplate[]
-  commLogs           CommunicationLog[]
-  signals            ProspectSignal[]
+  outreachTimezone    String                  @default("UTC")
+  defaultOutreachTime String                  @default("11:00")
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  contactCampaigns    ContactCampaign[]
+  templates           CommunicationTemplate[]
+  commLogs            CommunicationLog[]
 
   @@index([tenantId])
 }
 
-model Prospect {
-  id              String             @id @default(cuid())
-  campaignId      String
-  campaign        Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  name            String
-  firstName       String?
-  company         String?
-  jobTitle        String?
-  painPoint       String?
-  phone           String?
-  whatsapp        String?
-  email           String?
-  linkedinUrl     String?
-  qualifiedAt     DateTime?
-  qualifiedReason String?
-  createdAt       DateTime           @default(now())
-  commLogs        CommunicationLog[]
-  signals         ProspectSignal[]
+model Contact {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessUserId   String
+  businessUser     BusinessUser      @relation(fields: [businessUserId], references: [id], onDelete: Restrict)
+  persona          ContactPersona    @default(OTHER)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  contactCampaigns ContactCampaign[]
 
-  @@index([campaignId])
+  @@unique([tenantId, businessUserId])
+  @@index([tenantId])
+  @@index([businessUserId])
 }
 
-model ProspectSignal {
-  id         String   @id @default(cuid())
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  prospectId String
-  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-  type       String
-  source     String
-  content    String
-  createdAt  DateTime @default(now())
+model ContactCampaign {
+  id                      String                @id @default(cuid())
+  contactId               String
+  campaignId              String
+  status                  ContactCampaignStatus @default(PENDING)
+  qualifiedAt             DateTime?
+  qualifiedReason         String?
+  outreachDeliveryTime    String?
+  nextScheduledOutreachAt DateTime?
+  lastOutreachDate        DateTime?             @db.Date
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  contact                 Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign                Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  commLogs                CommunicationLog[]
 
-  @@index([tenantId])
+  @@unique([contactId, campaignId])
   @@index([campaignId])
-  @@index([prospectId])
-  @@index([campaignId, prospectId])
+  @@index([campaignId, nextScheduledOutreachAt])
+  @@index([campaignId, status])
 }
 
 model CommunicationLog {
-  id               String    @id @default(cuid())
-  tenantId         String
-  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campaignId       String
-  campaign         Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  prospectId       String
-  prospect         Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-  channel          String
-  templateId       String?
-  stage            Int?
-  subject          String?
-  message          String
-  ctaType          String?
-  status           String    @default("planned")
-  sentAt           DateTime  @default(now())
-  deliveredAt      DateTime?
-  openedAt         DateTime?
-  ctaClickedAt     DateTime?
-  responseType     String?
-  responseAt       DateTime?
-  responseContent  String?
-  signalRef        String?
-  decisionReason   String?
-  modelUsed        String?
-  providerUsage    Json?
-  providerCost     Json?
-  deliveryProvider String?
-  deliveryMeta     Json?
-  createdAt        DateTime  @default(now())
+  id                String          @id @default(cuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaignId        String
+  campaign          Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactCampaignId String
+  contactCampaign   ContactCampaign @relation(fields: [contactCampaignId], references: [id], onDelete: Cascade)
+  channel           String
+  templateId        String?
+  stage             Int?
+  subject           String?
+  message           String
+  ctaType           String?
+  status            String          @default("planned")
+  sentAt            DateTime        @default(now())
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  ctaClickedAt      DateTime?
+  responseType      String?
+  responseAt        DateTime?
+  responseContent   String?
+  signalRef         String?
+  decisionReason    String?
+  modelUsed           String?
+  providerUsage       Json?
+  providerCost        Json?
+  deliveryProvider    String?
+  deliveryMeta        Json?
+  scheduledFor        DateTime?
+  retryCount          Int             @default(0)
+  lastRetryAt         DateTime?
+  nextRetryAt         DateTime?
+  createdAt           DateTime        @default(now())
 
   @@index([tenantId])
   @@index([tenantId, sentAt])
   @@index([campaignId])
-  @@index([prospectId])
-  @@index([campaignId, prospectId])
+  @@index([contactCampaignId])
+  @@index([campaignId, contactCampaignId])
+  @@index([status, scheduledFor])
+  @@index([status, nextRetryAt])
+}
+
+model IntegrationWebhook {
+  id                     String    @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  provider               String
+  webhookToken           String    @unique @default(cuid())
+  status                 String    @default("pending")
+  providerWebhookId      String?
+  webhookUrl             String?
+  encryptedSigningSecret String?
+  encryptedVerifyToken   String?
+  eventsSubscribed       Json?
+  lastEventAt            DateTime?
+  lastError              String?
+  providerMeta           Json?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@index([webhookToken])
 }
 
 model CommunicationTemplate {

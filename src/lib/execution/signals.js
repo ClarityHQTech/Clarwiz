@@ -5,7 +5,7 @@ export const DEFAULT_TEST_SIGNAL = {
   content: "New office opening at Gurugram (LinkedIn post)",
 };
 
-export function serializeProspectSignals(signals) {
+export function serializeBusinessUserSignals(signals) {
   return (signals ?? []).map((s) => ({
     id: s.id,
     type: s.type,
@@ -14,3 +14,6 @@ export function serializeProspectSignals(signals) {
     detectedAt: s.createdAt?.toISOString?.() ?? s.createdAt,
   }));
 }
+
+/** @deprecated */
+export const serializeProspectSignals = serializeBusinessUserSignals;

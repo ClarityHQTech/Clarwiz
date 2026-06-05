@@ -3,10 +3,8 @@ import {
   handleMetaWhatsAppWebhook,
   resolveWhatsAppWebhookUserId,
 } from "@/lib/execution/whatsappWebhookHandlers";
-
-const VERIFY_TOKEN =
-  process.env.WHATSAPP_META_VERIFY_TOKEN?.trim() ||
-  process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim();
+import { verifyMetaWebhookToken } from "@/lib/webhookVerify";
+import { markWebhookEvent, WEBHOOK_PROVIDERS } from "@/lib/integrationWebhooks";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +12,7 @@ export async function GET(request) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && VERIFY_TOKEN && token === VERIFY_TOKEN) {
+  if (mode === "subscribe" && (await verifyMetaWebhookToken(token))) {
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -40,6 +38,7 @@ export async function POST(request) {
 
   try {
     const processed = await handleMetaWhatsAppWebhook(tenantId, body);
+    await markWebhookEvent(tenantId, WEBHOOK_PROVIDERS.WHATSAPP_META);
     const inbound = processed.filter((p) => p.activity === "reply");
     if (inbound.length) {
       console.info(

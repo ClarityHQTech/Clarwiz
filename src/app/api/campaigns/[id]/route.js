@@ -6,6 +6,8 @@ import {
   fetchSerializedCampaign,
   getOwnedCampaignDetail,
 } from "@/lib/campaignDetail";
+import { seedCampaignProspectSchedules } from "@/lib/execution/outreachSchedule";
+import { registerWebhooksForTenant } from "@/lib/execution/registerIntegrationWebhooks";
 
 export async function GET(_request, { params }) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
@@ -38,7 +40,7 @@ export async function PATCH(request, { params }) {
   }
 
   if (body.action === "start") {
-    if (campaign.prospects.length === 0) {
+    if (campaign.contactCampaigns.length === 0) {
       return NextResponse.json(
         { error: "Add prospects before starting the drip campaign" },
         { status: 400 }
@@ -65,6 +67,33 @@ export async function PATCH(request, { params }) {
       },
     });
 
+    await seedCampaignProspectSchedules(campaign.id);
+    registerWebhooksForTenant(ctx.tenantId, { campaignId: campaign.id }).catch(
+      (err) => console.warn("[campaign start] webhook registration:", err.message)
+    );
+
+    return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
+  }
+
+  if (
+    body.outreachTimezone !== undefined ||
+    body.defaultOutreachTime !== undefined
+  ) {
+    const data = {};
+    if (body.outreachTimezone !== undefined) {
+      data.outreachTimezone = body.outreachTimezone?.trim() || "UTC";
+    }
+    if (body.defaultOutreachTime !== undefined) {
+      const t = body.defaultOutreachTime?.trim();
+      if (t && !/^\d{1,2}:\d{2}$/.test(t)) {
+        return NextResponse.json(
+          { error: "defaultOutreachTime must be HH:mm" },
+          { status: 400 }
+        );
+      }
+      data.defaultOutreachTime = t || "11:00";
+    }
+    await prisma.campaign.update({ where: { id: campaign.id }, data });
     return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
   }
 

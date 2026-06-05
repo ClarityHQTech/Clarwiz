@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handleInteraktWhatsAppWebhook } from "@/lib/execution/whatsappWebhookHandlers";
+import { verifyInteraktWebhookSecret } from "@/lib/webhookVerify";
+import { markWebhookEvent, WEBHOOK_PROVIDERS } from "@/lib/integrationWebhooks";
 
 /**
  * Interakt webhook receiver for template status and incoming messages.
@@ -14,12 +16,11 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const secret = process.env.INTERAKT_WEBHOOK_SECRET?.trim();
   const headerSecret =
     request.headers.get("x-interakt-signature") ||
     request.headers.get("x-webhook-secret");
 
-  if (secret && headerSecret && headerSecret !== secret) {
+  if (headerSecret && !(await verifyInteraktWebhookSecret(headerSecret))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -38,6 +39,7 @@ export async function POST(request) {
 
   try {
     const processed = await handleInteraktWhatsAppWebhook(tenantId, body);
+    await markWebhookEvent(tenantId, WEBHOOK_PROVIDERS.WHATSAPP_INTERAKT);
     const inbound = processed.filter((p) => p.activity === "reply");
     if (inbound.length) {
       console.info(

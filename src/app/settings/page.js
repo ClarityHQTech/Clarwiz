@@ -7,6 +7,7 @@ import WhatsAppIntegrationSection from "@/components/settings/WhatsAppIntegratio
 import CalendlyIntegrationSection from "@/components/settings/CalendlyIntegrationSection";
 import IcpContextSection from "@/components/settings/IcpContextSection";
 import TeamSection from "@/components/settings/TeamSection";
+import WebhooksStatusSection from "@/components/settings/WebhooksStatusSection";
 import { useUser } from "@/context/UserContext";
 import IntegrationStatusBadge, {
   getCalendlyDisplayStatus,
@@ -340,6 +341,15 @@ const SettingsPage = () => {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="max-w-3xl">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
+          Webhooks
+        </h2>
+        <div className={ui.panelSurface}>
+          <WebhooksStatusSection />
+        </div>
       </section>
 
       <section className="max-w-3xl">

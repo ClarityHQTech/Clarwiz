@@ -17,7 +17,7 @@ import {
 import { applyTemplateVariables } from "@/lib/execution/renderMessage";
 import { selectModel } from "@/lib/execution/modelRouter";
 import { buildProviderMetadata } from "@/lib/execution/openaiUsage";
-import { serializeProspectSignals } from "@/lib/execution/signals";
+import { serializeBusinessUserSignals } from "@/lib/execution/signals";
 import {
   finalizeOutboundMessage,
   getLatestProspectReply,
@@ -123,7 +123,7 @@ export async function decideNextActionForProspect({
     };
   }
 
-  const serializedSignals = serializeProspectSignals(liveSignals);
+  const serializedSignals = serializeBusinessUserSignals(liveSignals);
 
   const { model, tier } = selectModel({
     commHistory,

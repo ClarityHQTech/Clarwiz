@@ -177,3 +177,20 @@ export async function linkupGetConversation({
   });
   return assertLinkupSuccess(result, "Failed to get LinkedIn conversation");
 }
+
+/** POST /v2/webhooks — register custom webhook for account events. */
+export async function linkupCreateWebhook({
+  accountId,
+  url,
+  events = ["message_received", "accepted_invitation"],
+  enableSignature = true,
+}) {
+  const body = {
+    account_id: accountId,
+    url,
+    events,
+    enable_signature: enableSignature,
+  };
+  const result = await linkupRequest("/webhooks", body);
+  return assertLinkupSuccess(result, "Failed to create Linkup webhook");
+}
