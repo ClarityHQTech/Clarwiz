@@ -4,6 +4,13 @@ export const PERMISSIONS = {
   CHANNEL_INTEGRATE: "channel:integrate",
   ICP_CALL: "icp:call",
   MEMBER_MANAGE: "member:manage",
+  // MOFU (deal-centric NBA) scopes
+  MOFU_VIEW: "mofu:view",
+  DEAL_READ: "deal:read",
+  NBA_RUN: "nba:run",
+  NBA_APPROVE: "nba:approve",
+  COLLATERAL_GENERATE: "collateral:generate",
+  OPERATOR_DASHBOARD: "operator:dashboard",
 };
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS);
