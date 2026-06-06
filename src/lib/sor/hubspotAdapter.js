@@ -57,6 +57,52 @@ export const hubspotAdapter = {
     return { ok: true, items: [] }; // expanded with engagement search in Phase D
   },
 
+  // Associated company + contacts for a deal (for company/contact-level intelligence).
+  async getDealAssociations(tenantId, hubspotDealId, deps = {}) {
+    const t = await resolveToken(tenantId, deps);
+    if (!t.ok) return t;
+    const fetchImpl = deps.fetchImpl;
+    try {
+      const [compAssoc, contAssoc] = await Promise.all([
+        hubspotFetch(`/crm/v4/objects/deals/${hubspotDealId}/associations/companies`, { accessToken: t.accessToken, fetchImpl }).catch(() => ({ results: [] })),
+        hubspotFetch(`/crm/v4/objects/deals/${hubspotDealId}/associations/contacts`, { accessToken: t.accessToken, fetchImpl }).catch(() => ({ results: [] })),
+      ]);
+      const companyIds = (compAssoc.results || []).map((r) => r.toObjectId).filter(Boolean);
+      const contactIds = (contAssoc.results || []).map((r) => r.toObjectId).filter(Boolean);
+
+      let company = null;
+      if (companyIds.length) {
+        const cj = await hubspotFetch(`/crm/v3/objects/companies/batch/read`, {
+          accessToken: t.accessToken,
+          method: "POST",
+          body: { properties: ["name", "domain", "industry"], inputs: companyIds.slice(0, 1).map((id) => ({ id })) },
+          fetchImpl,
+        });
+        const c = cj.results?.[0];
+        if (c) company = { id: c.id, name: c.properties.name ?? null, domain: c.properties.domain ?? null, industry: c.properties.industry ?? null };
+      }
+
+      let contacts = [];
+      if (contactIds.length) {
+        const xj = await hubspotFetch(`/crm/v3/objects/contacts/batch/read`, {
+          accessToken: t.accessToken,
+          method: "POST",
+          body: { properties: ["firstname", "lastname", "email", "jobtitle"], inputs: contactIds.slice(0, 25).map((id) => ({ id })) },
+          fetchImpl,
+        });
+        contacts = (xj.results || []).map((c) => ({
+          id: c.id,
+          name: [c.properties.firstname, c.properties.lastname].filter(Boolean).join(" ") || c.properties.email || "Contact",
+          email: c.properties.email ?? null,
+          title: c.properties.jobtitle ?? null,
+        }));
+      }
+      return { ok: true, company, contacts };
+    } catch (err) {
+      return { ok: false, reason: err.code || "hubspot_error", status: err.status };
+    }
+  },
+
   async listDeals(tenantId, { limit = 100 } = {}, deps = {}) {
     const t = await resolveToken(tenantId, deps);
     if (!t.ok) return t;

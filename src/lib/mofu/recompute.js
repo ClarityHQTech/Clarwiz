@@ -30,6 +30,24 @@ export async function recomputeDeal({ tenantId, hubspotDealId, tenantIcp = null 
     { tenantId, scope: "DEAL", dealId, context: hydrate.context, signals, tenantIcp },
     deps.bundleDeps
   );
+
+  // Company-level intelligence (US-9.2): compute a COMPANY-scoped bundle when the
+  // deal has an associated company.
+  const company = hydrate.context?.cached?.company;
+  if (company?.id) {
+    await computeInsightBundle(
+      {
+        tenantId,
+        scope: "COMPANY",
+        companyId: company.id,
+        context: { company, contacts: hydrate.context?.cached?.contacts ?? [] },
+        signals: [],
+        tenantIcp,
+      },
+      deps.bundleDeps
+    ).catch(() => {});
+  }
+
   const nbaOut = await computeNba(
     { tenantId, dealId, bundle: bundleOut.bundle, signals },
     deps.nbaDeps

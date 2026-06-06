@@ -90,6 +90,9 @@ const Page = () => {
   const cards = data?.cards ?? [];
   const signals = data?.signals ?? [];
   const dims = insight?.dimensions ?? {};
+  const company = data?.company;
+  const contacts = data?.contacts ?? [];
+  const companyInsight = data?.companyInsight;
 
   return (
     <div className={`${ui.page} ${ui.container} max-w-[1100px] space-y-6`}>
@@ -136,6 +139,58 @@ const Page = () => {
             <p className="text-xs text-brand-stone mt-3">
               confidence {insight.systemMetadata.confidence ?? "?"} · completeness {insight.systemMetadata.data_completeness ?? "?"}
             </p>
+          )}
+        </div>
+      </section>
+
+      {/* Company level */}
+      <section className={`${ui.cardSurface} overflow-hidden`}>
+        <div className="px-4 py-3 border-b border-brand-secondary/25 bg-brand-surface">
+          <h2 className={`${ui.titleSm} text-base`}>Company</h2>
+          <p className="text-xs text-brand-stone mt-0.5">Company-level intelligence</p>
+        </div>
+        <div className="p-4">
+          {!company ? (
+            <p className="text-sm text-brand-stone">No associated company. Click Suggest now after linking a company in HubSpot.</p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-brand-ink">{company.name || "Company"}</p>
+              <p className="text-xs text-brand-stone">
+                {company.domain || "—"}{company.industry ? ` · ${company.industry}` : ""}
+              </p>
+              {companyInsight?.executiveSummary && (
+                <DimensionBody dim={companyInsight.executiveSummary} />
+              )}
+              {companyInsight?.dimensions?.value && (
+                <div className="pt-2">
+                  <p className="text-xs font-medium text-brand-steel mb-1">Value</p>
+                  <DimensionBody dim={companyInsight.dimensions.value} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Contact level */}
+      <section className={`${ui.cardSurface} overflow-hidden`}>
+        <div className="px-4 py-3 border-b border-brand-secondary/25 bg-brand-surface">
+          <h2 className={`${ui.titleSm} text-base`}>Contacts</h2>
+          <p className="text-xs text-brand-stone mt-0.5">Stakeholders on this deal</p>
+        </div>
+        <div className={ui.divider}>
+          {!contacts.length ? (
+            <p className="px-4 py-8 text-sm text-brand-stone text-center">No associated contacts.</p>
+          ) : (
+            contacts.map((c) => (
+              <div key={c.id} className="px-4 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-brand-ink truncate">{c.name}</p>
+                  <span className="text-xs text-brand-steel shrink-0">{c.title || ""}</span>
+                </div>
+                {c.email && <p className="text-xs text-brand-stone mt-0.5">{c.email}</p>}
+              </div>
+            ))
           )}
         </div>
       </section>

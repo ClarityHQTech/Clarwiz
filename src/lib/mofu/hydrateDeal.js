@@ -68,7 +68,16 @@ export async function hydrateDeal({ tenantId, hubspotDealId }, deps = {}) {
   let cached = existing?.data?.cached ?? {};
   if (isStale) {
     const eng = await adapter.getDealEngagements(tenantId, hubspotDealId);
-    cached = { ...cached, engagements: eng.ok ? eng.items : cached.engagements ?? [] };
+    const assoc =
+      typeof adapter.getDealAssociations === "function"
+        ? await adapter.getDealAssociations(tenantId, hubspotDealId)
+        : { ok: false };
+    cached = {
+      ...cached,
+      engagements: eng.ok ? eng.items : cached.engagements ?? [],
+      company: assoc.ok ? assoc.company : cached.company ?? null,
+      contacts: assoc.ok ? assoc.contacts : cached.contacts ?? [],
+    };
     await prisma.dealContext.upsert({
       where: { dealId: deal.id },
       create: { tenantId, dealId: deal.id, data: { cached }, lastSyncedAt: new Date() },

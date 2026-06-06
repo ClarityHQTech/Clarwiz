@@ -77,6 +77,19 @@ export async function getDealInsights({ tenantId, hubspotDealId }, deps = {}) {
 
   const presentMap = Object.fromEntries(caps.map((c) => [c.capability, c.present]));
 
+  // Company + contact level (from cached associations + COMPANY-scoped bundle).
+  const cached = deal.context?.data?.cached ?? {};
+  const company = cached.company ?? null;
+  const contacts = Array.isArray(cached.contacts) ? cached.contacts : [];
+  let companyInsight = null;
+  if (company?.id) {
+    const ci = await prisma.dealInsight.findFirst({
+      where: { tenantId, companyId: company.id, scope: "COMPANY" },
+      orderBy: { createdAt: "desc" },
+    });
+    companyInsight = serializeInsight(ci);
+  }
+
   return {
     ok: true,
     deal: {
@@ -90,6 +103,9 @@ export async function getDealInsights({ tenantId, hubspotDealId }, deps = {}) {
       autopilot: deal.autopilot,
       lastSyncedAt: iso(deal.context?.lastSyncedAt),
     },
+    company,
+    contacts,
+    companyInsight,
     insight: serializeInsight(insight),
     signals: signals.map(serializeSignal),
     cards: recs.map((r) => serializeCard(r, presentMap)),
