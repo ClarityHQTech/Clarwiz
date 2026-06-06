@@ -84,10 +84,16 @@ const Page = () => {
             campaign execution.
           </p>
         </div>
-        <Link href="/campaigns" className={`inline-flex items-center gap-1 ${ui.link}`}>
-          View campaigns
-          <HiOutlineArrowRight className="h-4 w-4" />
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/mofu" className={`inline-flex items-center gap-1 ${ui.link}`}>
+            MOFU dashboard
+            <HiOutlineArrowRight className="h-4 w-4" />
+          </Link>
+          <Link href="/campaigns" className={`inline-flex items-center gap-1 ${ui.link}`}>
+            View campaigns
+            <HiOutlineArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
