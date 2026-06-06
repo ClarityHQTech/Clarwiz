@@ -35,7 +35,7 @@ async function findLatestEmailLog(campaignId, contactCampaignId) {
       campaignId,
       contactCampaignId,
       channel: "email",
-      status: { in: ["sent", "delivered", "queued"] },
+      status: { in: ["planned", "queued", "sent", "delivered"] },
     },
     orderBy: { sentAt: "desc" },
   });
@@ -113,6 +113,18 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
       processed = true;
     }
 
+    if (eventType === "EMAIL_LINK_CLICK") {
+      await prisma.communicationLog.update({
+        where: { id: log.id },
+        data: {
+          ctaClickedAt: event.time_clicked
+            ? new Date(event.time_clicked)
+            : new Date(),
+        },
+      });
+      processed = true;
+    }
+
     if (eventType === "EMAIL_REPLY") {
       await applyEngagementToCommLog(log, {
         activity: "reply",
@@ -133,7 +145,9 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
         where: { id: log.id },
         data: {
           status: "sent",
-          deliveredAt: event.time_sent ? new Date(event.time_sent) : new Date(),
+          deliveredAt: event.time_sent
+            ? new Date(event.time_sent)
+            : log.deliveredAt ?? new Date(),
         },
       });
       processed = true;

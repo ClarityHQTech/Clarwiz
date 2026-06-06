@@ -172,6 +172,11 @@ const IntegrationsPage = () => {
   const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
   const [loadingCalendly, setLoadingCalendly] = useState(true);
   const [activeIntegrationId, setActiveIntegrationId] = useState(null);
+  const [webhooksRefreshSignal, setWebhooksRefreshSignal] = useState(0);
+
+  const bumpWebhooks = useCallback(() => {
+    setWebhooksRefreshSignal((n) => n + 1);
+  }, []);
 
   const drawer = useDisclosure();
 
@@ -181,13 +186,14 @@ const IntegrationsPage = () => {
       if (!res.ok) throw new Error("Failed to load LinkedIn integration");
       const data = await res.json();
       setLinkedinIntegration(data.integration);
+      bumpWebhooks();
     } catch (err) {
       toast.error(err.message);
       setLinkedinIntegration(null);
     } finally {
       setLoadingLinkedin(false);
     }
-  }, []);
+  }, [bumpWebhooks]);
 
   const fetchEmail = useCallback(async (refresh = false) => {
     try {
@@ -197,13 +203,14 @@ const IntegrationsPage = () => {
       if (!res.ok) throw new Error("Failed to load email integration");
       const data = await res.json();
       setEmailIntegration(data.integration);
+      bumpWebhooks();
     } catch (err) {
       toast.error(err.message);
       setEmailIntegration(null);
     } finally {
       setLoadingEmail(false);
     }
-  }, []);
+  }, [bumpWebhooks]);
 
   const fetchWhatsapp = useCallback(async (refresh = false) => {
     try {
@@ -213,13 +220,14 @@ const IntegrationsPage = () => {
       if (!res.ok) throw new Error("Failed to load WhatsApp integration");
       const data = await res.json();
       setWhatsappIntegration(data.integration);
+      bumpWebhooks();
     } catch (err) {
       toast.error(err.message);
       setWhatsappIntegration(null);
     } finally {
       setLoadingWhatsapp(false);
     }
-  }, []);
+  }, [bumpWebhooks]);
 
   const fetchCalendly = useCallback(async () => {
     try {
@@ -228,13 +236,14 @@ const IntegrationsPage = () => {
       const data = await res.json();
       setCalendlyIntegration(data.integration);
       setCalendlyOAuthSetup(data.oauthSetup ?? null);
+      bumpWebhooks();
     } catch (err) {
       toast.error(err.message);
       setCalendlyIntegration(null);
     } finally {
       setLoadingCalendly(false);
     }
-  }, []);
+  }, [bumpWebhooks]);
 
   useEffect(() => {
     fetchLinkedin();
@@ -369,7 +378,7 @@ const IntegrationsPage = () => {
           Webhooks
         </h2>
         <div className={ui.panelSurface}>
-          <WebhooksStatusSection />
+          <WebhooksStatusSection refreshSignal={webhooksRefreshSignal} />
         </div>
       </section>
 

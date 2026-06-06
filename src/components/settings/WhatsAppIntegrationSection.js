@@ -129,6 +129,9 @@ export default function WhatsAppIntegrationSection({
   const [accessToken, setAccessToken] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [wabaId, setWabaId] = useState("");
+  const [webhookVerifyToken, setWebhookVerifyToken] = useState("");
+  const [verifyTokenDraft, setVerifyTokenDraft] = useState("");
+  const [savingVerifyToken, setSavingVerifyToken] = useState(false);
 
   const [interaktApiKey, setInteraktApiKey] = useState("");
   const [interaktWabaId, setInteraktWabaId] = useState("");
@@ -160,17 +163,39 @@ export default function WhatsAppIntegrationSection({
       const res = await fetch("/api/integrations/whatsapp/meta/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken, phoneNumberId, wabaId }),
+        body: JSON.stringify({ accessToken, phoneNumberId, wabaId, webhookVerifyToken }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Connection failed");
       setAccessToken("");
+      setWebhookVerifyToken("");
       toast.success(data.message || "Meta WhatsApp connected");
       onRefresh?.(true);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setConnecting(false);
+    }
+  };
+
+  const handleSaveVerifyToken = async (e) => {
+    e.preventDefault();
+    setSavingVerifyToken(true);
+    try {
+      const res = await fetch("/api/integrations/whatsapp/meta/verify-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookVerifyToken: verifyTokenDraft }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save verify token");
+      setVerifyTokenDraft("");
+      toast.success(data.message || "Verify token saved");
+      onRefresh?.(true);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingVerifyToken(false);
     }
   };
 
@@ -301,7 +326,7 @@ export default function WhatsAppIntegrationSection({
                   Meta Developer Console
                 </a>{" "}
                 (WhatsApp → Configuration). Subscribe to <strong>messages</strong>{" "}
-                field. Set verify token to <code className="text-[10px]">WHATSAPP_META_VERIFY_TOKEN</code> in .env.
+                field. Use the same verify token you saved in Clarwiz when connecting.
               </>
             ) : (
               <>
@@ -336,6 +361,40 @@ export default function WhatsAppIntegrationSection({
               Copy
             </button>
           </div>
+          {integration.mode === "meta" ? (
+            <div className="rounded-md border border-brand-secondary/20 bg-brand-bg/40 px-3 py-2.5 space-y-2">
+              <p className="text-xs text-brand-stone">
+                Webhook verify token:{" "}
+                {integration.hasWebhookVerifyToken ? (
+                  <span className="text-brand-ink font-medium">Saved (encrypted)</span>
+                ) : (
+                  <span className="text-red-600 font-medium">Not set — add below</span>
+                )}
+              </p>
+              <form onSubmit={handleSaveVerifyToken} className="flex flex-wrap gap-2 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="block text-xs font-medium text-brand-stone mb-1">
+                    {integration.hasWebhookVerifyToken ? "Update verify token" : "Verify token"}
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={verifyTokenDraft}
+                    onChange={(e) => setVerifyTokenDraft(e.target.value)}
+                    placeholder="Same value as Meta Developer Console"
+                    className={`${ui.inputSurface} font-mono text-sm`}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingVerifyToken || !verifyTokenDraft.trim()}
+                  className="rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
+                >
+                  {savingVerifyToken ? "Saving…" : "Save verify token"}
+                </button>
+              </form>
+            </div>
+          ) : null}
         </section>
 
         <div className="flex flex-wrap gap-3">
@@ -447,9 +506,26 @@ export default function WhatsAppIntegrationSection({
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-brand-stone mb-1">
+                Webhook verify token
+              </label>
+              <input
+                type="password"
+                required
+                value={webhookVerifyToken}
+                onChange={(e) => setWebhookVerifyToken(e.target.value)}
+                placeholder="Same value as Meta Developer Console"
+                className={`${ui.inputSurface} font-mono`}
+              />
+              <p className="mt-1 text-xs text-brand-steel">
+                Choose any string in Meta Developer Console, then enter the same value here.
+                Stored encrypted — never shown again after saving.
+              </p>
+            </div>
             <p className="text-xs text-brand-steel">
-              Credentials are encrypted at rest. Incoming messages and read receipts require
-              Meta webhooks (configure in Meta Developer Console).
+              Credentials are encrypted at rest. Configure the webhook callback URL in Meta
+              Developer Console after connecting.
             </p>
             <button
               type="submit"

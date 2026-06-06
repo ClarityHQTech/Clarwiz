@@ -5,6 +5,7 @@ import {
   connectInteraktWhatsApp,
   serializeWhatsAppIntegration,
 } from "@/lib/whatsappIntegration";
+import { registerWebhooksForTenant } from "@/lib/execution/registerIntegrationWebhooks";
 
 export async function POST(request) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
@@ -43,12 +44,19 @@ export async function POST(request) {
       metaAccessToken,
     });
 
+    registerWebhooksForTenant(ctx.tenantId).catch((err) =>
+      console.warn("[whatsapp/interakt/connect] webhook registration:", err.message)
+    );
+
     return NextResponse.json({
       message: "WhatsApp connected via Interakt",
       integration: serializeWhatsAppIntegration(record),
     });
   } catch (err) {
     if (err.integration) {
+      registerWebhooksForTenant(ctx.tenantId).catch((hookErr) =>
+        console.warn("[whatsapp/interakt/connect] webhook registration:", hookErr.message)
+      );
       return NextResponse.json({
         message: "Connected to Interakt with warnings",
         warning: err.templatesWarning || err.message,
