@@ -142,13 +142,13 @@ export default function WhatsAppTemplatePickerModal({
             <div className="rounded-lg border border-brand-terracotta/40 bg-brand-terracotta/15 px-4 py-3 text-sm text-brand-ink">
               <p>{loadError}</p>
               <p className="text-xs mt-2 text-brand-ink">
-                Connect WhatsApp in Settings, then refresh templates.
+                Connect WhatsApp in Integrations, then refresh templates.
               </p>
             </div>
           ) : availableTemplates.length === 0 ? (
             <p className="text-sm text-brand-stone py-6 text-center">
               {templates.length === 0
-                ? "No approved templates found. Refresh from your provider or connect WhatsApp in Settings."
+                ? "No approved templates found. Refresh from your provider or connect WhatsApp in Integrations."
                 : "All available templates are already linked to this campaign."}
             </p>
           ) : (

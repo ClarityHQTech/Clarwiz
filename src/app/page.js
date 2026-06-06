@@ -2,7 +2,7 @@
 
 import AppLayout from '@/components/layout/AppLayout'
 import BrandLockup from '@/components/brand/BrandLockup'
-import { BRAND } from '@/lib/brandUi'
+import { BRAND, ui } from '@/lib/brandUi'
 import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 import {
@@ -109,7 +109,7 @@ const Page = () => {
 
         <div className="relative max-w-6xl mx-auto px-6 py-16 lg:py-24 w-full">
           <div className="max-w-3xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-brand-secondary/40 bg-white/60 text-brand-stone px-4 py-1.5 text-sm font-medium mb-6">
+            <span className="inline-flex items-center gap-2 rounded-full border border-brand-secondary/40 bg-brand-surface/90 text-brand-stone px-4 py-1.5 text-sm font-medium mb-6">
               Human-led · AI-enabled growth execution
             </span>
             <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-brand-ink leading-[1.1]">
@@ -141,7 +141,7 @@ const Page = () => {
               </button>
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center rounded-lg border border-brand-secondary/50 bg-white px-8 py-3.5 font-semibold text-brand-ink hover:bg-brand-bg transition-colors"
+                className={`${ui.btnSecondarySurface} px-8 py-3.5 font-semibold`}
               >
                 View dashboard
               </Link>
@@ -151,7 +151,7 @@ const Page = () => {
       </section>
 
       {/* Channels */}
-      <section className="py-20 bg-white border-y border-brand-secondary/20">
+      <section className="py-20 bg-brand-surface border-y border-brand-secondary/20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-brand-ink">
@@ -166,7 +166,7 @@ const Page = () => {
             {channels.map(({ icon: Icon, title, description }) => (
               <div
                 key={title}
-                className="rounded-xl border border-brand-secondary/30 bg-brand-bg/50 p-6 hover:border-brand-sage/50 hover:shadow-md transition-all"
+                className="rounded-xl border border-brand-secondary/30 bg-brand-bg/60 p-6 hover:border-brand-sage/50 hover:shadow-md transition-all"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-dark text-white">
                   <Icon className="h-5 w-5" />
@@ -223,7 +223,7 @@ const Page = () => {
             </p>
             <button
               onClick={handleGetStarted}
-              className="mt-8 inline-flex items-center gap-2 rounded-lg bg-brand-bg text-brand-ink px-8 py-3.5 font-semibold hover:bg-white transition-colors"
+              className="mt-8 inline-flex items-center gap-2 rounded-lg bg-brand-bg text-brand-ink px-8 py-3.5 font-semibold hover:bg-brand-surface transition-colors"
             >
               Start with Google
               <HiArrowRight className="h-5 w-5" />
@@ -233,7 +233,7 @@ const Page = () => {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="py-20 bg-white border-t border-brand-secondary/20 scroll-mt-24">
+      <section id="faq" className="py-20 bg-brand-surface border-t border-brand-secondary/20 scroll-mt-24">
         <div className="max-w-3xl mx-auto px-6">
           <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-brand-ink text-center mb-12">
             Frequently asked questions
@@ -242,7 +242,7 @@ const Page = () => {
             {faqs.map(({ q, a }) => (
               <div
                 key={q}
-                className="rounded-xl bg-brand-bg border border-brand-secondary/30 p-6"
+                className="rounded-xl bg-brand-bg/70 border border-brand-secondary/30 p-6"
               >
                 <h3 className="text-lg font-semibold text-brand-ink">{q}</h3>
                 <p className="mt-3 text-brand-stone leading-relaxed">{a}</p>

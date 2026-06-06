@@ -9,7 +9,7 @@ const TenantTable = ({
   actionLoadingId,
 }) => {
   return (
-    <div className="rounded-lg border border-brand-secondary/30 bg-white overflow-hidden">
+    <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-brand-bg text-brand-stone">
           <tr>

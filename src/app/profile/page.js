@@ -3,7 +3,6 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import TenantWorkspaces from "@/components/profile/TenantWorkspaces";
 import TenantDetailsSection from "@/components/profile/TenantDetailsSection";
-import TeamSection from "@/components/settings/TeamSection";
 import { ui } from "@/lib/brandUi";
 import { useUser } from "@/context/UserContext";
 import Link from "next/link";
@@ -59,18 +58,6 @@ const ProfilePage = () => {
       </section>
 
       <TenantDetailsSection />
-
-      {user?.canManageTeam ? (
-        <section className={ui.section}>
-          <TeamSection />
-        </section>
-      ) : (
-        <section className={ui.section}>
-          <p className={ui.body}>
-            Team management is available only to tenant admins.
-          </p>
-        </section>
-      )}
     </div>
   );
 };

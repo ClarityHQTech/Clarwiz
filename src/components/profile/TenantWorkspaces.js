@@ -18,7 +18,7 @@ export default function TenantWorkspaces() {
   }
 
   return (
-    <section className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
+    <section className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-5 shadow-sm">
       <h2 className="text-base font-semibold text-brand-ink">Your workspaces</h2>
       <p className="mt-1 text-sm text-brand-stone">
         Select a workspace to manage. Your role may differ per workspace.
@@ -35,7 +35,7 @@ export default function TenantWorkspaces() {
                 className={`w-full rounded-lg border px-4 py-3 text-left transition-colors ${
                   isActive
                     ? "border-brand-sage bg-brand-sage/15 ring-1 ring-brand-sage"
-                    : "border-brand-secondary/30 bg-white hover:border-brand-sage/40 hover:bg-brand-bg"
+                    : "border-brand-secondary/30 bg-brand-surface hover:border-brand-sage/40 hover:bg-brand-bg"
                 } disabled:cursor-default`}
               >
                 <div className="flex items-start justify-between gap-3">

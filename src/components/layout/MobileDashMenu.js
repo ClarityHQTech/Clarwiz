@@ -12,7 +12,8 @@ import {
 } from "@chakra-ui/react";
 import { RiMenuFill } from "react-icons/ri";
 import { FaUserCircle } from "react-icons/fa";
-import { IoPricetagOutline, IoSettingsOutline } from "react-icons/io5";
+import { IoPricetagOutline } from "react-icons/io5";
+import { HiOutlineChevronRight, HiOutlineLink, HiOutlineSparkles, HiOutlineUserGroup } from "react-icons/hi2";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import ConfirmBox from "@/components/dialog/ConfirmBox";
@@ -89,12 +90,28 @@ const MobileDashMenu = () => {
                 />
               )}
               <LinkButton
-                icon={<IoSettingsOutline size={20} />}
-                active={params === "settings"}
+                icon={<HiOutlineLink size={20} />}
+                active={params === "integrations"}
                 onClose={onClose}
-                url="/settings"
-                title="Settings"
+                url="/integrations"
+                title="Integrations"
               />
+              <LinkButton
+                icon={<HiOutlineSparkles size={20} />}
+                active={params === "context"}
+                onClose={onClose}
+                url="/context"
+                title="Context"
+              />
+              {user?.canManageTeam ? (
+              <LinkButton
+                icon={<HiOutlineUserGroup size={20} />}
+                active={params === "teams"}
+                onClose={onClose}
+                url="/teams"
+                title="Team"
+              />
+              ) : null}
               <LinkButton
                 icon={<IoPricetagOutline size={20} />}
                 active={params === "pricing"}
@@ -105,6 +122,16 @@ const MobileDashMenu = () => {
 
               <HStack position="absolute" bottom="2rem" width="80%">
                 <div className="w-full">
+                  {user?.isSuperadmin ? (
+                  <Link
+                    href="/admin/dashboard"
+                    onClick={onClose}
+                    className="flex items-center justify-between w-full rounded-lg bg-brand-sage text-brand-ink px-4 py-2.5 text-sm font-medium hover:bg-brand-sage/90 transition-colors mb-2"
+                  >
+                    <span>Admin Panel</span>
+                    <HiOutlineChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+                  </Link>
+                  ) : null}
                   <button
                     type="button"
                     onClick={logout.onOpen}

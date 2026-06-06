@@ -72,7 +72,7 @@ export const ui = {
   textPrimary: "text-brand-ink",
   textSecondary: "text-brand-stone",
   textMuted: "text-brand-steel",
-  section: "rounded-xl border border-brand-secondary/30 bg-white p-5 shadow-sm",
+  section: "rounded-xl border border-brand-secondary/30 bg-brand-surface p-5 shadow-sm",
   sectionTitle: "font-serif text-base font-semibold text-brand-ink",
   badgeAdmin: "rounded-full bg-brand-sage/25 px-2.5 py-0.5 text-xs font-medium text-brand-ink",
   code: "text-xs bg-brand-bg border border-brand-secondary/20 px-1 rounded font-mono",

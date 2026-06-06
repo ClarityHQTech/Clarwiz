@@ -214,12 +214,12 @@ export async function requireConnectedEmailIntegration(tenantId) {
     !integration.hasSmartleadAccount
   ) {
     throw new Error(
-      "Connect a Smartlead inbox in Settings before sending email outreach."
+      "Connect a Smartlead inbox in Integrations before sending email outreach."
     );
   }
   const emailAccountId = await getDecryptedSmartleadAccountId(tenantId);
   if (!emailAccountId) {
-    throw new Error("Smartlead email account is missing — reconnect in Settings.");
+    throw new Error("Smartlead email account is missing — reconnect in Integrations.");
   }
   return { integration, emailAccountId: Number(emailAccountId) };
 }

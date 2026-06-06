@@ -413,8 +413,8 @@ const Page = () => {
       {campaign.calendlyConnected === false && (
         <div className={ui.alertWarn}>
           Connect Calendly in{" "}
-          <Link href="/settings" className="font-medium underline text-brand-ink">
-            Settings
+          <Link href="/integrations" className="font-medium underline text-brand-ink">
+            Integrations
           </Link>{" "}
           to auto-qualify prospects when meetings are booked.
         </div>
@@ -514,8 +514,8 @@ const Page = () => {
             time (default {campaign.defaultOutreachTime ?? "11:00"}{" "}
             {campaign.outreachTimezone ?? "UTC"}). Tracking is via webhooks — configure
             them in{" "}
-            <Link href="/settings" className="font-medium underline text-brand-ink">
-              Settings
+            <Link href="/integrations" className="font-medium underline text-brand-ink">
+              Integrations
             </Link>
             .
           </p>

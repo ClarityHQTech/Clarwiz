@@ -8,6 +8,7 @@ import {
 } from "react-icons/hi";
 import { toast } from "sonner";
 import IntegrationStatusBadge from "@/components/settings/IntegrationStatusBadge";
+import { ui } from "@/lib/brandUi";
 
 const THIRD_PARTY_PROVIDERS = [
   { id: "interakt", label: "Interakt", available: true },
@@ -419,7 +420,7 @@ export default function WhatsAppIntegrationSection({
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="EAA…"
-                className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
+                className={`${ui.inputSurface} font-mono`}
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -431,7 +432,7 @@ export default function WhatsAppIntegrationSection({
                   required
                   value={phoneNumberId}
                   onChange={(e) => setPhoneNumberId(e.target.value)}
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
+                  className={`${ui.inputSurface} font-mono`}
                 />
               </div>
               <div>
@@ -442,7 +443,7 @@ export default function WhatsAppIntegrationSection({
                   required
                   value={wabaId}
                   onChange={(e) => setWabaId(e.target.value)}
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
+                  className={`${ui.inputSurface} font-mono`}
                 />
               </div>
             </div>
@@ -509,7 +510,7 @@ export default function WhatsAppIntegrationSection({
                     required
                     value={interaktApiKey}
                     onChange={(e) => setInteraktApiKey(e.target.value)}
-                    className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                    className={ui.inputSurface}
                   />
                   <p className="mt-1 text-xs text-brand-steel">
                     From{" "}
@@ -536,7 +537,7 @@ export default function WhatsAppIntegrationSection({
                       <input
                         value={interaktWabaId}
                         onChange={(e) => setInteraktWabaId(e.target.value)}
-                        className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
+                        className={`${ui.inputSurface} font-mono`}
                       />
                     </div>
                     <div>
@@ -547,7 +548,7 @@ export default function WhatsAppIntegrationSection({
                         type="password"
                         value={interaktMetaToken}
                         onChange={(e) => setInteraktMetaToken(e.target.value)}
-                        className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm font-mono"
+                        className={`${ui.inputSurface} font-mono`}
                       />
                     </div>
                   </div>

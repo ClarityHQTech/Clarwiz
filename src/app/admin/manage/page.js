@@ -117,7 +117,7 @@ const Page = () => {
       </div>
 
       <CreateTenantModal
-        open={createModalOpen}
+        isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onCreated={() => loadTenants()}
       />

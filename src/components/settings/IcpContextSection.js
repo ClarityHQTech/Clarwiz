@@ -7,6 +7,7 @@ import {
   HiOutlineSparkles,
 } from "react-icons/hi2";
 import { toast } from "sonner";
+import { ui } from "@/lib/brandUi";
 
 const PIPELINE_STEPS = [
   { id: "icp_gap_analysis", label: "ICP gap analysis" },
@@ -276,7 +277,7 @@ export default function IcpContextSection() {
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="Acme Corp"
-            className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+            className={`mt-1 ${ui.inputSurface}`}
           />
         </label>
         <label className="block text-sm">
@@ -286,7 +287,7 @@ export default function IcpContextSection() {
             value={companyDomain}
             onChange={(e) => setCompanyDomain(e.target.value)}
             placeholder="acme.com"
-            className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+            className={`mt-1 ${ui.inputSurface}`}
           />
         </label>
       </div>
@@ -302,7 +303,7 @@ export default function IcpContextSection() {
           onChange={(e) => setRelevantData(e.target.value)}
           rows={6}
           placeholder="Paste your company overview, product description, target market, differentiators…"
-          className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+          className={`mt-1 ${ui.inputSurface} resize-y`}
         />
       </label>
 
@@ -314,7 +315,7 @@ export default function IcpContextSection() {
           value={userQuery}
           onChange={(e) => setUserQuery(e.target.value)}
           placeholder="e.g. focus on enterprise SaaS accounts in North America"
-          className="mt-1 w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+          className={`mt-1 ${ui.inputSurface}`}
         />
       </label>
 
@@ -386,7 +387,7 @@ export default function IcpContextSection() {
           onChange={(e) => setAccountData(e.target.value)}
           rows={4}
           placeholder="Paste account-level raw data (transcript, notes, activity log)…"
-          className="w-full rounded-lg border border-brand-secondary/30 px-3 py-2 text-sm focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+          className={`${ui.inputSurface} resize-y`}
         />
         <button
           type="button"

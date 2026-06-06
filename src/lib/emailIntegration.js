@@ -127,7 +127,7 @@ export async function upsertSmartleadInbox(tenantId, smartleadResponse, form) {
   const accountId = data?.id;
   if (!accountId) {
     throw new Error(
-      "Smartlead created the inbox but did not return an account id. Try Refresh on Settings after confirming it appears in Smartlead."
+      "Smartlead created the inbox but did not return an account id. Try Refresh on Integrations after confirming it appears in Smartlead."
     );
   }
 

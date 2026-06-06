@@ -13,7 +13,7 @@ export async function GET(request) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  const settingsUrl = `${getAppBaseUrl()}/settings?calendly=`;
+  const settingsUrl = `${getAppBaseUrl()}/integrations?calendly=`;
 
   if (error) {
     return NextResponse.redirect(`${settingsUrl}error&reason=${encodeURIComponent(error)}`);

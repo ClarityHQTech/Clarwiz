@@ -5,8 +5,6 @@ import EmailIntegrationSection from "@/components/settings/EmailIntegrationSecti
 import LinkedInIntegrationSection from "@/components/settings/LinkedInIntegrationSection";
 import WhatsAppIntegrationSection from "@/components/settings/WhatsAppIntegrationSection";
 import CalendlyIntegrationSection from "@/components/settings/CalendlyIntegrationSection";
-import IcpContextSection from "@/components/settings/IcpContextSection";
-import TeamSection from "@/components/settings/TeamSection";
 import WebhooksStatusSection from "@/components/settings/WebhooksStatusSection";
 import { useUser } from "@/context/UserContext";
 import IntegrationStatusBadge, {
@@ -40,35 +38,35 @@ const INTEGRATIONS = [
   {
     id: "linkedin",
     title: "LinkedIn",
-    description: "Profile visits, messages, and connection requests via LinkupAPI.",
+    description: "Connect this channel.",
     icon: <FaLinkedin className="h-4 w-4 text-[#0A66C2]" />,
     available: true,
   },
   {
     id: "email",
     title: "Email",
-    description: "Smartlead for warmup, outreach, and tracking.",
+    description: "Connect this channel.",
     icon: <HiOutlineEnvelope className="h-4 w-4 text-brand-terracotta" />,
     available: true,
   },
   {
     id: "whatsapp",
     title: "WhatsApp",
-    description: "Meta Cloud API or Interakt for templates and outreach.",
+    description: "Connect this channel.",
     icon: <SiWhatsapp className="h-4 w-4 text-[#25D366]" />,
     available: true,
   },
   {
     id: "calendly",
     title: "Calendly",
-    description: "Free (tracked link) or Standard+ (auto-qualify on book).",
+    description: "Connect this channel.",
     icon: <HiOutlineCalendar className="h-4 w-4 text-[#006BFF]" />,
     available: true,
   },
   {
     id: "ai_calling",
     title: "AI Calling",
-    description: "Voice outreach and call follow-ups.",
+    description: "Connect this channel.",
     icon: <HiOutlinePhone className="h-4 w-4 text-brand-stone" />,
     available: false,
   },
@@ -109,6 +107,7 @@ function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly) {
 
 function IntegrationListRow({ item, status, subtitle, onConfigure }) {
   const clickable = item.available;
+  const isConnected = status === "connected";
 
   return (
     <button
@@ -116,9 +115,11 @@ function IntegrationListRow({ item, status, subtitle, onConfigure }) {
       onClick={clickable ? onConfigure : undefined}
       disabled={!clickable}
       className={`flex w-full items-center gap-4 rounded-lg border bg-brand-surface p-4 text-left shadow-sm transition-colors ${
-        clickable
-          ? "border-brand-secondary/30 hover:border-brand-sage/30 hover:bg-brand-sage/10 cursor-pointer"
-          : "border-brand-secondary/15 opacity-80 cursor-default"
+        isConnected
+          ? "border-green-200 hover:border-green-300 hover:bg-green-50/50 cursor-pointer"
+          : clickable
+            ? "border-brand-secondary/30 hover:border-brand-sage/30 hover:bg-brand-sage/10 cursor-pointer"
+            : "border-brand-secondary/15 opacity-80 cursor-default"
       }`}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-bg text-brand-stone">
@@ -126,10 +127,18 @@ function IntegrationListRow({ item, status, subtitle, onConfigure }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
+          {isConnected ? (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-green-500"
+              aria-hidden
+            />
+          ) : null}
           <h3 className="text-sm font-semibold text-brand-ink">{item.title}</h3>
           <IntegrationStatusBadge status={status} />
         </div>
-        <p className="mt-0.5 text-sm text-brand-stone leading-snug">{item.description}</p>
+        {!isConnected ? (
+          <p className="mt-0.5 text-sm text-brand-stone leading-snug">{item.description}</p>
+        ) : null}
         {subtitle ? (
           <p className="mt-1 text-xs text-brand-steel truncate">{subtitle}</p>
         ) : null}
@@ -151,12 +160,13 @@ function ComingSoonPanel({ title, description }) {
   );
 }
 
-const SettingsPage = () => {
+const IntegrationsPage = () => {
   const user = useUser();
   const [linkedinIntegration, setLinkedinIntegration] = useState(null);
   const [emailIntegration, setEmailIntegration] = useState(null);
   const [whatsappIntegration, setWhatsappIntegration] = useState(null);
   const [calendlyIntegration, setCalendlyIntegration] = useState(null);
+  const [calendlyOAuthSetup, setCalendlyOAuthSetup] = useState(null);
   const [loadingLinkedin, setLoadingLinkedin] = useState(true);
   const [loadingEmail, setLoadingEmail] = useState(true);
   const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
@@ -217,6 +227,7 @@ const SettingsPage = () => {
       if (!res.ok) throw new Error("Failed to load Calendly integration");
       const data = await res.json();
       setCalendlyIntegration(data.integration);
+      setCalendlyOAuthSetup(data.oauthSetup ?? null);
     } catch (err) {
       toast.error(err.message);
       setCalendlyIntegration(null);
@@ -243,6 +254,15 @@ const SettingsPage = () => {
   };
 
   const activeItem = INTEGRATIONS.find((i) => i.id === activeIntegrationId);
+  const activeIntegrationStatus = activeItem
+    ? getIntegrationStatus(
+        activeItem.id,
+        linkedinIntegration,
+        emailIntegration,
+        whatsappIntegration,
+        calendlyIntegration
+      )
+    : null;
 
   const renderDrawerContent = () => {
     if (!activeItem) return null;
@@ -286,6 +306,7 @@ const SettingsPage = () => {
       return (
         <CalendlyIntegrationSection
           integration={calendlyIntegration}
+          oauthSetup={calendlyOAuthSetup}
           onRefresh={fetchCalendly}
         />
       );
@@ -299,16 +320,16 @@ const SettingsPage = () => {
   return (
     <div className={`${ui.page} p-5 lg:p-7 w-full space-y-8`}>
       <header>
-        <h1 className={ui.title}>Settings</h1>
+        <h1 className={ui.title}>Integrations</h1>
         <p className={ui.subtitle}>
           Connect channels and tools used by your outreach campaigns.
         </p>
       </header>
 
-      <section className="max-w-3xl">
+      <section className="w-full">
         <div className="flex items-center justify-between gap-3 mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
-            Integrations
+            Channels
           </h2>
           <p className="text-xs text-brand-steel">Click an integration to configure</p>
         </div>
@@ -343,7 +364,7 @@ const SettingsPage = () => {
         </ul>
       </section>
 
-      <section className="max-w-3xl">
+      <section className="w-full">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
           Webhooks
         </h2>
@@ -351,26 +372,6 @@ const SettingsPage = () => {
           <WebhooksStatusSection />
         </div>
       </section>
-
-      <section className="max-w-3xl">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
-          Workspace
-        </h2>
-        <div className={ui.panelSurface}>
-          {user?.canAccessTenantIcp !== false ? <IcpContextSection /> : <p className="text-sm text-brand-stone">You do not have permission to manage ICP context.</p>}
-        </div>
-      </section>
-
-      {user?.canManageTeam ? (
-      <section className="max-w-3xl">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel mb-3">
-          Team
-        </h2>
-        <div className={ui.panelSurface}>
-          <TeamSection />
-        </div>
-      </section>
-      ) : null}
 
       <Drawer isOpen={drawer.isOpen} placement="right" onClose={closeDrawer} size="md">
         <DrawerOverlay />
@@ -383,20 +384,14 @@ const SettingsPage = () => {
                 </div>
                 <div className="min-w-0">
                   <p className="text-base font-semibold text-brand-ink">{activeItem.title}</p>
-                  <p className="mt-0.5 text-sm font-normal text-brand-stone leading-snug">
-                    {activeItem.description}
-                  </p>
+                  {activeIntegrationStatus !== "connected" ? (
+                    <p className="mt-0.5 text-sm font-normal text-brand-stone leading-snug">
+                      {activeItem.description}
+                    </p>
+                  ) : null}
                   {activeItem.available ? (
                     <div className="mt-2">
-                      <IntegrationStatusBadge
-                        status={getIntegrationStatus(
-                          activeItem.id,
-                          linkedinIntegration,
-                          emailIntegration,
-                          whatsappIntegration,
-                          calendlyIntegration
-                        )}
-                      />
+                      <IntegrationStatusBadge status={activeIntegrationStatus} />
                     </div>
                   ) : null}
                 </div>
@@ -411,4 +406,4 @@ const SettingsPage = () => {
   );
 };
 
-export default DashboardLayout()(SettingsPage);
+export default DashboardLayout()(IntegrationsPage);

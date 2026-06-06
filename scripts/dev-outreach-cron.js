@@ -1,8 +1,11 @@
 /**
  * Dev-only: hits /api/cron/outreach every 60s. Run alongside `npm run dev`.
- * Uses SECRET and NEXT_PUBLIC_URL from .env (load via your shell or dotenv).
+ * Uses SECRET and NEXT_PUBLIC_URL from .env.
  * Usage: npm run cron:outreach
  */
+const path = require("node:path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
 const base = process.env.NEXT_PUBLIC_URL?.trim() || "http://localhost:3000";
 const secret =
   process.env.SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim();

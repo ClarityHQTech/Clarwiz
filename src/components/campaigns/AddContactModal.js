@@ -46,6 +46,8 @@ export default function AddContactModal({
   onClose,
   campaignId,
   onAdded,
+  onAdd,
+  variant = "full",
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -66,6 +68,13 @@ export default function AddContactModal({
     e.preventDefault();
     if (!form.name.trim()) {
       toast.error("Name is required.");
+      return;
+    }
+
+    if (onAdd) {
+      onAdd(form);
+      toast.success("Contact added.");
+      onClose();
       return;
     }
 
@@ -118,9 +127,11 @@ export default function AddContactModal({
           className="!bg-brand-surface !border-brand-secondary/25"
         >
           <p className="text-base font-semibold text-brand-ink">Add contact</p>
-          <p className="text-xs font-normal text-brand-stone mt-0.5">
-            Creates or links a business user and enrolls them in this campaign.
-          </p>
+          {variant === "full" && (
+            <p className="text-xs font-normal text-brand-stone mt-0.5">
+              Creates or links a business user and enrolls them in this campaign.
+            </p>
+          )}
         </ModalHeader>
         <ModalCloseButton
           isDisabled={saving}
@@ -135,7 +146,7 @@ export default function AddContactModal({
           className="!bg-brand-surface"
         >
           <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-            <Field label="Full name" required>
+            <Field label="Name" required>
               <input
                 type="text"
                 value={form.name}
@@ -145,95 +156,97 @@ export default function AddContactModal({
                 autoFocus
               />
             </Field>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="First name" hint="Used for {{first_name}}">
-                <input
-                  type="text"
-                  value={form.firstName}
-                  onChange={update("firstName")}
-                  className={ui.inputSurface}
-                />
-              </Field>
-              <Field label="Last name">
-                <input
-                  type="text"
-                  value={form.lastName}
-                  onChange={update("lastName")}
-                  className={ui.inputSurface}
-                />
-              </Field>
-            </div>
 
-            <div className="rounded-lg border border-brand-secondary/30 bg-brand-bg/40 p-4 space-y-4">
-              <p className={ui.label}>Company & role</p>
+            {variant === "full" && (
               <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Company">
+                <Field label="First name" hint="Used for {{first_name}}">
                   <input
                     type="text"
-                    value={form.company}
-                    onChange={update("company")}
+                    value={form.firstName}
+                    onChange={update("firstName")}
                     className={ui.inputSurface}
                   />
                 </Field>
-                <Field label="Job title">
+                <Field label="Last name">
                   <input
                     type="text"
-                    value={form.jobTitle}
-                    onChange={update("jobTitle")}
+                    value={form.lastName}
+                    onChange={update("lastName")}
                     className={ui.inputSurface}
                   />
                 </Field>
               </div>
-              <Field label="Persona">
-                <select
-                  value={form.persona}
-                  onChange={update("persona")}
+            )}
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Company">
+                <input
+                  type="text"
+                  value={form.company}
+                  onChange={update("company")}
                   className={ui.inputSurface}
-                >
-                  <option value="">Other (default)</option>
-                  {Object.entries(CONTACT_PERSONA_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                />
+              </Field>
+              <Field label="Job title">
+                <input
+                  type="text"
+                  value={form.jobTitle}
+                  onChange={update("jobTitle")}
+                  className={ui.inputSurface}
+                />
               </Field>
             </div>
 
-            <div className="rounded-lg border border-brand-secondary/30 bg-brand-bg/40 p-4 space-y-4">
-              <p className={ui.label}>Contact channels</p>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Email">
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={update("email")}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Email">
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={update("email")}
+                  className={ui.inputSurface}
+                />
+              </Field>
+              <Field label="WhatsApp">
+                <input
+                  type="tel"
+                  value={form.whatsapp}
+                  onChange={update("whatsapp")}
+                  className={ui.inputSurface}
+                />
+              </Field>
+              <Field label="Phone">
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={update("phone")}
+                  className={ui.inputSurface}
+                />
+              </Field>
+              <Field label="LinkedIn URL">
+                <input
+                  type="url"
+                  value={form.linkedinUrl}
+                  onChange={update("linkedinUrl")}
+                  className={ui.inputSurface}
+                />
+              </Field>
+            </div>
+
+            {variant === "full" && (
+              <>
+                <Field label="Persona">
+                  <select
+                    value={form.persona}
+                    onChange={update("persona")}
                     className={ui.inputSurface}
-                  />
-                </Field>
-                <Field label="Phone">
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={update("phone")}
-                    className={ui.inputSurface}
-                  />
-                </Field>
-                <Field label="WhatsApp">
-                  <input
-                    type="tel"
-                    value={form.whatsapp}
-                    onChange={update("whatsapp")}
-                    className={ui.inputSurface}
-                  />
-                </Field>
-                <Field label="LinkedIn URL">
-                  <input
-                    type="url"
-                    value={form.linkedinUrl}
-                    onChange={update("linkedinUrl")}
-                    className={ui.inputSurface}
-                  />
+                  >
+                    <option value="">Other (default)</option>
+                    {Object.entries(CONTACT_PERSONA_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Twitter / X">
                   <input
@@ -243,8 +256,8 @@ export default function AddContactModal({
                     className={ui.inputSurface}
                   />
                 </Field>
-              </div>
-            </div>
+              </>
+            )}
           </form>
         </ModalBody>
 

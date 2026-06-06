@@ -22,12 +22,13 @@ export { TEMPLATE_VARIABLE_LIST, TEMPLATE_VARIABLES } from "@/lib/templateVariab
 
 /** Excel / CSV column names recognized on prospect import (any casing). */
 export const PROSPECT_IMPORT_COLUMNS = [
-  "Name (or firstName + lastName)",
-  "companyName / company",
-  "jobTitle",
-  "companyIndustry → {{pain_point}}",
-  "email, phone, whatsapp",
-  "linkedinUrl / linkedinPublicUrl",
+  "Name",
+  "Company",
+  "Job title",
+  "Email",
+  "WhatsApp",
+  "Phone",
+  "LinkedIn URL",
 ];
 
 export const MAX_TEMPLATE_STAGE = 20;

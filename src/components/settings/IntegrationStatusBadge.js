@@ -1,7 +1,7 @@
 "use client";
 
 const STYLES = {
-  connected: "bg-brand-sage/20 text-brand-ink ring-brand-sage/40",
+  connected: "bg-green-100 text-green-700 ring-green-600/25",
   checkpoint_required:
     "bg-brand-terracotta/15 text-brand-ink ring-brand-terracotta/40",
   failed: "bg-red-50 text-red-700 ring-red-600/20",

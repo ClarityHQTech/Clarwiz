@@ -8,6 +8,7 @@ import {
 } from "react-icons/hi";
 import { toast } from "sonner";
 import IntegrationStatusBadge from "@/components/settings/IntegrationStatusBadge";
+import { ui } from "@/lib/brandUi";
 
 const PROVIDER_OPTIONS = [
   { id: "GMAIL", label: "Gmail / Google Workspace" },
@@ -350,7 +351,7 @@ export default function EmailIntegrationSection({
                   value={effectiveTrackingDraft}
                   onChange={(e) => setTrackingDraft(e.target.value)}
                   placeholder="track.yourdomain.com"
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                  className={ui.inputSurface}
                 />
               </div>
               <button
@@ -403,7 +404,7 @@ export default function EmailIntegrationSection({
                   required
                   value={fromName}
                   onChange={(e) => setFromName(e.target.value)}
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                  className={ui.inputSurface}
                   placeholder="Alex Smith"
                 />
               </div>
@@ -412,7 +413,7 @@ export default function EmailIntegrationSection({
                 <select
                   value={providerType}
                   onChange={(e) => setProviderType(e.target.value)}
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                  className={ui.inputSurface}
                 >
                   {PROVIDER_OPTIONS.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -428,7 +429,7 @@ export default function EmailIntegrationSection({
                   required
                   value={fromEmail}
                   onChange={(e) => setFromEmail(e.target.value)}
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                  className={ui.inputSurface}
                   placeholder="alex@yourcompany.com"
                 />
               </div>
@@ -441,7 +442,7 @@ export default function EmailIntegrationSection({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                  className={ui.inputSurface}
                 />
                 <p className="mt-1 text-xs text-brand-steel">
                   Gmail: use an App Password with 2FA enabled. Never stored in Clarwiz.
@@ -457,7 +458,7 @@ export default function EmailIntegrationSection({
                       required
                       value={smtpHost}
                       onChange={(e) => setSmtpHost(e.target.value)}
-                      className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                      className={ui.inputSurface}
                     />
                   </div>
                   <div>
@@ -468,7 +469,7 @@ export default function EmailIntegrationSection({
                       required
                       value={imapHost}
                       onChange={(e) => setImapHost(e.target.value)}
-                      className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                      className={ui.inputSurface}
                     />
                   </div>
                 </>
@@ -481,7 +482,7 @@ export default function EmailIntegrationSection({
                   value={customTrackingDomain}
                   onChange={(e) => setCustomTrackingDomain(e.target.value)}
                   placeholder="track.yourdomain.com"
-                  className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm"
+                  className={ui.inputSurface}
                 />
               </div>
             </div>
