@@ -13,19 +13,26 @@ const TABS = [
 export default function MofuTabs() {
   const pathname = usePathname();
   return (
-    <div className="flex flex-wrap gap-1 border-b border-brand-secondary/25 pb-2">
+    <div className="mofu-tabsbar" style={{ flexWrap: "wrap" }}>
       {TABS.map(([href, label]) => {
         const active = href === "/mofu" ? pathname === "/mofu" : pathname.startsWith(href);
         return (
           <Link
             key={href}
             href={href}
-            className={`px-3 py-1.5 text-sm rounded-md ${active ? "bg-brand-sage/30 text-brand-ink" : "text-brand-stone hover:bg-brand-sage/15"}`}
+            className="mofu-navtab"
+            style={
+              active
+                ? { background: "var(--accent-soft)", color: "var(--accent-ink)", fontWeight: 700 }
+                : undefined
+            }
           >
             {label}
           </Link>
         );
       })}
+      <span style={{ flex: 1 }} />
+      <span className="sor-pill">HubSpot · SOR connected</span>
     </div>
   );
 }

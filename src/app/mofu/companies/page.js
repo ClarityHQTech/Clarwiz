@@ -3,6 +3,7 @@
 import "../mofu.css";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import MofuTabs from "@/components/mofu/MofuTabs";
+import PageHeader from "@/components/mofu/ui/PageHeader";
 import { ui } from "@/lib/brandUi";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -31,10 +32,7 @@ const Page = () => {
 
   return (
     <div className={`mofu ${ui.page} ${ui.container} max-w-[1100px] space-y-5`}>
-      <div>
-        <h1 className={ui.title}>Companies</h1>
-        <p className={ui.subtitle}>Accounts across your tenant&apos;s deals (company-level intelligence).</p>
-      </div>
+      <PageHeader title="Companies" subtitle="Accounts across your tenant's deals — company-level intelligence." />
       <MofuTabs />
       <section className={`${ui.cardSurface} overflow-hidden`}>
         <div className={ui.divider}>

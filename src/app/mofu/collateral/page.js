@@ -3,6 +3,7 @@
 import "../mofu.css";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import MofuTabs from "@/components/mofu/MofuTabs";
+import PageHeader from "@/components/mofu/ui/PageHeader";
 import { ui } from "@/lib/brandUi";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -84,10 +85,7 @@ const Page = () => {
 
   return (
     <div className={`mofu ${ui.page} ${ui.container} max-w-[1100px] space-y-5`}>
-      <div>
-        <h1 className={ui.title}>Collateral</h1>
-        <p className={ui.subtitle}>One library of templates — upload your own HTML, categorised Marketing or Sales. Generate per deal from the deal&apos;s Collateral tab.</p>
-      </div>
+      <PageHeader title="Collateral" subtitle="One library of templates — upload your own HTML, categorised Marketing or Sales. Generate per deal from the deal's Collateral tab." />
       <MofuTabs />
 
       <section className="mofu card" style={{ padding: 16 }}>

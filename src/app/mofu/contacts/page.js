@@ -3,6 +3,7 @@
 import "../mofu.css";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import MofuTabs from "@/components/mofu/MofuTabs";
+import PageHeader from "@/components/mofu/ui/PageHeader";
 import { ui } from "@/lib/brandUi";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -38,10 +39,7 @@ const Page = () => {
 
   return (
     <div className={`mofu ${ui.page} ${ui.container} max-w-[1100px] space-y-5`}>
-      <div>
-        <h1 className={ui.title}>Contacts</h1>
-        <p className={ui.subtitle}>Stakeholders across your deals, with inferred personas.</p>
-      </div>
+      <PageHeader title="Contacts" subtitle="Stakeholders across your deals, with inferred personas." />
       <MofuTabs />
       <section className={`${ui.cardSurface} overflow-hidden`}>
         <div className={ui.divider}>

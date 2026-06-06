@@ -70,7 +70,7 @@ export async function getDealInsights({ tenantId, hubspotDealId }, deps = {}) {
     }),
     prisma.dealSignal.findMany({ where: { tenantId, dealId: deal.id }, orderBy: { score: "desc" }, take: 50 }),
     prisma.nbaRecommendation.findMany({
-      where: { tenantId, dealId: deal.id, status: { not: "DISMISSED" } },
+      where: { tenantId, dealId: deal.id, status: { in: ["SUGGESTED", "DRAFTED", "EDITED", "APPROVED", "FAILED"] } },
       orderBy: { score: "desc" },
     }),
     prisma.tenantCapability.findMany({ where: { tenantId } }),

@@ -181,9 +181,15 @@ export const hubspotAdapter = {
         hs_email_text: body,
         hs_email_direction: "EMAIL",
         hs_email_status: "SENT",
-        hs_timestamp: Date.now(),
+        hs_timestamp: new Date().toISOString(),
       };
-      if (toEmail) properties.hs_email_to_email = toEmail;
+      // HubSpot stores recipients in hs_email_headers (JSON), not a to_email property.
+      if (toEmail) {
+        properties.hs_email_headers = JSON.stringify({
+          from: { email: process.env.SMTP_USER || "noreply@clarwiz.app" },
+          to: [{ email: toEmail }],
+        });
+      }
       const created = await createAndAssociate({
         accessToken: t.accessToken,
         objectType: "emails",
@@ -215,7 +221,7 @@ export const hubspotAdapter = {
           hs_task_subject: title,
           hs_task_body: body ?? "",
           hs_task_status: "NOT_STARTED",
-          hs_timestamp: dueAt ? new Date(dueAt).getTime() : Date.now(),
+          hs_timestamp: dueAt ? new Date(dueAt).toISOString() : new Date().toISOString(),
         },
         dealId,
         fetchImpl: deps.fetchImpl,
@@ -259,9 +265,9 @@ export const hubspotAdapter = {
         properties: {
           hs_meeting_title: title,
           hs_meeting_body: body ?? "",
-          hs_timestamp: startAt ? new Date(startAt).getTime() : Date.now(),
-          hs_meeting_start_time: startAt ? new Date(startAt).getTime() : Date.now(),
-          hs_meeting_end_time: endAt ? new Date(endAt).getTime() : Date.now(),
+          hs_timestamp: startAt ? new Date(startAt).toISOString() : new Date().toISOString(),
+          hs_meeting_start_time: startAt ? new Date(startAt).toISOString() : new Date().toISOString(),
+          hs_meeting_end_time: endAt ? new Date(endAt).toISOString() : new Date(Date.now() + 1800000).toISOString(),
         },
         dealId,
         fetchImpl: deps.fetchImpl,

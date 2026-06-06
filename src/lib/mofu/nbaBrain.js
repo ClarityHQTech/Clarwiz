@@ -92,6 +92,13 @@ export async function computeNba(
     ? ranked.result.ranking
     : candidates.map((_, i) => ({ index: i, score: 0 }));
 
+  // Replace stale, un-acted suggestions so the list refreshes instead of piling up.
+  // (SENT / APPROVED / in-progress drafts are preserved.)
+  await prisma.nbaRecommendation.updateMany?.({
+    where: { tenantId, dealId, status: "SUGGESTED" },
+    data: { status: "DISMISSED" },
+  });
+
   const recommendations = [];
   for (const item of order) {
     const c = candidates[item.index];
