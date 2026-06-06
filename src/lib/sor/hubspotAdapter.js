@@ -67,9 +67,21 @@ export const hubspotAdapter = {
         const assoc = await hubspotFetch(`/crm/v4/objects/deals/${hubspotDealId}/associations/${e.obj}`, { accessToken: t.accessToken, fetchImpl }).catch(() => ({ results: [] }));
         const ids = (assoc.results || []).map((r) => r.toObjectId).filter(Boolean).slice(0, 10);
         if (!ids.length) continue;
-        const batch = await hubspotFetch(`/crm/v3/objects/${e.obj}/batch/read`, {
-          accessToken: t.accessToken, method: "POST", body: { properties: e.props, inputs: ids.map((id) => ({ id })) }, fetchImpl,
-        });
+        const [batch, contactAssoc] = await Promise.all([
+          hubspotFetch(`/crm/v3/objects/${e.obj}/batch/read`, {
+            accessToken: t.accessToken, method: "POST", body: { properties: e.props, inputs: ids.map((id) => ({ id })) }, fetchImpl,
+          }),
+          // One batched lookup mapping each engagement -> its associated contact.
+          hubspotFetch(`/crm/v4/associations/${e.obj}/contacts/batch/read`, {
+            accessToken: t.accessToken, method: "POST", body: { inputs: ids.map((id) => ({ id })) }, fetchImpl,
+          }).catch(() => ({ results: [] })),
+        ]);
+        const engToContact = {};
+        for (const a of contactAssoc.results || []) {
+          const from = a.from?.id ?? a._from?.id;
+          const to = (a.to || [])[0]?.toObjectId;
+          if (from && to) engToContact[from] = String(to);
+        }
         for (const r of batch.results || []) {
           const p = r.properties || {};
           items.push({
@@ -77,6 +89,7 @@ export const hubspotAdapter = {
             externalId: `${e.obj}:${r.id}`,
             summary: e.sum(p) || e.kind,
             occurredAt: p.hs_timestamp ? new Date(Number(p.hs_timestamp) || p.hs_timestamp).toISOString() : null,
+            contactId: engToContact[r.id] ?? null,
           });
         }
       } catch {
@@ -104,11 +117,22 @@ export const hubspotAdapter = {
         const cj = await hubspotFetch(`/crm/v3/objects/companies/batch/read`, {
           accessToken: t.accessToken,
           method: "POST",
-          body: { properties: ["name", "domain", "industry"], inputs: companyIds.slice(0, 1).map((id) => ({ id })) },
+          body: { properties: ["name", "domain", "industry", "numberofemployees", "annualrevenue", "city", "country"], inputs: companyIds.slice(0, 1).map((id) => ({ id })) },
           fetchImpl,
         });
         const c = cj.results?.[0];
-        if (c) company = { id: c.id, name: c.properties.name ?? null, domain: c.properties.domain ?? null, industry: c.properties.industry ?? null };
+        if (c) {
+          const p = c.properties || {};
+          company = {
+            id: c.id,
+            name: p.name ?? null,
+            domain: p.domain ?? null,
+            industry: p.industry ?? null,
+            employees: p.numberofemployees ?? null,
+            revenue: p.annualrevenue ?? null,
+            location: [p.city, p.country].filter(Boolean).join(", ") || null,
+          };
+        }
       }
 
       let contacts = [];
@@ -116,7 +140,7 @@ export const hubspotAdapter = {
         const xj = await hubspotFetch(`/crm/v3/objects/contacts/batch/read`, {
           accessToken: t.accessToken,
           method: "POST",
-          body: { properties: ["firstname", "lastname", "email", "jobtitle"], inputs: contactIds.slice(0, 25).map((id) => ({ id })) },
+          body: { properties: ["firstname", "lastname", "email", "jobtitle", "phone"], inputs: contactIds.slice(0, 25).map((id) => ({ id })) },
           fetchImpl,
         });
         contacts = (xj.results || []).map((c) => ({
@@ -124,6 +148,7 @@ export const hubspotAdapter = {
           name: [c.properties.firstname, c.properties.lastname].filter(Boolean).join(" ") || c.properties.email || "Contact",
           email: c.properties.email ?? null,
           title: c.properties.jobtitle ?? null,
+          phone: c.properties.phone ?? null,
         }));
       }
       return { ok: true, company, contacts };

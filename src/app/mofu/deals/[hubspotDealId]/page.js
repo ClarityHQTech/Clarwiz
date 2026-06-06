@@ -37,6 +37,7 @@ const Page = () => {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [recipient, setRecipient] = useState(null);
+  const [contactView, setContactView] = useState(null);
   const [step, setStep] = useState(1); // 1 draft,2 edit,3 approve,4 send
   const [sent, setSent] = useState(false);
 
@@ -105,6 +106,17 @@ const Page = () => {
     }
   };
   const closeDrawer = () => setDrawer(null);
+
+  const openContact = async (c) => {
+    setContactView({ loading: true, contact: { name: c.name } });
+    try {
+      const res = await fetch(`/api/mofu/deals/${hubspotDealId}/contacts/${c.id}`);
+      const j = await res.json();
+      setContactView(res.ok ? j : { error: j.reason || "Not found", contact: { name: c.name } });
+    } catch {
+      setContactView({ error: "Failed to load", contact: { name: c.name } });
+    }
+  };
 
   const approveAndSend = async () => {
     if (!drawer) return;
@@ -193,7 +205,7 @@ const Page = () => {
             ))}
           </div>
           <div className="dimpanel">
-            <HeptapodPanel tab={tab} insight={insight} contacts={contacts} signals={signals} />
+            <HeptapodPanel tab={tab} insight={insight} contacts={contacts} signals={signals} onContactClick={openContact} />
           </div>
         </div>
 
@@ -286,6 +298,50 @@ const Page = () => {
                 <button className="btn btn-pri" onClick={approveAndSend} disabled={busy}>{busy ? "Sending…" : "Approve & send"}</button>
               </div>
             )}
+          </>
+        )}
+      </aside>
+
+      {/* CONTACT DRAWER (contact-level view) */}
+      <div className={`mofu-overlay ${contactView ? "show" : ""}`} onClick={() => setContactView(null)} />
+      <aside className={`mofu-drawer ${contactView ? "show" : ""}`}>
+        {contactView && (
+          <>
+            <div className="dr-h">
+              <div className="ico">👤</div>
+              <div><div className="ti">{contactView.contact?.name || "Contact"}</div><div className="su">{contactView.contact?.title || "contact"}{contactView.contact?.persona ? ` · ${contactView.contact.persona.toLowerCase().replace("_", " ")}` : ""}</div></div>
+              <button className="dr-x" onClick={() => setContactView(null)}>✕</button>
+            </div>
+            <div className="dr-b">
+              {contactView.loading ? (
+                <p className="muted">Loading…</p>
+              ) : contactView.error ? (
+                <p className="muted">{contactView.error}</p>
+              ) : (
+                <>
+                  <div className="field-l">Details</div>
+                  <p style={{ fontSize: 13 }}>
+                    {contactView.contact.email && <>✉ {contactView.contact.email}<br /></>}
+                    {contactView.contact.phone && <>☎ {contactView.contact.phone}<br /></>}
+                    {contactView.contact.role_type && <>Role: {contactView.contact.role_type} · influence {contactView.contact.influence_level || "?"} · {contactView.contact.engagement_status || "?"}</>}
+                  </p>
+                  {contactView.contact.recommended_approach && (
+                    <>
+                      <div className="field-l">Recommended approach</div>
+                      <div className="jury">↳ <div>{contactView.contact.recommended_approach}</div></div>
+                    </>
+                  )}
+                  <div className="field-l">Engagement &amp; signals</div>
+                  {contactView.signals?.length ? contactView.signals.map((s) => (
+                    <div className="feed-i" key={s.id}>
+                      <div className="feed-ic fi-sig">∿</div>
+                      <div><div className="ft"><b>{s.kind?.replace("_", " ")}</b></div><div className="fm">{s.summary}</div></div>
+                      <div className="fr"><span className="badge blue">{Number(s.score).toFixed(2)}</span></div>
+                    </div>
+                  )) : <p className="muted">No signals tied to this contact yet.</p>}
+                </>
+              )}
+            </div>
           </>
         )}
       </aside>

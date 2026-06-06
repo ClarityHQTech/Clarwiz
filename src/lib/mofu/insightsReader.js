@@ -113,6 +113,42 @@ export async function getDealInsights({ tenantId, hubspotDealId }, deps = {}) {
   };
 }
 
+/**
+ * Contact-level (derived) view — no extra LLM call. Combines the deal bundle's
+ * stakeholder profile for this contact + the contact's own signals + persona.
+ */
+export async function getContactInsight({ tenantId, dealId, contactId }, deps = {}) {
+  const prisma = deps.prisma ?? defaultPrisma;
+  const deal = await prisma.deal.findFirst({ where: { id: dealId, tenantId }, include: { context: true } });
+  if (!deal) return { ok: false, reason: "deal_not_found" };
+  const contact = (deal.context?.data?.cached?.contacts ?? []).find((c) => String(c.id) === String(contactId));
+  if (!contact) return { ok: false, reason: "contact_not_found" };
+
+  const [insight, signals] = await Promise.all([
+    prisma.dealInsight.findFirst({ where: { tenantId, dealId, scope: "DEAL" }, orderBy: { createdAt: "desc" } }),
+    prisma.dealSignal.findMany({ where: { tenantId, dealId, contactId: String(contactId) }, orderBy: { score: "desc" }, take: 20 }),
+  ]);
+  const profiles = insight?.stakeholderIntelligence?.individual_profiles ?? [];
+  const ai = profiles.find((p) => String(p.name || "").toLowerCase() === String(contact.name || "").toLowerCase()) ?? null;
+
+  return {
+    ok: true,
+    contact: {
+      id: contact.id,
+      name: contact.name,
+      title: contact.title ?? null,
+      email: contact.email ?? null,
+      phone: contact.phone ?? null,
+      persona: personaFromTitle(contact.title),
+      role_type: ai?.role_type ?? null,
+      influence_level: ai?.influence_level ?? null,
+      engagement_status: ai?.engagement_status ?? null,
+      recommended_approach: ai?.engagement_strategy ?? null,
+    },
+    signals: signals.map((s) => ({ id: s.id, kind: s.kind, summary: s.summary, score: s.score, occurredAt: iso(s.occurredAt) })),
+  };
+}
+
 export async function getCompanyInsights({ tenantId, companyId }, deps = {}) {
   const prisma = deps.prisma ?? defaultPrisma;
   const deals = await prisma.deal.findMany({ where: { tenantId }, include: { context: true } });

@@ -565,6 +565,7 @@ model DealSignal {
   summary           String?
   score             Float          @default(0)
   signalReferenceId String
+  contactId         String?
   occurredAt        DateTime?
   raw               Json?
   processedForNbaAt DateTime?
@@ -572,6 +573,7 @@ model DealSignal {
 
   @@unique([tenantId, source, kind, externalId])
   @@index([tenantId, dealId])
+  @@index([tenantId, contactId])
 }
 
 model DealInsight {
@@ -657,7 +659,9 @@ model Document {
   deal                Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
   nbaRecommendationId String?
   type                DocumentType
-  path                DocumentPath
+  path                DocumentPath?
+  category            String?
+  sourceTemplateId    String?
   contentJson         Json?
   renderedHtml        String?        @db.Text
   pdfUrl              String?
@@ -671,4 +675,21 @@ model Document {
   updatedAt           DateTime       @updatedAt
 
   @@index([tenantId, dealId])
+}
+
+model CollateralTemplate {
+  id         String   @id @default(cuid())
+  tenantId   String?
+  templateId String
+  title      String
+  html       String   @db.Text
+  schema     Json?
+  category   String   @default("marketing")
+  scope      String   @default("tenant")
+  source     String   @default("uploaded")
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId])
 }

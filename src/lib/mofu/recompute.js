@@ -5,6 +5,7 @@ import { computeNba as defaultNba } from "@/lib/mofu/nbaBrain";
 import { discoverCapabilities as defaultDiscover } from "@/lib/mofu/capabilities";
 import { ingestSignal as defaultIngest } from "@/lib/mofu/ingestSignal";
 import { runAutopilot as defaultAutopilot } from "@/lib/mofu/autopilot";
+import { buildOntology } from "@/lib/mofu/contextOntology";
 
 /**
  * The MOFU core loop for one deal: CONTEXT -> NBA. Used by recompute orchestration
@@ -29,7 +30,7 @@ export async function recomputeDeal({ tenantId, hubspotDealId, tenantIcp = null 
   for (const e of engagements) {
     if (!e?.externalId || !e?.kind) continue;
     await ingestSignal(
-      { tenantId, dealId, kind: e.kind, source: "hubspot", externalId: e.externalId, summary: e.summary, occurredAt: e.occurredAt },
+      { tenantId, dealId, kind: e.kind, source: "hubspot", externalId: e.externalId, summary: e.summary, occurredAt: e.occurredAt, contactId: e.contactId ?? null },
       deps.ingestDeps
     );
   }
@@ -40,8 +41,23 @@ export async function recomputeDeal({ tenantId, hubspotDealId, tenantIcp = null 
     take: 50,
   });
 
+  // Assemble the explicit ontology (company → contacts → engagements → signals)
+  // that grounds the Heptapod bundle (Aura-grade context).
+  const dealRow = prisma.deal?.findUnique
+    ? await prisma.deal.findUnique({ where: { id: dealId } })
+    : null;
+  const cached = hydrate.context?.cached ?? {};
+  const ontology = buildOntology({
+    deal: { name: dealRow?.name, stage: hydrate.context?.live?.stage ?? dealRow?.cachedStage, amount: hydrate.context?.live?.amount ?? dealRow?.cachedAmount, currency: hydrate.context?.live?.currency ?? dealRow?.cachedCurrency },
+    company: cached.company,
+    contacts: cached.contacts ?? [],
+    engagements,
+    signals,
+    tenantIcp,
+  });
+
   const bundleOut = await computeInsightBundle(
-    { tenantId, scope: "DEAL", dealId, context: hydrate.context, signals, tenantIcp },
+    { tenantId, scope: "DEAL", dealId, context: ontology, signals, tenantIcp },
     deps.bundleDeps
   );
 
@@ -70,9 +86,6 @@ export async function recomputeDeal({ tenantId, hubspotDealId, tenantIcp = null 
 
   // Autopilot: auto-execute allowlisted internal actions when the deal opts in.
   let autopilot = null;
-  const dealRow = prisma.deal?.findUnique
-    ? await prisma.deal.findUnique({ where: { id: dealId }, select: { autopilot: true } })
-    : null;
   if (dealRow?.autopilot && nbaOut.recommendations.length) {
     const runAutopilot = deps.runAutopilot ?? defaultAutopilot;
     autopilot = await runAutopilot({ tenantId, recommendations: nbaOut.recommendations }, deps.autopilotDeps);

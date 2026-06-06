@@ -30,7 +30,7 @@ function Bar({ label, value, pct }) {
   );
 }
 
-export default function HeptapodPanel({ tab, insight, contacts = [], signals = [] }) {
+export default function HeptapodPanel({ tab, insight, contacts = [], signals = [], onContactClick }) {
   const exec = insight?.executiveSummary ?? {};
   const dims = insight?.dimensions ?? {};
 
@@ -75,8 +75,15 @@ export default function HeptapodPanel({ tab, insight, contacts = [], signals = [
       <div>
         {all.map((c) => {
           const role = c.ai?.role_type || c.persona || "contact";
+          const clickable = !!(onContactClick && c.email);
           return (
-            <div className="person" key={c.id || c.name}>
+            <div
+              className="person"
+              key={c.id || c.name}
+              onClick={clickable ? () => onContactClick(c) : undefined}
+              style={clickable ? { cursor: "pointer" } : undefined}
+              title={clickable ? "View contact" : undefined}
+            >
               <div className="pa" style={{ background: ROLE_COLOR[role] || "#bf8a6f" }}>{initials(c.name)}</div>
               <div style={{ minWidth: 0 }}>
                 <div className="pn">{txt(c.name)}</div>
