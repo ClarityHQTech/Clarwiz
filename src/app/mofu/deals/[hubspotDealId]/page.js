@@ -2,6 +2,7 @@
 
 import "../../mofu.css";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import HeptapodPanel from "@/components/mofu/HeptapodPanels";
 import { ui } from "@/lib/brandUi";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -19,30 +20,10 @@ const TABS = [
   ["signals", "Signals"],
 ];
 const OUTBOUND = new Set(["SEND_EMAIL", "SEND_MARKETING_COLLATERAL", "SEND_SALES_COLLATERAL", "SCHEDULE_MEETING", "NOTIFY_TEAM"]);
-const PERSONA_COLOR = { DECISION_MAKER: "#7e8f6e", INFLUENCER: "#8b9a9c", OTHER: "#bf8a6f" };
 
 function money(a, c) {
   if (a == null) return "—";
   try { return new Intl.NumberFormat("en-US", { style: "currency", currency: c || "USD", maximumFractionDigits: 0 }).format(a); } catch { return `${a}`; }
-}
-function initials(name) {
-  return (name || "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-}
-function DimBody({ dim }) {
-  if (!dim) return <p className="muted">No data yet — click Suggest now.</p>;
-  const summary = dim.summary ?? (typeof dim === "string" ? dim : null);
-  const findings = Array.isArray(dim.findings) ? dim.findings : [];
-  return (
-    <div>
-      {summary && <p style={{ fontSize: 12.5, color: "var(--text-2)" }}>{summary}</p>}
-      {findings.length > 0 && (
-        <ul style={{ margin: "8px 0 0 16px" }}>
-          {findings.map((f, i) => <li key={i} style={{ fontSize: 12.5, color: "var(--text-2)", marginBottom: 4 }}>{typeof f === "string" ? f : JSON.stringify(f)}</li>)}
-        </ul>
-      )}
-      {!summary && !findings.length && <p className="muted">{JSON.stringify(dim)}</p>}
-    </div>
-  );
 }
 
 const Page = () => {
@@ -141,7 +122,6 @@ const Page = () => {
 
   const deal = data?.deal ?? {};
   const insight = data?.insight;
-  const dims = insight?.dimensions ?? {};
   const cards = data?.cards ?? [];
   const signals = data?.signals ?? [];
   const contacts = data?.contacts ?? [];
@@ -194,51 +174,12 @@ const Page = () => {
             {TABS.map(([key, label]) => (
               <button key={key} className={`tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key)}>
                 {label}
-                {key === "risk" && dims.risk ? null : null}
                 {key === "signals" && signals.length ? <span className="n">{signals.length}</span> : null}
               </button>
             ))}
           </div>
           <div className="dimpanel">
-            {tab === "overview" && (
-              <>
-                <div style={{ background: "var(--accent-soft)", border: "1px solid #e6d6c4", borderRadius: 11, padding: 14, marginBottom: 14 }}>
-                  <div style={{ fontWeight: 750, fontSize: 13, color: "var(--accent-ink)", marginBottom: 5 }}>⚡ Executive intelligence summary</div>
-                  <DimBody dim={insight?.executiveSummary ?? { summary: insight ? "See dimension tabs." : "No insight bundle yet — click Suggest now." }} />
-                </div>
-                <div className="cap-note"><span className="tag">Heptapod bundle</span> Six dimensions feed the signals &amp; NBA on the right. Same shape for Deal and Company scope.</div>
-              </>
-            )}
-            {tab === "stakeholder" && (
-              <>
-                {contacts.length ? contacts.map((c) => (
-                  <div className="person" key={c.id}>
-                    <div className="pa" style={{ background: PERSONA_COLOR[c.persona] || "#bf8a6f" }}>{initials(c.name)}</div>
-                    <div><div className="pn">{c.name}</div><div className="pr">{c.title || "—"}{c.email ? ` · ${c.email}` : ""}</div></div>
-                    <div className="pright"><span className="badge gray">{(c.persona || "OTHER").toLowerCase().replace("_", " ")}</span></div>
-                  </div>
-                )) : <p className="muted">No contacts associated. Link contacts to this deal in HubSpot, then Suggest now.</p>}
-                <div style={{ marginTop: 10 }}><DimBody dim={dims.stakeholder} /></div>
-              </>
-            )}
-            {tab === "value" && <DimBody dim={dims.value} />}
-            {tab === "risk" && (
-              <div className="risk"><div><div style={{ display: "flex", gap: 8, alignItems: "center" }}><span className="badge amber">Risk</span></div><DimBody dim={dims.risk} /></div></div>
-            )}
-            {tab === "temporal" && <DimBody dim={dims.temporal} />}
-            {tab === "competitive" && <DimBody dim={dims.competitive} />}
-            {tab === "expansion" && <DimBody dim={dims.expansion} />}
-            {tab === "signals" && (
-              <div className="feed">
-                {signals.length ? signals.map((sg) => (
-                  <div className="feed-i" key={sg.id}>
-                    <div className="feed-ic fi-sig">∿</div>
-                    <div><div className="ft"><b>{sg.kind?.replace("_", " ")}</b></div><div className="fm">{sg.summary || sg.signalReferenceId}</div></div>
-                    <div className="fr"><span className="badge blue">score {Number(sg.score).toFixed(2)}</span></div>
-                  </div>
-                )) : <p className="muted">No signals captured yet.</p>}
-              </div>
-            )}
+            <HeptapodPanel tab={tab} insight={insight} contacts={contacts} signals={signals} />
           </div>
         </div>
 

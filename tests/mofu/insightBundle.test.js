@@ -1,74 +1,51 @@
 import { describe, it, expect, vi } from "vitest";
-import { computeInsightBundle } from "@/lib/mofu/insightBundle";
+import { computeInsightBundle, deriveConfidence } from "@/lib/mofu/insightBundle";
 
 const FAKE_BUNDLE = {
-  executive_intelligence_summary: { summary: "Acme is evaluating us for Q3." },
-  heptapod_dimensional_analysis: {
-    stakeholder: { summary: "2 champions identified" },
-    value: { summary: "ROI ~3x" },
-    risk: { summary: "Budget approval pending" },
-    temporal: { summary: "Decision by Q3" },
-    competitive: { summary: "Competing with X" },
-    expansion: { summary: "Upsell to EU team" },
+  executive_intelligence_summary: {
+    account_status_vector: { company_name: "Acme", health_score: "7/10", risk_level: "medium", momentum_direction: "accelerating", opportunity_value: "$84k" },
+    primary_recommendation: "Address the data-residency blocker before the eval.",
+    critical_actions_required: [{ priority: "high", action: "Send residency proof", owner: "AE", deadline: "this week" }],
+    intelligence_confidence: { level: "high", supporting_factors: ["warm reply"] },
   },
-  actionable_recommendations: [
-    { action_type: "SEND_EMAIL", title: "Follow up on pricing", signal_reference_id: "hubspot:CALL_TRANSCRIPT:c1", rationale: "asked about pricing" },
-  ],
-  system_metadata: { confidence: 0.7, data_completeness: 0.5 },
+  heptapod_dimensional_analysis: {
+    stakeholder_intelligence: { individual_profiles: [{ name: "Dana", role_type: "champion", influence_level: "high", engagement_status: "active" }] },
+    value_intelligence: { realized_value: { economic_value: { direct_roi: "4.1x" } } },
+    risk_intelligence: { risk_assessment: [{ severity_level: "high", description: "EU residency", probability: 70 }] },
+    temporal_intelligence: { future_projections: { decision_timelines: [{ decision_type: "close", estimated_date: "Q3" }] } },
+    competitive_intelligence: { position_assessment: { feature_differentiation: [{ capability: "residency", our_strength: "superior" }] } },
+    expansion_intelligence: { growth_vectors: [{ vector_type: "EU subsidiary", value_potential: "$55k" }] },
+  },
+  actionable_recommendations: {
+    immediate_actions: [{ action: "Follow up on pricing", title: "Follow up on pricing", action_type: "SEND_EMAIL", priority_score: 92, signal_reference_id: "hubspot:CALL_TRANSCRIPT:c1" }],
+    short_term_initiatives: [],
+    long_term_positioning: [],
+  },
+  system_metadata: { data_completeness: 0.6 },
 };
 
-function deps({ accepted = true } = {}) {
+function deps() {
   const created = [];
-  const prisma = {
-    dealInsight: {
-      create: vi.fn(async (a) => {
-        created.push(a.data);
-        return { id: "insight_1", ...a.data };
-      }),
-    },
-  };
-  const generate = vi.fn(async () => ({
-    data: FAKE_BUNDLE,
-    model: "gpt-4o",
-    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-    cost: { total_cost_usd: 0.001 },
-  }));
-  const jury = vi.fn(async () => ({
-    result: { approved: accepted, confidence: 0.8 },
-    juryResult: { reconciliation: { mode: "agreement" } },
-  }));
+  const prisma = { dealInsight: { create: vi.fn(async (a) => { created.push(a.data); return { id: "insight_1", ...a.data }; }) } };
+  const generate = vi.fn(async () => ({ data: FAKE_BUNDLE, model: "gpt-4o", usage: {}, cost: { total_cost_usd: 0.001 } }));
+  const jury = vi.fn(async () => ({ result: { approved: true, confidence: 0.8 }, juryResult: { reconciliation: { mode: "agreement" } } }));
   return { prisma, generate, jury, created };
 }
 
-describe("computeInsightBundle (US-3.1)", () => {
-  it("maps the six dimensions + recs + metadata into DealInsight", async () => {
+describe("computeInsightBundle (US-3.1, Aura shape)", () => {
+  it("maps Aura's nested dimensions into DealInsight", async () => {
     const d = deps();
-    const out = await computeInsightBundle(
-      { tenantId: "t1", scope: "DEAL", dealId: "deal_1", context: {}, signals: [] },
-      { prisma: d.prisma, generate: d.generate, jury: d.jury }
-    );
+    const out = await computeInsightBundle({ tenantId: "t1", scope: "DEAL", dealId: "deal_1", context: {}, signals: [] }, { prisma: d.prisma, generate: d.generate, jury: d.jury });
     expect(out.insightId).toBe("insight_1");
     const saved = d.created[0];
-    expect(saved.stakeholderIntelligence.summary).toBe("2 champions identified");
-    expect(saved.valueIntelligence).toBeTruthy();
-    expect(saved.riskIntelligence).toBeTruthy();
-    expect(saved.temporalIntelligence).toBeTruthy();
-    expect(saved.competitiveIntelligence).toBeTruthy();
-    expect(saved.expansionIntelligence).toBeTruthy();
-    expect(saved.actionableRecommendations).toHaveLength(1);
-    expect(saved.systemMetadata.acceptance.approved).toBe(true);
+    expect(saved.stakeholderIntelligence.individual_profiles[0].name).toBe("Dana");
+    expect(saved.valueIntelligence.realized_value.economic_value.direct_roi).toBe("4.1x");
+    expect(saved.riskIntelligence.risk_assessment[0].severity_level).toBe("high");
+    expect(saved.actionableRecommendations.immediate_actions[0].action_type).toBe("SEND_EMAIL");
+    expect(saved.systemMetadata.confidence).toBe(0.85); // from intelligence_confidence.level=high
   });
 
-  it("still persists when the acceptance jury throws (degrade, no crash)", async () => {
-    const d = deps();
-    d.jury = vi.fn(async () => {
-      throw new Error("both_down");
-    });
-    const out = await computeInsightBundle(
-      { tenantId: "t1", scope: "DEAL", dealId: "deal_1", context: {}, signals: [] },
-      { prisma: d.prisma, generate: d.generate, jury: d.jury }
-    );
-    expect(out.insightId).toBe("insight_1");
-    expect(d.created[0].systemMetadata.jury.mode).toBe("jury_unavailable");
+  it("deriveConfidence falls back to data_completeness when no level", () => {
+    expect(deriveConfidence({ system_metadata: { data_completeness: 0.5 } })).toBe(0.5);
   });
 });

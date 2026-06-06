@@ -32,17 +32,20 @@ const RANK_SCHEMA = {
 
 const RANK_SYSTEM = `You are an Account Executive's next-best-action ranker for a single deal. Given candidate actions (each from the closed set) and the deal's scored signals, return a ranking: an array of {index, score in [0,1], reason} ordered best-first, plus an overall confidence in [0,1]. Ground each high rank in a specific signal. Never invent actions; only rank the given candidates by index.`;
 
-/** Map bundle.actionable_recommendations to closed-set candidates. */
+/** Map bundle.actionable_recommendations (Aura shape or legacy array) to closed-set candidates. */
 export function deriveCandidates(bundle) {
-  const recs = Array.isArray(bundle?.actionable_recommendations)
-    ? bundle.actionable_recommendations
-    : [];
-  return recs
+  const rec = bundle?.actionable_recommendations ?? {};
+  const list = Array.isArray(rec.immediate_actions)
+    ? rec.immediate_actions
+    : Array.isArray(rec)
+      ? rec
+      : [];
+  return list
     .map((r) => ({
       action_type: r.action_type,
-      title: r.title || r.action_title || "Next best action",
+      title: r.title || r.action || r.action_title || "Next best action",
       signal_reference_id: r.signal_reference_id ?? null,
-      rationale: r.rationale ?? r.reason ?? null,
+      rationale: r.action || r.rationale || r.reason || r.title || null,
     }))
     .filter((c) => isClosedActionType(c.action_type));
 }
