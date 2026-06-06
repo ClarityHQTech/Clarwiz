@@ -1,6 +1,7 @@
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { runExecutor as defaultRunExecutor } from "@/lib/mofu/execution/executors";
 import { OUTBOUND_ACTIONS } from "@/lib/mofu/nbaActions";
+import { pickRecipient } from "@/lib/mofu/draftGenerator";
 
 // US-6.1 — Universal execution rails: card -> draft -> editor -> approve -> send -> tracked.
 // Status flow: SUGGESTED -> DRAFTED -> EDITED -> APPROVED -> SENT / FAILED.
@@ -15,15 +16,38 @@ function defaultDraft(rec) {
 }
 
 async function loadRec(prisma, tenantId, recId) {
-  return prisma.nbaRecommendation.findFirst({ where: { id: recId, tenantId }, include: { deal: true } });
+  return prisma.nbaRecommendation.findFirst({
+    where: { id: recId, tenantId },
+    include: { deal: { include: { context: true } } },
+  });
 }
 
-/** Generate (or apply edited) draft. edits present -> EDITED, else DRAFTED. */
+/**
+ * Generate (or apply edited) draft. For outbound actions this resolves a real
+ * RECIPIENT (a HubSpot contact) and generates a personalized email when a
+ * generator is provided. edits present -> EDITED, else DRAFTED.
+ */
 export async function draftRecommendation({ tenantId, recId, edits = null }, deps = {}) {
   const prisma = deps.prisma ?? defaultPrisma;
   const rec = await loadRec(prisma, tenantId, recId);
   if (!rec) return { ok: false, reason: "not_found", status: 404 };
-  const draft = edits ?? (deps.generateDraft ? await deps.generateDraft(rec) : defaultDraft(rec));
+
+  const cached = rec.deal?.context?.data?.cached ?? {};
+  const contacts = Array.isArray(cached.contacts) ? cached.contacts : [];
+  const company = cached.company ?? null;
+  const isOutbound = OUTBOUND_ACTIONS.has(rec.actionType);
+  const recipient = isOutbound ? pickRecipient(rec, contacts) : null;
+
+  let draft;
+  if (edits) {
+    draft = { ...edits, recipient: edits.recipient ?? rec.payload?.draft?.recipient ?? recipient };
+  } else if (deps.generateActionDraft && isOutbound) {
+    const g = await deps.generateActionDraft({ deal: rec.deal, company, recipient, rec, signals: cached.engagements ?? [] });
+    draft = { ...g, recipient };
+  } else {
+    draft = { ...defaultDraft(rec), recipient };
+  }
+
   const updated = await prisma.nbaRecommendation.update({
     where: { id: rec.id },
     data: { status: edits ? "EDITED" : "DRAFTED", payload: { ...(rec.payload ?? {}), draft } },

@@ -36,6 +36,7 @@ const Page = () => {
   const [drawer, setDrawer] = useState(null); // the rec being drafted
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [recipient, setRecipient] = useState(null);
   const [step, setStep] = useState(1); // 1 draft,2 edit,3 approve,4 send
   const [sent, setSent] = useState(false);
 
@@ -80,15 +81,28 @@ const Page = () => {
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
 
-  const openDrawer = (c) => {
-    const companyName = data?.company?.name;
-    const summary = data?.companyInsight?.executiveSummary?.summary;
-    const ctx = companyName ? `\n\n[Company context] ${companyName}${summary ? `: ${summary}` : ""}` : "";
+  const openDrawer = async (c) => {
     setDrawer(c);
-    setSubject(c.payload?.draft?.subject ?? c.title);
-    setBody((c.payload?.draft?.body ?? c.payload?.rationale ?? c.title) + ctx);
-    setStep(1);
     setSent(false);
+    setStep(1);
+    setSubject(c.payload?.draft?.subject ?? c.title);
+    setRecipient(c.payload?.draft?.recipient ?? null);
+    setBody(c.payload?.draft?.body ?? "Drafting…");
+    setBusy(true);
+    try {
+      // Generate a real, recipient-addressed draft (no edits = fresh generation).
+      const { ok, json } = await post(`/api/mofu/recommendations/${c.id}/draft`);
+      if (ok && json.draft) {
+        setSubject(json.draft.subject ?? c.title);
+        setBody(json.draft.body ?? "");
+        setRecipient(json.draft.recipient ?? null);
+        setStep(2);
+      }
+    } catch {
+      /* keep prefill */
+    } finally {
+      setBusy(false);
+    }
   };
   const closeDrawer = () => setDrawer(null);
 
@@ -241,6 +255,14 @@ const Page = () => {
                 <div>
                   {OUTBOUND.has(drawer.actionType) && (
                     <>
+                      <div className="field-l">To</div>
+                      {recipient ? (
+                        <input className="inp" readOnly value={`${recipient.name}${recipient.email ? ` <${recipient.email}>` : ""}`} />
+                      ) : (
+                        <div className="jury" style={{ background: "var(--red-soft)", borderColor: "#e7c9c4" }}>
+                          ⚠️ <div>No associated contact on this deal — the email would log without a recipient. Add/associate a contact in HubSpot, then Suggest now.</div>
+                        </div>
+                      )}
                       <div className="field-l">Subject <span className="ai">AI</span></div>
                       <input className="inp" value={subject} onChange={(e) => setSubject(e.target.value)} />
                     </>

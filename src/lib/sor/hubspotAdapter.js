@@ -147,23 +147,32 @@ export const hubspotAdapter = {
   },
 
   // ---- writes (executors) ----
-  async logEmail(tenantId, { dealId, subject, body }, deps = {}) {
+  async logEmail(tenantId, { dealId, subject, body, contactId, toEmail }, deps = {}) {
     const t = await resolveToken(tenantId, deps);
     if (!t.ok) return t;
     try {
+      const properties = {
+        hs_email_subject: subject,
+        hs_email_text: body,
+        hs_email_direction: "EMAIL",
+        hs_timestamp: Date.now(),
+      };
+      if (toEmail) properties.hs_email_to_email = toEmail;
       const created = await createAndAssociate({
         accessToken: t.accessToken,
         objectType: "emails",
-        properties: {
-          hs_email_subject: subject,
-          hs_email_text: body,
-          hs_email_direction: "EMAIL",
-          hs_timestamp: Date.now(),
-        },
+        properties,
         dealId,
         fetchImpl: deps.fetchImpl,
       });
-      return { ok: true, engagementId: created.id };
+      // Associate the logged email to the recipient contact so HubSpot shows it (not "Unknown").
+      if (contactId) {
+        await hubspotFetch(
+          `/crm/v4/objects/emails/${created.id}/associations/default/contacts/${contactId}`,
+          { accessToken: t.accessToken, method: "PUT", fetchImpl: deps.fetchImpl }
+        ).catch(() => {});
+      }
+      return { ok: true, engagementId: created.id, recipient: toEmail ?? null };
     } catch (err) {
       return { ok: false, reason: err.code || "hubspot_error", status: err.status };
     }

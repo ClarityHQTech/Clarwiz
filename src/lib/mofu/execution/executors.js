@@ -13,10 +13,16 @@ export async function runExecutor({ actionType, tenantId, deal, draft = {} }, de
     case "SEND_SALES_COLLATERAL": {
       const r = await adapter.logEmail(
         tenantId,
-        { dealId, subject: draft.subject ?? deal?.name ?? "Follow up", body: draft.body ?? "" },
+        {
+          dealId,
+          subject: draft.subject ?? deal?.name ?? "Follow up",
+          body: draft.body ?? "",
+          contactId: draft.recipient?.id,
+          toEmail: draft.recipient?.email,
+        },
         deps.adapterDeps
       );
-      return r.ok ? { ok: true, engagementId: r.engagementId } : { ok: false, reason: r.reason };
+      return r.ok ? { ok: true, engagementId: r.engagementId, recipient: draft.recipient ?? null } : { ok: false, reason: r.reason };
     }
     case "SCHEDULE_MEETING": {
       const r = await adapter.createMeeting(
