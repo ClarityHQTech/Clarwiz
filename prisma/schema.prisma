@@ -126,6 +126,8 @@ model Tenant {
   calendlyIntegration CalendlyIntegration?
   tenantIcpContext    TenantIcpContext?
   integrationWebhooks IntegrationWebhook[]
+  hubspotIntegration  HubSpotIntegration?
+  deals               Deal[]
 }
 
 model ExternalApiKey {
@@ -312,6 +314,8 @@ model Contact {
   businessUserId   String
   businessUser     BusinessUser      @relation(fields: [businessUserId], references: [id], onDelete: Restrict)
   persona          ContactPersona    @default(OTHER)
+  mqlAt            DateTime?
+  promotedDealId   String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   contactCampaigns ContactCampaign[]
@@ -424,4 +428,247 @@ model CommunicationTemplate {
   createdAt               DateTime @default(now())
 
   @@index([campaignId])
+}
+
+// ===================== MOFU (HubSpot-as-SOR) — additive =====================
+
+enum DealSource {
+  TOFU_TRANSITION
+  HUBSPOT_MQL
+  MANUAL
+}
+
+enum InsightScope {
+  DEAL
+  COMPANY
+}
+
+enum DealSignalKind {
+  CALL_TRANSCRIPT
+  EMAIL
+  STAGE_CHANGE
+  MEETING
+  NOTE
+}
+
+enum NbaActionType {
+  SEND_EMAIL
+  SEND_MARKETING_COLLATERAL
+  SEND_SALES_COLLATERAL
+  SCHEDULE_MEETING
+  CALL_WITH_SCRIPT
+  PREP_MEETING
+  UPDATE_CRM_CREATE_TASK
+  NOTIFY_TEAM
+}
+
+enum NbaStatus {
+  SUGGESTED
+  DRAFTED
+  EDITED
+  APPROVED
+  SENT
+  DISMISSED
+  FAILED
+}
+
+enum CapabilityKind {
+  NOTE_TAKER
+  CALLING
+  EMAIL
+  MEETING_SCHEDULER
+}
+
+enum DocumentType {
+  MARKETING_COLLATERAL
+  SALES_COLLATERAL
+  BATTLECARD
+  EMAIL_ATTACHMENT
+}
+
+enum DocumentPath {
+  A
+  B
+}
+
+enum DocumentStatus {
+  DRAFT
+  READY
+  SENT
+}
+
+model HubSpotIntegration {
+  id                    String    @id @default(cuid())
+  tenantId              String    @unique
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  portalId              String?
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  tokenExpiresAt        DateTime?
+  scopes                String[]  @default([])
+  status                String    @default("pending")
+  lastError             String?
+  connectedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Deal {
+  id                      String              @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  hubspotDealId           String
+  name                    String?
+  cachedStage             String?
+  cachedOwner             String?
+  cachedAmount            Float?
+  cachedCurrency          String?
+  stageSnapshotAt         DateTime?
+  originContactCampaignId String?
+  source                  DealSource          @default(MANUAL)
+  autopilot               Boolean             @default(false)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  context                 DealContext?
+  signals                 DealSignal[]
+  insights                DealInsight[]
+  recommendations         NbaRecommendation[]
+  documents               Document[]
+
+  @@unique([tenantId, hubspotDealId])
+  @@index([tenantId])
+}
+
+model DealContext {
+  id           String   @id @default(cuid())
+  tenantId     String
+  dealId       String   @unique
+  deal         Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  data         Json
+  sourceRefs   Json?
+  lastSyncedAt DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model DealSignal {
+  id                String         @id @default(cuid())
+  tenantId          String
+  dealId            String
+  deal              Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  scope             InsightScope   @default(DEAL)
+  kind              DealSignalKind
+  source            String
+  externalId        String
+  summary           String?
+  score             Float          @default(0)
+  signalReferenceId String
+  occurredAt        DateTime?
+  raw               Json?
+  processedForNbaAt DateTime?
+  createdAt         DateTime       @default(now())
+
+  @@unique([tenantId, source, kind, externalId])
+  @@index([tenantId, dealId])
+}
+
+model DealInsight {
+  id                        String       @id @default(cuid())
+  tenantId                  String
+  scope                     InsightScope
+  dealId                    String?
+  deal                      Deal?        @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  companyId                 String?
+  executiveSummary          Json?
+  stakeholderIntelligence   Json?
+  valueIntelligence         Json?
+  riskIntelligence          Json?
+  temporalIntelligence      Json?
+  competitiveIntelligence   Json?
+  expansionIntelligence     Json?
+  actionableRecommendations Json?
+  systemMetadata            Json?
+  modelUsed                 String?
+  providerUsage             Json?
+  providerCost              Json?
+  createdAt                 DateTime     @default(now())
+
+  @@index([tenantId, dealId])
+  @@index([tenantId, companyId])
+}
+
+model TenantCapability {
+  id           String         @id @default(cuid())
+  tenantId     String
+  capability   CapabilityKind
+  present      Boolean        @default(false)
+  detail       Json?
+  discoveredAt DateTime       @default(now())
+
+  @@unique([tenantId, capability])
+  @@index([tenantId])
+}
+
+model NbaTemplate {
+  id                   String        @id @default(cuid())
+  tenantId             String?
+  actionType           NbaActionType
+  title                String
+  collateralTemplateId String?
+  promptScaffold       String?       @db.Text
+  guardrails           Json?
+  enabled              Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([tenantId])
+}
+
+model NbaRecommendation {
+  id                  String        @id @default(cuid())
+  tenantId            String
+  dealId              String
+  deal                Deal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  scope               InsightScope  @default(DEAL)
+  actionType          NbaActionType
+  title               String
+  score               Float         @default(0)
+  signalReferenceId   String?
+  payload             Json?
+  templateId          String?
+  status              NbaStatus     @default(SUGGESTED)
+  juryResult          Json?
+  modelUsed           String?
+  providerUsage       Json?
+  providerCost        Json?
+  executedAt          DateTime?
+  hubspotEngagementId String?
+  createdAt           DateTime      @default(now())
+
+  @@index([tenantId, dealId])
+}
+
+model Document {
+  id                  String         @id @default(cuid())
+  tenantId            String
+  dealId              String
+  deal                Deal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  nbaRecommendationId String?
+  type                DocumentType
+  path                DocumentPath
+  contentJson         Json?
+  renderedHtml        String?        @db.Text
+  pdfUrl              String?
+  brand               Json?
+  version             Int            @default(1)
+  status              DocumentStatus @default(DRAFT)
+  modelUsed           String?
+  providerUsage       Json?
+  providerCost        Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([tenantId, dealId])
 }
