@@ -13,6 +13,13 @@ import {
 } from "@/lib/integrationWebhooks";
 import { ensureSmartleadWebhookForTenant, smartleadWebhookEventsNeedRefresh } from "@/lib/smartleadWebhooks";
 
+function needsRefreshMessage(wh, force) {
+  if (force || smartleadWebhookEventsNeedRefresh(wh)) {
+    return "Email event tracking updated";
+  }
+  return "Email event tracking connected";
+}
+
 export async function registerWebhookForProvider(
   tenantId,
   provider,
@@ -53,13 +60,15 @@ export async function registerWebhookForProvider(
         await prisma.integrationWebhook.update({
           where: { id: wh.id },
           data: {
-            lastError: "Could not connect email event tracking",
+            lastError:
+              "Could not connect email event tracking — webhook may already exist in Smartlead under a different URL. Try Connect webhook again.",
           },
         });
         return {
           provider,
           ok: false,
-          error: "Could not connect email event tracking",
+          error:
+            "Could not connect email event tracking. If the webhook already exists in Smartlead, click Connect webhook again.",
           manualSetupRequired: false,
         };
       }
@@ -80,7 +89,14 @@ export async function registerWebhookForProvider(
         },
       });
 
-      return { provider, ok: true };
+      return {
+        provider,
+        ok: true,
+        message:
+          wh.providerWebhookId && wh.providerWebhookId !== String(providerId)
+            ? "Email event tracking connected"
+            : needsRefreshMessage(wh, force),
+      };
     } catch (err) {
       await prisma.integrationWebhook.update({
         where: { id: wh.id },
