@@ -48,7 +48,9 @@ const Page = () => {
               <div key={c.id} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-brand-ink truncate">{c.name || "Company"}</p>
+                    <Link href={`/mofu/companies/${c.id}`} className="text-sm font-medium text-brand-ink truncate hover:underline block">
+                      {c.name || "Company"}
+                    </Link>
                     <p className="text-xs text-brand-stone mt-0.5">
                       {c.domain || "—"}{c.industry ? ` · ${c.industry}` : ""} · {c.dealCount} deal(s)
                       {c.hasInsight ? " · has insight" : ""}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import crypto from "node:crypto";
-import { verifySlackSignature, parseSlashCommand, buildDealNbaResponse } from "@/lib/mofu/slack";
+import { verifySlackSignature, parseSlashCommand, buildDealNbaResponse, parseSlackAction } from "@/lib/mofu/slack";
 
 function sign(secret, timestamp, body) {
   return "v0=" + crypto.createHmac("sha256", secret).update(`v0:${timestamp}:${body}`).digest("hex");
@@ -26,6 +26,12 @@ describe("slack (US-11.1)", () => {
 
   it("parses slash command text", () => {
     expect(parseSlashCommand("deal Acme Corp")).toEqual({ command: "deal", arg: "Acme Corp" });
+  });
+
+  it("parses an interactive block action", () => {
+    const payload = { team: { id: "T123" }, actions: [{ action_id: "approve_rec_9", value: "rec_9" }] };
+    expect(parseSlackAction(payload)).toEqual({ actionId: "approve_rec_9", value: "rec_9", teamId: "T123" });
+    expect(parseSlackAction({})).toBeNull();
   });
 
   it("builds NBA blocks with Approve only on executable cards", () => {

@@ -1,5 +1,6 @@
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { gateCard } from "@/lib/mofu/capabilities";
+import { personaFromTitle } from "@/lib/mofu/directory";
 
 const iso = (d) => (d ? new Date(d).toISOString() : null);
 
@@ -114,13 +115,32 @@ export async function getDealInsights({ tenantId, hubspotDealId }, deps = {}) {
 
 export async function getCompanyInsights({ tenantId, companyId }, deps = {}) {
   const prisma = deps.prisma ?? defaultPrisma;
-  const [insight, caps] = await Promise.all([
-    prisma.dealInsight.findFirst({
-      where: { tenantId, companyId, scope: "COMPANY" },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.tenantCapability.findMany({ where: { tenantId } }),
-  ]);
-  if (!insight) return { ok: false, reason: "company_insight_not_found" };
-  return { ok: true, company: { companyId }, insight: serializeInsight(insight), signals: [], cards: [] };
+  const deals = await prisma.deal.findMany({ where: { tenantId }, include: { context: true } });
+
+  let companyInfo = null;
+  const companyDeals = [];
+  const contacts = [];
+  for (const d of deals) {
+    const c = d.context?.data?.cached?.company;
+    if (c?.id !== companyId) continue;
+    companyInfo = companyInfo ?? c;
+    companyDeals.push({ hubspotDealId: d.hubspotDealId, name: d.name, stage: d.cachedStage, amount: d.cachedAmount, currency: d.cachedCurrency });
+    for (const ct of d.context?.data?.cached?.contacts ?? []) {
+      if (ct?.id && !contacts.find((x) => x.id === ct.id)) contacts.push({ ...ct, persona: personaFromTitle(ct.title) });
+    }
+  }
+  if (!companyInfo) return { ok: false, reason: "company_not_found" };
+
+  const insight = await prisma.dealInsight.findFirst({
+    where: { tenantId, companyId, scope: "COMPANY" },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return {
+    ok: true,
+    company: { ...companyInfo, dealCount: companyDeals.length },
+    insight: serializeInsight(insight),
+    deals: companyDeals,
+    contacts,
+  };
 }

@@ -14,6 +14,13 @@ export function verifySlackSignature({ signingSecret, timestamp, rawBody, signat
   }
 }
 
+/** Parse an interactive payload's first action -> { actionId, value, teamId }. */
+export function parseSlackAction(payload) {
+  const action = payload?.actions?.[0];
+  if (!action) return null;
+  return { actionId: action.action_id, value: action.value, teamId: payload?.team?.id ?? null };
+}
+
 /** Parse `/clarwiz deal Acme` -> { command:"deal", arg:"Acme" }. */
 export function parseSlashCommand(text = "") {
   const parts = String(text).trim().split(/\s+/);
