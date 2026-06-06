@@ -16,6 +16,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.101.0",
     "@chakra-ui/next-js": "^2.4.2",
     "@chakra-ui/react": "^2.10.9",
     "@emotion/react": "^11.14.0",
