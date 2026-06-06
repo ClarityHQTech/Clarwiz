@@ -10,6 +10,7 @@ export async function GET() {
   return NextResponse.json(out);
 }
 
+// POST { title, category: "marketing"|"sales", html, schema? } — upload a template.
 export async function POST(request) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.COLLATERAL_GENERATE });
   if (auth.error) return auth.error;
@@ -22,9 +23,9 @@ export async function POST(request) {
   const out = await createTemplate({
     tenantId: auth.ctx.tenantId,
     title: body.title,
-    actionType: body.actionType ?? "SEND_MARKETING_COLLATERAL",
-    collateralTemplateId: body.collateralTemplateId ?? null,
-    promptScaffold: body.promptScaffold ?? "",
+    category: body.category ?? "marketing",
+    html: body.html,
+    schema: body.schema ?? null,
   });
   if (!out.ok) return NextResponse.json(out, { status: 400 });
   return NextResponse.json(out, { status: 201 });

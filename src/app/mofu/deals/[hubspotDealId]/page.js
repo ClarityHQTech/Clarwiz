@@ -132,7 +132,11 @@ const Page = () => {
         setSent(true);
         toast.success("Sent via HubSpot · engagement logged");
       } else {
-        toast.error(`HubSpot: ${json.reason || "send failed"} (read-only token?)`);
+        toast.error(
+          json.reason === "hubspot_unauthorized" || json.reason === "hubspot_unavailable"
+            ? "HubSpot rejected the write — your Private App token is read-only. Add write scopes (crm.objects.emails.write, tasks.write…) to send for real."
+            : `HubSpot: ${json.reason || "send failed"}`
+        );
       }
       await load();
     } catch (err) {

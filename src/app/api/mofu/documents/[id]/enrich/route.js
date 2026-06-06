@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
-import { reEnrichSalesCollateral } from "@/lib/mofu/collateral/pathB";
+import { regenerateCollateral } from "@/lib/mofu/collateral/engine";
+import { loadDealOntology } from "@/lib/mofu/templates";
 
-// POST /api/mofu/documents/:id/enrich  { message } — conversational re-enrichment (Path B).
+// POST /api/mofu/documents/:id/enrich { message } — conversational re-enrichment (on the fly).
 export async function POST(request, { params }) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.COLLATERAL_GENERATE });
   if (auth.error) return auth.error;
@@ -16,7 +17,8 @@ export async function POST(request, { params }) {
   } catch {
     /* empty */
   }
-  const out = await reEnrichSalesCollateral(params.id, body.message ?? "", {});
+  const context = await loadDealOntology({ tenantId: auth.ctx.tenantId, dealId: doc.dealId });
+  const out = await regenerateCollateral(doc.id, { message: body.message ?? "", context });
   if (!out.ok) return NextResponse.json(out, { status: 502 });
   return NextResponse.json({ ok: true });
 }

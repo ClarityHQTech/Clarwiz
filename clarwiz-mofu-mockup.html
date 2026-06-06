@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clarwiz MOFU — Interactive Mockup</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --surface:#ffffff; --surface-2:#f1f2f8; --surface-3:#fafbfe;
+    --border:#e6e8f0; --border-2:#d9dce8;
+    --text:#1c2030; --text-2:#5a6178; --text-3:#8b91a7;
+    --accent:#5b54e6; --accent-2:#7a73f0; --accent-soft:#eeedfd; --accent-ink:#3e37c9;
+    --green:#1aa97a; --green-soft:#e3f7ef; --amber:#e08a1e; --amber-soft:#fdf1de;
+    --red:#df4a52; --red-soft:#fde8e9; --blue:#2f7bd6; --blue-soft:#e6f0fb;
+    --hubspot:#ff7a59; --hubspot-soft:#fff0eb;
+    --r:12px; --r-sm:8px; --r-lg:16px;
+    --sh:0 1px 2px rgba(20,24,40,.04),0 4px 16px rgba(20,24,40,.06);
+    --sh-lg:0 8px 30px rgba(20,24,40,.12);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  /* layout */
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:236px;background:#13152a;color:#c9cce0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;flex-shrink:0}
+  .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px}
+  .brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#9b6cf0);display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px}
+  .brand b{color:#fff;font-size:16px;letter-spacing:.2px}
+  .brand .tier{font-size:10px;color:#7f86ad;background:#222545;padding:2px 7px;border-radius:20px;margin-left:auto}
+  .nav{padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+  .nav .label{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:#6b7197;padding:14px 10px 6px}
+  .nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;color:#c2c6dd;font-weight:500;font-size:13.5px;transition:.12s}
+  .nav a svg{width:18px;height:18px;opacity:.8;flex-shrink:0}
+  .nav a:hover{background:#1d2040;color:#fff}
+  .nav a.active{background:var(--accent);color:#fff}
+  .nav a.active svg{opacity:1}
+  .nav a .count{margin-left:auto;font-size:11px;background:#2a2e52;color:#aeb3d6;padding:1px 7px;border-radius:20px}
+  .nav a.active .count{background:rgba(255,255,255,.25);color:#fff}
+  .stackbox{margin-top:auto;padding:14px;border-top:1px solid #242744}
+  .stackbox .st-t{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:#6b7197;margin-bottom:9px}
+  .cap{display:flex;align-items:center;gap:8px;font-size:12px;color:#aab0d0;padding:3px 0}
+  .cap .dot{width:7px;height:7px;border-radius:50%}
+  .cap .dot.on{background:var(--green)} .cap .dot.off{background:#565b82}
+  .cap .x{margin-left:auto;font-size:10px;color:#7f86ad}
+
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 22px;position:sticky;top:0;z-index:20}
+  .topbar h1{font-size:16px;font-weight:700}
+  .topbar .crumb{color:var(--text-3);font-weight:500}
+  .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap}
+  .pill svg{width:13px;height:13px}
+  .pill.hub{background:var(--hubspot-soft);color:#d65a38}
+  .pill.sor{background:var(--accent-soft);color:var(--accent-ink)}
+  .search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:7px 12px;width:240px;color:var(--text-3)}
+  .search input{border:none;background:none;outline:none;font-size:13px;color:var(--text);width:100%}
+  .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f0a05b,#e0734a);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
+
+  .content{padding:22px;max-width:1320px;width:100%}
+  .screen{display:none;animation:fade .25s ease} .screen.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .page-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:18px}
+  .page-head .pt{font-size:20px;font-weight:750;letter-spacing:-.2px}
+  .page-head .ps{color:var(--text-2);font-size:13px;margin-top:2px}
+
+  /* cards */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh)}
+  .card-h{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)}
+  .card-h .t{font-weight:700;font-size:14px} .card-h .s{color:var(--text-3);font-size:12px;font-weight:500}
+  .card-b{padding:16px}
+  .grid{display:grid;gap:16px}
+  .muted{color:var(--text-3);font-size:12px}
+  .cap-note{font-size:11.5px;color:var(--text-3);display:inline-flex;align-items:center;gap:6px}
+  .cap-note .tag{background:var(--accent-soft);color:var(--accent-ink);padding:1px 7px;border-radius:6px;font-weight:600;font-size:10.5px}
+
+  /* kpi */
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 16px;box-shadow:var(--sh)}
+  .kpi .v{font-size:26px;font-weight:780;letter-spacing:-.5px}
+  .kpi .l{font-size:12px;color:var(--text-2);margin-top:2px;font-weight:500}
+  .kpi .d{font-size:11px;margin-top:8px;font-weight:600;display:inline-flex;gap:4px;align-items:center}
+  .d.up{color:var(--green)} .d.dn{color:var(--red)} .d.flat{color:var(--text-3)}
+  .kpi.alert{border-color:#f3cdcf;background:linear-gradient(180deg,#fff,#fdf6f6)}
+
+  /* table */
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);font-weight:700;padding:10px 14px;border-bottom:1px solid var(--border)}
+  tbody td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--surface-3)}
+  .deal-cell{display:flex;flex-direction:column}
+  .deal-cell b{font-weight:650} .deal-cell span{font-size:11.5px;color:var(--text-3)}
+
+  /* badges */
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:7px;font-size:11.5px;font-weight:650}
+  .badge.green{background:var(--green-soft);color:#127a58} .badge.amber{background:var(--amber-soft);color:#a9650f}
+  .badge.red{background:var(--red-soft);color:#b83840} .badge.blue{background:var(--blue-soft);color:#1f5fa8}
+  .badge.gray{background:var(--surface-2);color:var(--text-2)} .badge.violet{background:var(--accent-soft);color:var(--accent-ink)}
+  .stagebar{display:flex;align-items:center;gap:5px}
+  .stagebar i{width:18px;height:5px;border-radius:3px;background:var(--border-2)} .stagebar i.on{background:var(--accent)}
+
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;border-radius:9px;font-weight:650;font-size:13px;transition:.12s;border:1px solid transparent;white-space:nowrap}
+  .btn svg{width:15px;height:15px}
+  .btn-pri{background:var(--accent);color:#fff} .btn-pri:hover{background:var(--accent-ink)}
+  .btn-ghost{background:var(--surface);border-color:var(--border-2);color:var(--text)} .btn-ghost:hover{background:var(--surface-2)}
+  .btn-soft{background:var(--accent-soft);color:var(--accent-ink)} .btn-soft:hover{background:#e3e1fb}
+  .btn-sm{padding:6px 11px;font-size:12px;border-radius:8px}
+  .btn-gated{background:var(--surface-2);color:var(--text-2);border:1px dashed var(--border-2)} .btn-gated:hover{background:#eceef6}
+  .btn-block{width:100%}
+
+  /* feed */
+  .feed{display:flex;flex-direction:column}
+  .feed-i{display:flex;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border)}
+  .feed-i:last-child{border-bottom:none}
+  .feed-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex-shrink:0}
+  .feed-ic svg{width:15px;height:15px}
+  .fi-sig{background:var(--blue-soft);color:var(--blue)} .fi-nba{background:var(--accent-soft);color:var(--accent)}
+  .fi-exec{background:var(--green-soft);color:var(--green)} .fi-fail{background:var(--red-soft);color:var(--red)}
+  .fi-bundle{background:#f0ecfd;color:#7a4fd0}
+  .feed-i .ft{font-size:13px} .feed-i .ft b{font-weight:650}
+  .feed-i .fm{font-size:11.5px;color:var(--text-3);margin-top:1px}
+  .feed-i .fr{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .feed-i .time{font-size:11px;color:var(--text-3);white-space:nowrap}
+
+  /* deal insights */
+  .di-head{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:16px 18px;margin-bottom:16px}
+  .di-top{display:flex;align-items:flex-start;gap:14px}
+  .di-top .name{font-size:18px;font-weight:750}
+  .di-top .sub{color:var(--text-2);font-size:12.5px;margin-top:3px;display:flex;gap:14px;flex-wrap:wrap}
+  .di-top .sub span{display:inline-flex;gap:5px;align-items:center}
+  .di-meta{margin-left:auto;display:flex;gap:22px;text-align:right}
+  .di-meta .m .mv{font-size:17px;font-weight:750} .di-meta .m .ml{font-size:11px;color:var(--text-3)}
+  .conf{display:flex;align-items:center;gap:8px}
+  .conf .ring{width:38px;height:38px;border-radius:50%;background:conic-gradient(var(--green) 0 84%,var(--surface-2) 84% 100%);display:grid;place-items:center}
+  .conf .ring i{width:28px;height:28px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:11px;font-weight:750}
+
+  .di-layout{display:grid;grid-template-columns:1fr 384px;gap:16px;align-items:start}
+  .tabs{display:flex;gap:3px;border-bottom:1px solid var(--border);padding:0 6px;overflow-x:auto}
+  .tab{padding:11px 13px;font-size:13px;font-weight:600;color:var(--text-2);border-bottom:2px solid transparent;white-space:nowrap;transition:.12s}
+  .tab:hover{color:var(--text)} .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab .n{font-size:10px;background:var(--surface-2);padding:0 6px;border-radius:10px;margin-left:5px;color:var(--text-3)}
+  .dimpanel{display:none;padding:18px} .dimpanel.active{display:block;animation:fade .2s}
+  .dim-row{display:flex;gap:12px;margin-bottom:14px}
+  .dim-ico{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0}
+  .dim-ico svg{width:18px;height:18px}
+  .dim-row h4{font-size:13.5px;font-weight:700;margin-bottom:2px} .dim-row p{font-size:12.5px;color:var(--text-2)}
+
+  .person{display:flex;align-items:center;gap:11px;padding:11px;border:1px solid var(--border);border-radius:10px;margin-bottom:9px}
+  .person .pa{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0}
+  .person .pn{font-weight:650;font-size:13px} .person .pr{font-size:11.5px;color:var(--text-3)}
+  .person .pright{margin-left:auto;text-align:right}
+
+  .barline{margin:9px 0}
+  .barline .bl-t{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+  .barline .track{height:8px;background:var(--surface-2);border-radius:5px;overflow:hidden}
+  .barline .fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+
+  .risk{display:flex;gap:11px;padding:11px;border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:9px;margin-bottom:9px}
+  .risk.hi{border-left-color:var(--red)} .risk.lo{border-left-color:var(--green)}
+  .risk h4{font-size:13px;font-weight:700} .risk p{font-size:12px;color:var(--text-2);margin-top:2px}
+
+  .tl{position:relative;padding-left:22px} .tl:before{content:"";position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:var(--border-2)}
+  .tl-i{position:relative;padding:0 0 16px} .tl-i:last-child{padding-bottom:0}
+  .tl-i:before{content:"";position:absolute;left:-19px;top:3px;width:11px;height:11px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+  .tl-i.done:before{background:var(--accent)} .tl-i.next:before{border-color:var(--amber);background:var(--amber-soft)}
+  .tl-i h4{font-size:13px;font-weight:650} .tl-i .d{font-size:11px;color:var(--text-3)} .tl-i p{font-size:12px;color:var(--text-2)}
+
+  /* NBA rail */
+  .nba-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);position:sticky;top:74px}
+  .nba-h{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
+  .nba-h .t{font-weight:750;font-size:14px} .nba-h .badge{margin-left:auto}
+  .nba-list{padding:12px;display:flex;flex-direction:column;gap:11px;max-height:none}
+  .nba{border:1px solid var(--border);border-radius:11px;padding:12px;transition:.12s;position:relative;background:var(--surface)}
+  .nba:hover{border-color:var(--accent-2);box-shadow:0 3px 12px rgba(91,84,230,.1)}
+  .nba.gated{background:var(--surface-3);border-style:dashed}
+  .nba-top{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+  .nba-ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex-shrink:0;background:var(--accent-soft);color:var(--accent)}
+  .nba-ico svg{width:16px;height:16px}
+  .nba-ico.int{background:var(--blue-soft);color:var(--blue)}
+  .nba .rank{font-size:10.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px}
+  .nba .ti{font-weight:680;font-size:13.5px;line-height:1.35}
+  .nba .why{font-size:12px;color:var(--text-2);margin:7px 0 9px}
+  .nba-meta{display:flex;align-items:center;gap:7px;margin-bottom:10px;flex-wrap:wrap}
+  .chip{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;background:var(--surface-2);color:var(--text-2);display:inline-flex;gap:4px;align-items:center}
+  .chip.sig{background:var(--blue-soft);color:#1f5fa8;cursor:pointer}
+  .score{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--accent-ink)}
+  .score .sb{width:34px;height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+  .score .sb i{display:block;height:100%;background:var(--accent)}
+  .nba-act{display:flex;gap:7px}
+  .composite{border:1px dashed var(--accent-2);background:var(--accent-soft);border-radius:11px;padding:11px 12px;display:flex;align-items:center;gap:10px}
+  .composite .ti{font-weight:650;font-size:12.5px;color:var(--accent-ink)} .composite .s{font-size:11px;color:var(--text-2)}
+
+  /* drawer */
+  .overlay{position:fixed;inset:0;background:rgba(18,20,38,.42);opacity:0;visibility:hidden;transition:.2s;z-index:60}
+  .overlay.show{opacity:1;visibility:visible}
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:560px;max-width:94vw;background:var(--surface);box-shadow:var(--sh-lg);transform:translateX(100%);transition:.28s cubic-bezier(.4,0,.2,1);z-index:61;display:flex;flex-direction:column}
+  .drawer.show{transform:none}
+  .dr-h{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px}
+  .dr-h .ico{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+  .dr-h .ti{font-weight:720;font-size:15px} .dr-h .su{font-size:12px;color:var(--text-3)}
+  .dr-x{margin-left:auto;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--text-2)}.dr-x:hover{background:var(--surface-2)}
+  .dr-b{padding:18px 20px;overflow-y:auto;flex:1}
+  /* rail */
+  .rail{display:flex;align-items:center;margin-bottom:18px}
+  .rail .st{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;position:relative}
+  .rail .st .c{width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--text-3);display:grid;place-items:center;font-size:12px;font-weight:700;border:2px solid var(--border);z-index:2}
+  .rail .st .lab{font-size:10.5px;color:var(--text-3);font-weight:600;text-align:center}
+  .rail .st:not(:last-child):after{content:"";position:absolute;top:13px;left:50%;width:100%;height:2px;background:var(--border)}
+  .rail .st.done .c{background:var(--green);color:#fff;border-color:var(--green)} .rail .st.done:after{background:var(--green)}
+  .rail .st.active .c{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)} .rail .st.active .lab{color:var(--accent-ink)}
+  .rail .st.done .lab{color:var(--text-2)}
+  .field-l{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);margin:14px 0 6px;display:flex;align-items:center;gap:8px}
+  .field-l .ai{background:linear-gradient(135deg,var(--accent),#9b6cf0);color:#fff;font-size:9px;padding:1px 6px;border-radius:5px;letter-spacing:.3px}
+  .inp{width:100%;border:1px solid var(--border-2);border-radius:9px;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface-3)}
+  textarea.inp{resize:vertical;line-height:1.55}
+  .jury{display:flex;gap:8px;background:var(--surface-3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;margin-top:12px;align-items:flex-start}
+  .jury svg{width:16px;height:16px;color:var(--accent);flex-shrink:0;margin-top:1px}
+  .jury b{font-weight:700}
+  .dr-f{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;background:var(--surface-3)}
+  .dr-f .note{font-size:11px;color:var(--text-3);flex:1}
+  .sent-ok{display:none;flex-direction:column;align-items:center;text-align:center;padding:30px 20px}
+  .sent-ok .big{width:58px;height:58px;border-radius:50%;background:var(--green-soft);color:var(--green);display:grid;place-items:center;margin-bottom:14px}
+  .sent-ok .big svg{width:30px;height:30px}
+  .sent-ok h3{font-size:17px;font-weight:740} .sent-ok p{color:var(--text-2);font-size:13px;margin-top:5px;max-width:340px}
+  .track-row{display:flex;gap:8px;margin-top:16px;background:var(--surface-3);border:1px solid var(--border);border-radius:10px;padding:11px 13px;width:100%;text-align:left;font-size:12px}
+
+  /* collateral */
+  .col-tabs{display:flex;gap:9px;margin-bottom:16px}
+  .col-pick{flex:1;border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:15px;text-align:left;transition:.12s;box-shadow:var(--sh)}
+  .col-pick:hover{border-color:var(--accent-2)} .col-pick.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .col-pick .ph{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .col-pick .pico{width:34px;height:34px;border-radius:9px;display:grid;place-items:center}
+  .pa-c{background:var(--green-soft);color:var(--green)} .pb-c{background:var(--accent-soft);color:var(--accent)}
+  .col-pick b{font-size:14px;font-weight:720} .col-pick .pt{font-size:11px;color:var(--text-3);font-weight:600}
+  .col-pick p{font-size:12px;color:var(--text-2)}
+
+  .pipe{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);padding:18px;margin-bottom:16px;display:none}
+  .pipe.show{display:block}
+  .pipe-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .pipe-steps{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+  .pstep{text-align:center;font-size:10.5px;font-weight:600;color:var(--text-3)}
+  .pstep .pc{height:6px;border-radius:4px;background:var(--surface-2);margin-bottom:7px;overflow:hidden;position:relative}
+  .pstep .pc i{position:absolute;inset:0;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:.5s}
+  .pstep.done .pc i{transform:scaleX(1)} .pstep.done{color:var(--accent-ink)}
+  .pstep.run .pc i{transform:scaleX(.6);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.5}}
+  .spin{width:15px;height:15px;border:2px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .editor{display:none;grid-template-columns:230px 1fr 188px;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--sh);overflow:hidden;min-height:560px}
+  .editor.show{display:grid}
+  .ed-chat{border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface-3)}
+  .ed-chat .ech{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:7px}
+  .ed-msgs{flex:1;padding:13px;display:flex;flex-direction:column;gap:11px;overflow-y:auto}
+  .msg{font-size:12px;line-height:1.5;padding:9px 11px;border-radius:10px;max-width:92%}
+  .msg.ai{background:var(--surface);border:1px solid var(--border);align-self:flex-start}
+  .msg.me{background:var(--accent);color:#fff;align-self:flex-end}
+  .msg.ai b{color:var(--accent-ink)}
+  .ed-in{padding:11px;border-top:1px solid var(--border);display:flex;gap:7px}
+  .ed-in input{flex:1;border:1px solid var(--border-2);border-radius:8px;padding:8px 10px;font-size:12px;font-family:inherit;outline:none}
+  .ed-doc{padding:20px;overflow-y:auto;background:var(--surface-2)}
+  .paper{background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.07);padding:30px 30px;max-width:560px;margin:0 auto;min-height:500px}
+  .paper .pbrand{display:flex;align-items:center;gap:9px;padding-bottom:14px;border-bottom:2px solid var(--accent)}
+  .paper .pbrand .pl{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#9b6cf0);display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px}
+  .paper .pbrand b{font-size:14px} .paper .pbrand span{margin-left:auto;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:1px}
+  .paper h2{font-size:19px;margin:16px 0 4px;letter-spacing:-.2px} .paper .lead{color:var(--text-2);font-size:12.5px;margin-bottom:14px}
+  .paper h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent-ink);margin:16px 0 6px}
+  .paper p{font-size:12.5px;color:#33384a;margin-bottom:9px}
+  .paper .kv{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}
+  .paper .kv .b{background:var(--surface-3);border:1px solid var(--border);border-radius:8px;padding:10px}
+  .paper .kv .n{font-size:18px;font-weight:780;color:var(--accent-ink)} .paper .kv .l{font-size:10.5px;color:var(--text-3)}
+  .paper ul{margin:0 0 9px 16px} .paper li{font-size:12.5px;color:#33384a;margin-bottom:4px}
+  .ed-ver{border-left:1px solid var(--border);padding:13px;background:var(--surface-3)}
+  .ed-ver .evh{font-weight:700;font-size:12.5px;margin-bottom:10px}
+  .ver{border:1px solid var(--border);border-radius:9px;padding:9px 10px;margin-bottom:8px;cursor:pointer;background:var(--surface);transition:.12s}
+  .ver:hover{border-color:var(--accent-2)} .ver.sel{border-color:var(--accent);background:var(--accent-soft)}
+  .ver b{font-size:12px} .ver .vm{font-size:10.5px;color:var(--text-3)}
+  .cascade{margin-top:14px;font-size:11px;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px}
+  .cascade .cr{display:flex;align-items:center;gap:6px;padding:2px 0}
+  .cascade .cr .d{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+  /* toast */
+  .toasts{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:9px;align-items:center}
+  .toast{background:#13152a;color:#fff;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:550;box-shadow:var(--sh-lg);display:flex;align-items:center;gap:10px;animation:tin .25s}
+  .toast svg{width:16px;height:16px;flex-shrink:0}
+  .toast .ok{color:#5fe0a8} .toast .info{color:var(--accent-2)}
+  @keyframes tin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  /* slack mock */
+  .slackbtn{position:fixed;bottom:22px;right:22px;z-index:50;background:#4a154b;color:#fff;border-radius:50px;padding:11px 16px;display:flex;align-items:center;gap:9px;font-weight:650;font-size:13px;box-shadow:var(--sh-lg)}
+  .slackbtn svg{width:18px;height:18px}
+  .slackpanel{position:fixed;bottom:74px;right:22px;width:360px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--sh-lg);z-index:50;overflow:hidden;display:none}
+  .slackpanel.show{display:block;animation:fade .2s}
+  .sp-h{background:#4a154b;color:#fff;padding:11px 14px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}
+  .sp-b{padding:13px;display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto}
+  .sl-msg{font-size:12.5px} .sl-msg .u{font-weight:700;font-size:12px}
+  .sl-cmd{background:var(--surface-2);border-radius:7px;padding:4px 8px;font-size:12px;display:inline-block}
+  .sl-card{border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:9px;padding:11px;font-size:12px}
+  .sl-card .slt{font-weight:700;margin-bottom:3px} .sl-card .slw{color:var(--text-2);margin-bottom:8px}
+  .sl-btns{display:flex;gap:6px}
+
+  @media(max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}.di-layout{grid-template-columns:1fr}.editor{grid-template-columns:1fr}.pipe-steps{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">C</div><b>Clarwiz</b><span class="tier">MOFU</span></div>
+    <nav class="nav">
+      <div class="label">Workspace</div>
+      <a class="active" data-screen="dashboard" onclick="nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        Operator Dashboard</a>
+      <a data-screen="deal" onclick="nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+        Deals <span class="count">14</span></a>
+      <a data-screen="company" onclick="nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h2M9 12h2M13 8h2M13 12h2M9 21v-4h6v4"/></svg>
+        Companies</a>
+      <a data-screen="collateral" onclick="nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></svg>
+        Collateral</a>
+      <div class="label">Insight scope</div>
+      <a data-screen="deal" onclick="nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Deal Insights</a>
+      <a data-screen="company" onclick="nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+        Company Insights</a>
+    </nav>
+    <div class="stackbox">
+      <div class="st-t">HubSpot capabilities</div>
+      <div class="cap"><span class="dot on"></span>Email <span class="x">Sequences</span></div>
+      <div class="cap"><span class="dot on"></span>Meeting scheduler</div>
+      <div class="cap"><span class="dot on"></span>Note-taker <span class="x">Fireflies</span></div>
+      <div class="cap"><span class="dot off"></span>Calling <span class="x">not connected</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="pageTitle">Operator Dashboard</h1>
+      <div class="spacer"></div>
+      <div class="search"><svg viewBox="0 0 24 24" width="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="Search deals, companies…"></div>
+      <span class="pill hub"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/><circle cx="18" cy="7" r="2.4"/><path d="M12 8V4M16 9l1.5-1.5" stroke="currentColor" stroke-width="2"/></svg>HubSpot · SOR connected</span>
+      <div class="avatar">PN</div>
+    </div>
+    <div class="content">
+
+      <!-- ============ DASHBOARD ============ -->
+      <section class="screen active" id="screen-dashboard">
+        <div class="page-head">
+          <div>
+            <div class="pt">Good morning, Priya 👋</div>
+            <div class="ps">Operator view — what the MOFU engine is doing across all deals, and what you can trigger.</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" onclick="toast('Recomputing NBAs for 14 active deals…','info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Recompute all</button>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><div class="v">14</div><div class="l">Active deals</div><div class="d up">▲ 3 this week</div></div>
+          <div class="kpi"><div class="v">9</div><div class="l">NBAs awaiting approval</div><div class="d flat">across 6 deals</div></div>
+          <div class="kpi"><div class="v">23</div><div class="l">Signals today</div><div class="d up">▲ 8 vs avg</div></div>
+          <div class="kpi"><div class="v">17</div><div class="l">Actions executed</div><div class="d up">▲ 5 vs yest.</div></div>
+          <div class="kpi alert"><div class="v">2</div><div class="l">Failed executions</div><div class="d dn">needs retry</div></div>
+        </div>
+
+        <div class="grid" style="grid-template-columns:1fr 380px">
+          <div class="card">
+            <div class="card-h"><span class="t">Deals needing attention</span><span class="s">ranked by NBA score × freshness</span><div class="spacer"></div><span class="badge violet">dual-model jury</span></div>
+            <table>
+              <thead><tr><th>Deal</th><th>Stage</th><th>Top next best action</th><th>Signal</th><th></th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div class="deal-cell"><b>Northwind Traders</b><span>Analytics Platform · $84k</span></div></td>
+                  <td><div class="stagebar"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div><span class="muted">Evaluation</span></td>
+                  <td><b style="font-weight:650">Follow up on data-residency</b><div class="muted">send_email · score 92</div></td>
+                  <td><span class="badge blue">fresh · 2h</span></td>
+                  <td><button class="btn btn-soft btn-sm" onclick="nav(document.querySelector('[data-screen=deal]'))">Open</button></td>
+                </tr>
+                <tr>
+                  <td><div class="deal-cell"><b>Meridian Health</b><span>Care Ops Suite · $146k</span></div></td>
+                  <td><div class="stagebar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div><span class="muted">Proposal</span></td>
+                  <td><b style="font-weight:650">Send security battlecard</b><div class="muted">send_sales_collateral · 88</div></td>
+                  <td><span class="badge blue">reply · 40m</span></td>
+                  <td><button class="btn btn-ghost btn-sm" onclick="toast('Opening Meridian Health…','info')">Open</button></td>
+                </tr>
+                <tr>
+                  <td><div class="deal-cell"><b>Atlas Robotics</b><span>Fleet Analytics · $61k</span></div></td>
+                  <td><div class="stagebar"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div><span class="muted">Discovery</span></td>
+                  <td><b style="font-weight:650">Prep for technical eval call</b><div class="muted">prep_meeting · 80</div></td>
+                  <td><span class="badge amber">transcript · 5h</span></td>
+                  <td><button class="btn btn-ghost btn-sm" onclick="toast('Opening Atlas Robotics…','info')">Open</button></td>
+                </tr>
+                <tr>
+                  <td><div class="deal-cell"><b>Vertex Capital</b><span>Risk Engine · $210k</span></div></td>
+                  <td><div class="stagebar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><span class="muted">Negotiation</span></td>
+                  <td><b style="font-weight:650">Loop in economic buyer</b><div class="muted">schedule_meeting · 77</div></td>
+                  <td><span class="badge gray">stage · 1d</span></td>
+                  <td><button class="btn btn-ghost btn-sm" onclick="toast('Opening Vertex Capital…','info')">Open</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div class="card">
+              <div class="card-h"><span class="t">Live activity</span><span class="s">the core loop, running</span></div>
+              <div class="card-b" style="padding:6px 14px">
+                <div class="feed">
+                  <div class="feed-i"><div class="feed-ic fi-sig"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div><div><div class="ft"><b>Transcript</b> scored on Northwind</div><div class="fm">discovery call → +3 signals</div></div><div class="fr"><span class="time">2m</span></div></div>
+                  <div class="feed-i"><div class="feed-ic fi-bundle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></div><div><div class="ft"><b>Insight bundle</b> recomputed</div><div class="fm">Meridian Health · confidence 0.86</div></div><div class="fr"><span class="time">8m</span></div></div>
+                  <div class="feed-i"><div class="feed-ic fi-nba"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div><div><div class="ft"><b>NBA</b> generated · 3 cards</div><div class="fm">jury agreed · Atlas Robotics</div></div><div class="fr"><span class="time">14m</span></div></div>
+                  <div class="feed-i"><div class="feed-ic fi-exec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg></div><div><div class="ft"><b>Email sent</b> via HubSpot</div><div class="fm">Vertex Capital · logged as engagement</div></div><div class="fr"><span class="time">26m</span></div></div>
+                  <div class="feed-i"><div class="feed-ic fi-fail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5M12 16v.5"/><circle cx="12" cy="12" r="9"/></svg></div><div><div class="ft"><b>Send failed</b> · HubSpot 429</div><div class="fm">Orion Labs · rate limited</div></div><div class="fr"><button class="btn btn-ghost btn-sm" onclick="toast('Retrying send via HubSpot…','info')">Retry</button></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-h"><span class="t">Trigger</span><span class="s">operator controls</span></div>
+              <div class="card-b" style="display:flex;flex-direction:column;gap:9px">
+                <button class="btn btn-ghost btn-block" style="justify-content:flex-start" onclick="toast('“Suggest now” queued for Northwind Traders','info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Suggest now for a deal</button>
+                <button class="btn btn-ghost btn-block" style="justify-content:flex-start" onclick="toast('Re-aggregating signals from HubSpot…','info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/></svg>Re-aggregate signals</button>
+                <button class="btn btn-ghost btn-block" style="justify-content:flex-start" onclick="toast('Pushing Vertex Capital → Negotiation stage','info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Push a deal forward</button>
+                <div class="cap-note" style="margin-top:4px"><span class="tag">approve gate</span> Outbound still routes to the AE — operators trigger, they don't bypass.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ DEAL INSIGHTS ============ -->
+      <section class="screen" id="screen-deal">
+        <div class="page-head" style="margin-bottom:14px">
+          <div>
+            <div class="crumb muted" style="font-size:12px">Deals / Northwind Traders</div>
+            <div class="pt" style="margin-top:2px">Deal Insights</div>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn btn-ghost" onclick="toast('“Suggest now” — recomputing NBA with latest signals','info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Suggest now</button>
+        </div>
+
+        <div class="di-head">
+          <div class="di-top">
+            <div>
+              <div class="name">Northwind Traders — Analytics Platform</div>
+              <div class="sub">
+                <span><svg width="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>Priya Nair (AE)</span>
+                <span><svg width="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>HubSpot deal #4821 · live</span>
+                <span class="badge amber">Evaluation</span>
+                <span class="badge gray">close: Q3</span>
+              </div>
+            </div>
+            <div class="di-meta">
+              <div class="m"><div class="mv">$84,000</div><div class="ml">deal amount</div></div>
+              <div class="m"><div class="mv">76</div><div class="ml">buyer-fit (ICP)</div></div>
+              <div class="m"><div class="conf"><div class="ring"><i>0.84</i></div><div style="text-align:left"><div class="mv" style="font-size:13px">High</div><div class="ml">bundle confidence</div></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="di-layout">
+          <!-- left: heptapod bundle -->
+          <div class="card" style="overflow:hidden">
+            <div class="tabs" id="dimtabs">
+              <button class="tab active" onclick="dim(this,'overview')">Overview</button>
+              <button class="tab" onclick="dim(this,'stake')">Stakeholders</button>
+              <button class="tab" onclick="dim(this,'value')">Value</button>
+              <button class="tab" onclick="dim(this,'risk')">Risks <span class="n">2</span></button>
+              <button class="tab" onclick="dim(this,'time')">Timeline</button>
+              <button class="tab" onclick="dim(this,'comp')">Competitive</button>
+              <button class="tab" onclick="dim(this,'exp')">Expansion</button>
+              <button class="tab" onclick="dim(this,'sig')">Signals <span class="n">5</span></button>
+            </div>
+
+            <div class="dimpanel active" id="dim-overview">
+              <div style="background:var(--accent-soft);border:1px solid #ddd9fb;border-radius:11px;padding:14px;margin-bottom:16px">
+                <div style="font-weight:750;font-size:13px;color:var(--accent-ink);margin-bottom:5px;display:flex;align-items:center;gap:7px"><svg width="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Executive intelligence summary</div>
+                <p style="font-size:12.5px;color:#3a3358">Northwind is in active evaluation against one incumbent. The champion (Dir. of Data) is sold on the analytics depth; the deal now hinges on a <b>data-residency</b> concern raised by their security lead on the last call. Economic buyer (VP Eng) has not yet engaged — single-threaded risk. Momentum is positive: pricing page revisited twice this week and a warm reply 2h ago.</p>
+              </div>
+              <div class="cap-note" style="margin-bottom:14px"><span class="tag">Heptapod bundle</span> Six dimensions below feed the signals &amp; NBA on the right. Same shape for Deal and Company scope.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="dim-row" style="margin:0"><div class="dim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 6a3 3 0 0 1 0 6"/></svg></div><div><h4>3 stakeholders</h4><p>1 champion · 1 silent EB · 1 blocker</p></div></div>
+                <div class="dim-row" style="margin:0"><div class="dim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H7"/></svg></div><div><h4>$310k value</h4><p>3-yr modeled ROI · 4.1×</p></div></div>
+                <div class="dim-row" style="margin:0"><div class="dim-ico" style="background:var(--amber-soft);color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17v.5"/><path d="M10.3 3.8 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0z"/></svg></div><div><h4>2 open risks</h4><p>data residency · competitor</p></div></div>
+                <div class="dim-row" style="margin:0"><div class="dim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><h4>Decision by Q3</h4><p>technical eval Thu</p></div></div>
+              </div>
+            </div>
+
+            <div class="dimpanel" id="dim-stake">
+              <div class="person"><div class="pa" style="background:#1aa97a">DC</div><div><div class="pn">Dana Cole</div><div class="pr">Director of Data · Champion</div></div><div class="pright"><span class="badge green">advocate</span><div class="muted" style="margin-top:3px">5 engagements</div></div></div>
+              <div class="person"><div class="pa" style="background:#8b91a7">RV</div><div><div class="pn">Raj Verma</div><div class="pr">VP Engineering · Economic buyer</div></div><div class="pright"><span class="badge amber">not engaged</span><div class="muted" style="margin-top:3px">0 engagements</div></div></div>
+              <div class="person"><div class="pa" style="background:#df4a52">SM</div><div><div class="pn">Sara Mehta</div><div class="pr">Head of Security · Blocker</div></div><div class="pright"><span class="badge red">concern raised</span><div class="muted" style="margin-top:3px">data residency</div></div></div>
+              <div class="cap-note" style="margin-top:6px"><span class="tag">stakeholder_intelligence</span> Single-threaded on the champion — NBA #2 targets multi-threading to the EB.</div>
+            </div>
+
+            <div class="dimpanel" id="dim-value">
+              <div class="barline"><div class="bl-t"><span>Analyst hours saved / yr</span><b>$182k</b></div><div class="track"><div class="fill" style="width:78%"></div></div></div>
+              <div class="barline"><div class="bl-t"><span>Faster time-to-insight</span><b>$94k</b></div><div class="track"><div class="fill" style="width:52%"></div></div></div>
+              <div class="barline"><div class="bl-t"><span>Tool consolidation</span><b>$34k</b></div><div class="track"><div class="fill" style="width:24%"></div></div></div>
+              <p class="muted" style="margin-top:12px">Modeled 3-year value <b style="color:var(--text)">$310k</b> against an $84k ACV → <b style="color:var(--green)">4.1× ROI</b>. Value framing pulled from <b>TenantIcpContext</b> value proposition for collateral.</p>
+            </div>
+
+            <div class="dimpanel" id="dim-risk">
+              <div class="risk hi"><div><div style="display:flex;gap:8px;align-items:center"><span class="badge red">High</span><h4>Data-residency requirement</h4></div><p>Security lead needs EU data residency confirmed before sign-off. Raised on the May&nbsp;30 discovery call — unaddressed. <b>Drives NBA #1.</b></p></div></div>
+              <div class="risk"><div><div style="display:flex;gap:8px;align-items:center"><span class="badge amber">Medium</span><h4>Competing incumbent</h4></div><p>Evaluating against an incumbent BI tool with an existing contract through Q4. Switching-cost objection likely.</p></div></div>
+            </div>
+
+            <div class="dimpanel" id="dim-time">
+              <div class="tl">
+                <div class="tl-i done"><h4>Discovery call</h4><div class="d">May 30</div><p>Champion + security lead. Data-residency concern surfaced.</p></div>
+                <div class="tl-i next"><h4>Technical evaluation</h4><div class="d">Thu, Jun 11</div><p>Hands-on eval with the data team. Prep brief = NBA #3.</p></div>
+                <div class="tl-i"><h4>Proposal &amp; pricing</h4><div class="d">late Jun</div><p>Pending EB engagement.</p></div>
+                <div class="tl-i"><h4>Decision</h4><div class="d">Q3</div><p>Target close.</p></div>
+              </div>
+            </div>
+
+            <div class="dimpanel" id="dim-comp">
+              <table>
+                <thead><tr><th>Factor</th><th>Clarwiz customer</th><th>Incumbent</th></tr></thead>
+                <tbody>
+                  <tr><td>Analytics depth</td><td><span class="badge green">Strong</span></td><td><span class="badge gray">Basic</span></td></tr>
+                  <tr><td>EU data residency</td><td><span class="badge green">Yes</span></td><td><span class="badge amber">Add-on</span></td></tr>
+                  <tr><td>Switching cost</td><td><span class="badge amber">Migration</span></td><td><span class="badge green">Sunk</span></td></tr>
+                  <tr><td>Price</td><td><span class="badge green">−12%</span></td><td><span class="badge gray">Baseline</span></td></tr>
+                </tbody>
+              </table>
+              <div class="cap-note" style="margin-top:12px"><span class="tag">competitive_intelligence</span> Residency is a wedge — lead with it. Feeds the battlecard (Path B).</div>
+            </div>
+
+            <div class="dimpanel" id="dim-exp">
+              <div class="dim-row"><div class="dim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg></div><div><h4>Marketing analytics BU</h4><p>Sister team flagged by champion — +$40k potential land-and-expand after go-live.</p></div></div>
+              <div class="dim-row"><div class="dim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg></div><div><h4>EU subsidiary</h4><p>Same residency need → natural second region once the security objection becomes a selling point.</p></div></div>
+            </div>
+
+            <div class="dimpanel" id="dim-sig">
+              <div class="feed">
+                <div class="feed-i"><div class="feed-ic fi-sig"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div><div><div class="ft"><b>Call transcript</b> · discovery</div><div class="fm">“…we'd need EU residency locked before we go further.” — Sara M.</div></div><div class="fr"><span class="badge red">score 95</span><span class="time">May 30</span></div></div>
+                <div class="feed-i"><div class="feed-ic fi-exec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H5.2L4 17z"/></svg></div><div><div class="ft"><b>Email reply</b> from champion</div><div class="fm">“This looks great — let me pull Raj in.”</div></div><div class="fr"><span class="badge amber">score 81</span><span class="time">2h</span></div></div>
+                <div class="feed-i"><div class="feed-ic fi-bundle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div><div><div class="ft"><b>Pricing page</b> revisited ×2</div><div class="fm">tracked link · enterprise tier</div></div><div class="fr"><span class="badge blue">score 64</span><span class="time">1d</span></div></div>
+                <div class="feed-i"><div class="feed-ic fi-nba"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div><div><div class="ft"><b>Stage change</b> → Evaluation</div><div class="fm">moved in HubSpot by Dana C.</div></div><div class="fr"><span class="badge gray">score 58</span><span class="time">1d</span></div></div>
+                <div class="feed-i"><div class="feed-ic fi-sig"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div><div><div class="ft"><b>Meeting booked</b> · technical eval</div><div class="fm">Thu Jun 11, 2pm</div></div><div class="fr"><span class="badge blue">score 72</span><span class="time">1d</span></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- right: NBA -->
+          <div class="nba-wrap">
+            <div class="nba-h"><svg width="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span class="t">Next Best Actions</span><span class="badge violet">4</span></div>
+            <div class="nba-list">
+
+              <div class="nba" id="nba-1">
+                <div class="nba-top"><div class="nba-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 6l8 6 8-6"/></svg></div><div><div class="rank">#1 · External</div><div class="ti">Follow up on the data-residency concern</div></div></div>
+                <div class="why">Sara M. (security) blocked sign-off on EU residency. Reply to the champion's thread with the residency proof points and offer a security review.</div>
+                <div class="nba-meta"><span class="chip sig" onclick="dim(document.querySelectorAll('#dimtabs .tab')[7],'sig')">↳ transcript signal</span><span class="chip">send_email</span><span class="score">92<span class="sb"><i style="width:92%"></i></span></span></div>
+                <div class="nba-act"><button class="btn btn-pri btn-sm btn-block" onclick="openDrawer('1')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>Draft &amp; review</button></div>
+              </div>
+
+              <div class="nba" id="nba-2">
+                <div class="nba-top"><div class="nba-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></div><div><div class="rank">#2 · External</div><div class="ti">Send the security &amp; residency battlecard</div></div></div>
+                <div class="why">Generate a one-pager framing EU residency as the wedge vs. the incumbent. Sales collateral (Path B) personalized from deal intel.</div>
+                <div class="nba-meta"><span class="chip sig">↳ competitive</span><span class="chip">send_sales_collateral</span><span class="score">88<span class="sb"><i style="width:88%"></i></span></span></div>
+                <div class="nba-act"><button class="btn btn-soft btn-sm" onclick="nav(document.querySelector('[data-screen=collateral]'));setTimeout(()=>pickPath('B'),120)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Generate</button><button class="btn btn-ghost btn-sm" onclick="openDrawer('2')">Review</button></div>
+              </div>
+
+              <div class="nba" id="nba-3">
+                <div class="nba-top"><div class="nba-ico int"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div><div class="rank">#3 · Internal</div><div class="ti">Prep brief for Thursday's eval call</div></div></div>
+                <div class="why">Internal meeting brief: attendees, deal state, open items, suggested agenda, risk flags. Nothing sent — for you.</div>
+                <div class="nba-meta"><span class="chip sig">↳ meeting booked</span><span class="chip">prep_meeting</span><span class="score">80<span class="sb"><i style="width:80%"></i></span></span></div>
+                <div class="nba-act"><button class="btn btn-ghost btn-sm btn-block" onclick="openDrawer('3')">Build brief</button></div>
+              </div>
+
+              <div class="nba gated" id="nba-4">
+                <div class="nba-top"><div class="nba-ico" style="background:var(--surface-2);color:var(--text-3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg></div><div><div class="rank">#4 · External</div><div class="ti">Call the economic buyer re: timeline</div></div></div>
+                <div class="why">Raj (EB) is silent. A call-with-script would multi-thread the deal — but calling isn't connected to HubSpot.</div>
+                <div class="nba-meta"><span class="chip">call_with_script</span><span class="score">74<span class="sb"><i style="width:74%"></i></span></span></div>
+                <div class="nba-act"><button class="btn btn-gated btn-sm btn-block" onclick="toast('Connect Calling to HubSpot to enable this action','info')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 11V7a5 5 0 0 1 10 0v4"/><rect x="4" y="11" width="14" height="9" rx="2"/></svg>Connect Calling to HubSpot</button></div>
+              </div>
+
+              <div class="composite">
+                <svg width="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" stroke-width="2"><path d="M8 7h12M8 12h12M8 17h7M3 7v.01M3 12v.01M3 17v.01"/></svg>
+                <div style="flex:1"><div class="ti">Draft one email using #1 + #2</div><div class="s">Composable — residency follow-up with the battlecard attached.</div></div>
+                <button class="btn btn-soft btn-sm" onclick="openDrawer('combo')">Compose</button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ COMPANY INSIGHTS ============ -->
+      <section class="screen" id="screen-company">
+        <div class="page-head" style="margin-bottom:14px">
+          <div><div class="crumb muted" style="font-size:12px">Companies / Northwind Traders</div><div class="pt" style="margin-top:2px">Company Insights</div></div>
+        </div>
+        <div class="di-head">
+          <div class="di-top">
+            <div><div class="name">Northwind Traders</div>
+              <div class="sub"><span>Logistics &amp; Distribution · 1,400 employees</span><span>2 open deals · $145k pipeline</span><span class="badge green">ICP fit 82</span></div></div>
+            <div class="di-meta"><div class="m"><div class="mv">2</div><div class="ml">active deals</div></div><div class="m"><div class="mv">0.81</div><div class="ml">bundle confidence</div></div></div>
+          </div>
+        </div>
+        <div class="di-layout">
+          <div class="card" style="overflow:hidden">
+            <div class="tabs">
+              <button class="tab active" onclick="cdim(this,'c-ov')">Overview</button>
+              <button class="tab" onclick="cdim(this,'c-stake')">Org chart</button>
+              <button class="tab" onclick="cdim(this,'c-exp')">Expansion</button>
+              <button class="tab" onclick="cdim(this,'c-deals')">Deals</button>
+            </div>
+            <div class="dimpanel active" id="c-ov" style="display:block">
+              <div style="background:var(--accent-soft);border:1px solid #ddd9fb;border-radius:11px;padding:14px;margin-bottom:14px">
+                <div style="font-weight:750;font-size:13px;color:var(--accent-ink);margin-bottom:5px">Account intelligence summary</div>
+                <p style="font-size:12.5px;color:#3a3358">Northwind is a strong-fit logistics account modernizing its data stack. Two deals in flight; the analytics platform deal leads. Security &amp; EU residency are the recurring themes across the account — a beachhead win here de-risks the marketing-analytics expansion.</p>
+              </div>
+              <div class="cap-note"><span class="tag">same Heptapod shape</span> Company scope reuses the deal bundle dimensions, rolled up across the account.</div>
+            </div>
+            <div class="dimpanel" id="c-stake"><div class="person"><div class="pa" style="background:#1aa97a">DC</div><div><div class="pn">Dana Cole</div><div class="pr">Director of Data</div></div><div class="pright"><span class="badge green">champion</span></div></div><div class="person"><div class="pa" style="background:#8b91a7">RV</div><div><div class="pn">Raj Verma</div><div class="pr">VP Engineering</div></div><div class="pright"><span class="badge amber">economic buyer</span></div></div><div class="person"><div class="pa" style="background:#df4a52">SM</div><div><div class="pn">Sara Mehta</div><div class="pr">Head of Security</div></div><div class="pright"><span class="badge red">gatekeeper</span></div></div></div>
+            <div class="dimpanel" id="c-exp"><div class="dim-row"><div class="dim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg></div><div><h4>Marketing analytics BU · +$40k</h4><p>Flagged by champion.</p></div></div><div class="dim-row"><div class="dim-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg></div><div><h4>EU subsidiary · +$55k</h4><p>Residency need maps to a second region.</p></div></div></div>
+            <div class="dimpanel" id="c-deals">
+              <table><thead><tr><th>Deal</th><th>Stage</th><th>Amount</th></tr></thead><tbody>
+                <tr><td>Analytics Platform</td><td><span class="badge amber">Evaluation</span></td><td>$84,000</td></tr>
+                <tr><td>Data Warehouse Migration</td><td><span class="badge blue">Discovery</span></td><td>$61,000</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+          <div class="nba-wrap">
+            <div class="nba-h"><svg width="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span class="t">Account NBA</span><span class="badge violet">2</span></div>
+            <div class="nba-list">
+              <div class="nba"><div class="nba-top"><div class="nba-ico int"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/></svg></div><div><div class="rank">#1 · Internal</div><div class="ti">Build an account plan across both deals</div></div></div><div class="why">Single security stakeholder gates both — sequence the residency win first.</div><div class="nba-act"><button class="btn btn-ghost btn-sm btn-block" onclick="toast('Drafting account plan…','info')">Build</button></div></div>
+              <div class="nba"><div class="nba-top"><div class="nba-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/></svg></div><div><div class="rank">#2 · External</div><div class="ti">Intro the marketing-analytics BU</div></div></div><div class="why">Expansion play once the platform deal closes.</div><div class="nba-act"><button class="btn btn-pri btn-sm btn-block" onclick="openDrawer('1')">Draft &amp; review</button></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ COLLATERAL ============ -->
+      <section class="screen" id="screen-collateral">
+        <div class="page-head" style="margin-bottom:14px">
+          <div><div class="crumb muted" style="font-size:12px">Northwind Traders / Collateral</div><div class="pt" style="margin-top:2px">Collateral</div><div class="ps">Two generation paths. Both ride the same edit → approve → send rails.</div></div>
+        </div>
+
+        <div class="col-tabs">
+          <button class="col-pick sel" id="pick-A" onclick="pickPath('A')">
+            <div class="ph"><div class="pico pa-c"><svg width="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg></div><div><b>Path A · Marketing</b><div class="pt">CODE-TEMPLATE · INSTANT</div></div></div>
+            <p>Fixed brand template, hyper-personalized from deal fields. No LLM — deterministic, fast.</p>
+          </button>
+          <button class="col-pick" id="pick-B" onclick="pickPath('B')">
+            <div class="ph"><div class="pico pb-c"><svg width="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div><div><b>Path B · Sales</b><div class="pt">LLM PIPELINE · QUEUED JOB</div></div></div>
+            <p>Multi-step research → generate → QC. Conversational re-enrichment &amp; versions. Battlecards live here.</p>
+          </button>
+        </div>
+
+        <!-- Path B pipeline -->
+        <div class="pipe" id="pipe">
+          <div class="pipe-h"><div class="spin" id="pipeSpin"></div><div><div style="font-weight:720;font-size:14px" id="pipeTitle">Generating sales battlecard…</div><div class="muted" id="pipeSub">Queued job · resolve → research → enrich → plan → generate → QC → assemble</div></div><div class="spacer"></div><span class="badge violet">dual-model jury QC</span></div>
+          <div class="pipe-steps" id="pipeSteps">
+            <div class="pstep" data-s="0"><div class="pc"><i></i></div>Resolve</div>
+            <div class="pstep" data-s="1"><div class="pc"><i></i></div>Research</div>
+            <div class="pstep" data-s="2"><div class="pc"><i></i></div>Enrich</div>
+            <div class="pstep" data-s="3"><div class="pc"><i></i></div>Plan</div>
+            <div class="pstep" data-s="4"><div class="pc"><i></i></div>Generate</div>
+            <div class="pstep" data-s="5"><div class="pc"><i></i></div>QC</div>
+            <div class="pstep" data-s="6"><div class="pc"><i></i></div>Assemble</div>
+          </div>
+        </div>
+
+        <!-- editor (shared) -->
+        <div class="editor" id="editor">
+          <div class="ed-chat">
+            <div class="ech"><svg width="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Refine by chat</div>
+            <div class="ed-msgs" id="edMsgs">
+              <div class="msg ai"><b>Path B</b> · I researched Northwind's residency requirement and the incumbent. Draft v2 leads with EU data-residency as the wedge. Want me to add a migration-cost rebuttal?</div>
+              <div class="msg me">Yes, and pull the 4.1× ROI into a callout.</div>
+              <div class="msg ai">Done — added the ROI callout and a switching-cost rebuttal. Saved as <b>v3</b>.</div>
+            </div>
+            <div class="ed-in"><input id="edInput" placeholder="Ask for an edit…" onkeydown="if(event.key==='Enter')chatEnrich()"><button class="btn btn-pri btn-sm" onclick="chatEnrich()">Send</button></div>
+          </div>
+          <div class="ed-doc">
+            <div class="paper">
+              <div class="pbrand"><div class="pl">C</div><b>Clarwiz</b><span id="docKind">Battlecard</span></div>
+              <h2 id="docH">Why analytics teams choose us over the incumbent</h2>
+              <div class="lead">Prepared for Northwind Traders · Data Platform evaluation</div>
+              <h3>The residency advantage</h3>
+              <p>EU data residency is built in — not a paid add-on. Your security review clears in days, not quarters, and your data never leaves the region.</p>
+              <div class="kv">
+                <div class="b"><div class="n">4.1×</div><div class="l">3-yr modeled ROI</div></div>
+                <div class="b"><div class="n">−12%</div><div class="l">vs. incumbent price</div></div>
+              </div>
+              <h3>Switching cost, handled</h3>
+              <ul><li>Guided migration with parallel-run validation</li><li>Connector parity with your current stack</li><li>Go-live in 3 weeks, not 3 months</li></ul>
+              <h3 id="docExtra" style="display:none">Migration-cost rebuttal</h3>
+              <p id="docExtraP" style="display:none">The incumbent's "sunk cost" is recurring — you re-pay it every renewal. Our migration is one-time and offset by year-one savings.</p>
+            </div>
+          </div>
+          <div class="ed-ver">
+            <div class="evh">Versions</div>
+            <div class="ver" onclick="selVer(this,1)"><b>v1</b> · base draft<div class="vm">generated · jury 0.79</div></div>
+            <div class="ver" onclick="selVer(this,2)"><b>v2</b> · residency wedge<div class="vm">chat-enriched</div></div>
+            <div class="ver sel" onclick="selVer(this,3)"><b>v3</b> · + ROI &amp; rebuttal<div class="vm">current · jury 0.91</div></div>
+            <div class="cascade">
+              <div style="font-weight:700;margin-bottom:6px">Brand cascade</div>
+              <div class="cr"><span class="d"></span>defaults</div>
+              <div class="cr"><span class="d"></span>tenant — Clarwiz palette</div>
+              <div class="cr"><span class="d"></span>client — Northwind logo</div>
+            </div>
+            <button class="btn btn-pri btn-sm btn-block" style="margin-top:12px" onclick="toast('Battlecard attached → opening send drawer','ok');setTimeout(()=>openDrawer('2'),500)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>Approve &amp; use</button>
+            <button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px" onclick="toast('Rendering PDF on demand…','info')">Export PDF</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- DRAWER -->
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="dr-h">
+    <div class="ico" id="drIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 6l8 6 8-6"/></svg></div>
+    <div><div class="ti" id="drTitle">Follow up on data-residency</div><div class="su" id="drSub">send_email · external action · AE owns the send</div></div>
+    <button class="dr-x" onclick="closeDrawer()"><svg width="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="dr-b" id="drBody">
+    <div class="rail" id="rail">
+      <div class="st done"><div class="c">✓</div><div class="lab">Suggested</div></div>
+      <div class="st active"><div class="c">2</div><div class="lab">Draft</div></div>
+      <div class="st"><div class="c">3</div><div class="lab">Edit</div></div>
+      <div class="st"><div class="c">4</div><div class="lab">Approve</div></div>
+      <div class="st"><div class="c">5</div><div class="lab">Send · HubSpot</div></div>
+    </div>
+
+    <div id="drForm">
+      <div class="field-l">To</div>
+      <input class="inp" id="drTo" value="Dana Cole &lt;dana.cole@northwind.com&gt;">
+      <div class="field-l">Subject <span class="ai">AI</span></div>
+      <input class="inp" id="drSubj" value="Re: Analytics platform — locking in EU data residency">
+      <div class="field-l">Body <span class="ai">drafted from signals</span></div>
+      <textarea class="inp" id="drBodyTxt" rows="9">Hi Dana,
+
+Great speaking last week. I know Sara flagged EU data residency as a gate before you go further — so I want to put that to bed.
+
+Our platform runs fully in-region: your data never leaves the EU, and residency is built in rather than a paid add-on. I've attached a short security & residency one-pager you can forward to Sara, and I'm happy to set up a 20-min review with our security lead.
+
+Would Thursday after the technical eval work to loop Raj in as well?
+
+Best,
+Priya</textarea>
+
+      <div class="jury">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M10 18h4"/></svg>
+        <div><b>Dual-model jury · cleared to send.</b> Both models agreed this addresses the blocking residency signal and is on-brand. Grounded in the May 30 transcript.</div>
+      </div>
+    </div>
+
+    <!-- sent confirmation -->
+    <div class="sent-ok" id="drSent">
+      <div class="big"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg></div>
+      <h3>Sent via HubSpot</h3>
+      <p>Logged as an engagement on deal #4821. The reply will land as a new signal and recompute this deal's NBA automatically.</p>
+      <div class="track-row"><svg width="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><div><b>Tracking on.</b> Opens &amp; replies sync from HubSpot → CONTEXT → next NBA.</div></div>
+    </div>
+  </div>
+  <div class="dr-f" id="drFoot">
+    <div class="note">Approve gate — nothing sends until you click.</div>
+    <button class="btn btn-ghost" onclick="closeDrawer()">Dismiss</button>
+    <button class="btn btn-pri" id="drApprove" onclick="approve()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>Approve &amp; send</button>
+  </div>
+</aside>
+
+<!-- SLACK -->
+<button class="slackbtn" onclick="toggleSlack()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 15a2 2 0 1 1-2-2h2zm1 0a2 2 0 0 1 4 0v5a2 2 0 0 1-4 0zM9 6a2 2 0 1 1 2-2v2zm0 1a2 2 0 0 1 0 4H4a2 2 0 0 1 0-4zM18 9a2 2 0 1 1 2 2h-2zm-1 0a2 2 0 0 1-4 0V4a2 2 0 0 1 4 0zM15 18a2 2 0 1 1-2 2v-2zm0-1a2 2 0 0 1 0-4h5a2 2 0 0 1 0 4z"/></svg>Clarwiz in Slack</button>
+<div class="slackpanel" id="slackpanel">
+  <div class="sp-h"><svg width="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 15a2 2 0 1 1-2-2h2zm1 0a2 2 0 0 1 4 0v5a2 2 0 0 1-4 0z"/></svg>#deals · Clarwiz</div>
+  <div class="sp-b">
+    <div class="sl-msg"><span class="u">Priya</span> <span class="muted">9:42</span><br><span class="sl-cmd">/clarwiz deal Northwind Traders</span></div>
+    <div class="sl-msg"><span class="u" style="color:var(--accent-ink)">Clarwiz</span> <span class="muted">9:42</span>
+      <div class="sl-card" style="margin-top:6px"><div class="slt">⚡ Top NBA · Northwind Traders</div><div class="slw">Follow up on the data-residency concern (send_email · 92). Grounded in the May 30 transcript.</div>
+        <div class="sl-btns"><button class="btn btn-pri btn-sm" onclick="toast('Approved from Slack → sending via HubSpot','ok');toggleSlack()">Approve &amp; send</button><button class="btn btn-ghost btn-sm" onclick="toast('Opening editor…','info')">Edit</button></div>
+      </div>
+    </div>
+    <div class="sl-msg muted" style="font-size:11px">Approve gate applies in Slack too — your click sends it.</div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+  function nav(el){
+    document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('active'));
+    el.classList.add('active');
+    const s=el.dataset.screen;
+    document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+    document.getElementById('screen-'+s).classList.add('active');
+    const titles={dashboard:'Operator Dashboard',deal:'Deal Insights',company:'Company Insights',collateral:'Collateral'};
+    document.getElementById('pageTitle').textContent=titles[s]||'Clarwiz';
+    window.scrollTo(0,0);
+  }
+  function dim(el,id){
+    el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('#screen-deal .dimpanel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('dim-'+id).classList.add('active');
+  }
+  function cdim(el,id){
+    el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('#screen-company .dimpanel').forEach(p=>{p.classList.remove('active');p.style.display='none';});
+    const t=document.getElementById(id); t.classList.add('active'); t.style.display='block';
+  }
+
+  // drawer
+  const actions={
+    '1':{ico:'mail',title:'Follow up on data-residency',sub:'send_email · external · AE owns the send',btn:'Approve &amp; send'},
+    '2':{ico:'doc',title:'Send the security battlecard',sub:'send_sales_collateral · external · approve to send',btn:'Approve &amp; send'},
+    '3':{ico:'cal',title:'Prep brief — Thursday eval call',sub:'prep_meeting · internal · no send',btn:'Save brief'},
+    'combo':{ico:'mail',title:'Composed: residency + battlecard',sub:'send_email · external · two actions combined',btn:'Approve &amp; send'}
+  };
+  function openDrawer(id){
+    const a=actions[id]||actions['1'];
+    document.getElementById('drTitle').innerHTML=a.title;
+    document.getElementById('drSub').innerHTML=a.sub;
+    document.getElementById('drApprove').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>'+a.btn;
+    // reset rail/state
+    resetRail();
+    document.getElementById('drForm').style.display='block';
+    document.getElementById('drSent').style.display='none';
+    document.getElementById('drFoot').style.display='flex';
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('drawer').classList.add('show');
+  }
+  function closeDrawer(){document.getElementById('overlay').classList.remove('show');document.getElementById('drawer').classList.remove('show');}
+  function resetRail(){
+    const sts=document.querySelectorAll('#rail .st');
+    sts.forEach((s,i)=>{s.classList.remove('done','active');if(i===0)s.classList.add('done');if(i===1)s.classList.add('active');});
+  }
+  function approve(){
+    const sts=document.querySelectorAll('#rail .st');
+    // mark edit + approve done, animate to send
+    sts[1].classList.remove('active');sts[1].classList.add('done');
+    sts[2].classList.add('done');
+    sts[3].classList.add('done');
+    sts[4].classList.add('active');
+    document.getElementById('drApprove').innerHTML='<div class="spin" style="border-color:rgba(255,255,255,.4);border-top-color:#fff"></div> Sending…';
+    setTimeout(()=>{
+      sts[4].classList.remove('active');sts[4].classList.add('done');
+      document.getElementById('drForm').style.display='none';
+      document.getElementById('drSent').style.display='flex';
+      document.getElementById('drFoot').style.display='none';
+      toast('Sent via HubSpot · engagement logged','ok');
+    },1100);
+  }
+
+  // collateral
+  function pickPath(p){
+    document.getElementById('pick-A').classList.toggle('sel',p==='A');
+    document.getElementById('pick-B').classList.toggle('sel',p==='B');
+    const pipe=document.getElementById('pipe'),ed=document.getElementById('editor');
+    document.getElementById('docKind').textContent = p==='A'?'One-pager':'Battlecard';
+    if(p==='A'){
+      pipe.classList.remove('show');
+      ed.classList.add('show');
+      toast('Path A — rendered instantly from the brand template','ok');
+    }else{
+      ed.classList.remove('show');
+      pipe.classList.add('show');
+      runPipe();
+    }
+  }
+  function runPipe(){
+    const steps=document.querySelectorAll('#pipeSteps .pstep');
+    steps.forEach(s=>s.classList.remove('done','run'));
+    document.getElementById('pipeSpin').style.display='block';
+    document.getElementById('pipeTitle').textContent='Generating sales battlecard…';
+    let i=0;
+    const tick=()=>{
+      if(i>0)steps[i-1].classList.remove('run'),steps[i-1].classList.add('done');
+      if(i<steps.length){steps[i].classList.add('run');i++;setTimeout(tick,430);}
+      else{
+        document.getElementById('pipeSpin').style.display='none';
+        document.getElementById('pipeTitle').textContent='Battlecard ready · jury QC passed (0.91)';
+        document.getElementById('pipeSub').textContent='3 versions · chat-enrich to refine';
+        setTimeout(()=>{document.getElementById('pipe').classList.remove('show');document.getElementById('editor').classList.add('show');toast('Sales collateral assembled','ok');},650);
+      }
+    };
+    tick();
+  }
+  function selVer(el,v){
+    el.closest('.ed-ver').querySelectorAll('.ver').forEach(x=>x.classList.remove('sel'));
+    el.classList.add('sel');
+    const extra=v>=3;
+    document.getElementById('docExtra').style.display=extra?'block':'none';
+    document.getElementById('docExtraP').style.display=extra?'block':'none';
+    document.getElementById('docH').textContent = v===1?'Our analytics platform — overview':'Why analytics teams choose us over the incumbent';
+  }
+  function chatEnrich(){
+    const inp=document.getElementById('edInput');if(!inp.value.trim())return;
+    const box=document.getElementById('edMsgs');
+    box.insertAdjacentHTML('beforeend','<div class="msg me">'+inp.value+'</div>');
+    inp.value='';box.scrollTop=box.scrollHeight;
+    setTimeout(()=>{box.insertAdjacentHTML('beforeend','<div class="msg ai">Updated the draft and saved a new version. Re-ran QC with the jury — looks good.</div>');box.scrollTop=box.scrollHeight;toast('Re-enriched · new version saved','ok');},700);
+  }
+
+  function toggleSlack(){document.getElementById('slackpanel').classList.toggle('show');}
+
+  function toast(msg,kind){
+    const wrap=document.getElementById('toasts');
+    const ic = kind==='ok'?'<svg class="ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>':'<svg class="info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5"/><circle cx="12" cy="16" r=".5"/><circle cx="12" cy="12" r="9"/></svg>';
+    const t=document.createElement('div');t.className='toast';t.innerHTML=ic+'<span>'+msg+'</span>';
+    wrap.appendChild(t);
+    setTimeout(()=>{t.style.opacity='0';t.style.transform='translateY(8px)';t.style.transition='.3s';setTimeout(()=>t.remove(),300);},2600);
+  }
+</script>
+</body>
+</html>

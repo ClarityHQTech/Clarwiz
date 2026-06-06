@@ -7,7 +7,7 @@ const TABS = [
   ["/mofu", "Deals"],
   ["/mofu/companies", "Companies"],
   ["/mofu/contacts", "Contacts"],
-  ["/mofu/marketing", "Marketing"],
+  ["/mofu/collateral", "Collateral"],
 ];
 
 export default function MofuTabs() {
