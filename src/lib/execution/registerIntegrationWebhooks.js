@@ -51,24 +51,22 @@ export async function registerWebhookForProvider(
     }
 
     try {
-      const providerId = await ensureSmartleadWebhookForTenant({
+      const outcome = await ensureSmartleadWebhookForTenant({
         integrationWebhook: wh,
         force,
       });
 
-      if (!providerId) {
+      if (!outcome.ok || !outcome.providerId) {
         await prisma.integrationWebhook.update({
           where: { id: wh.id },
           data: {
-            lastError:
-              "Could not connect email event tracking — webhook may already exist in Smartlead under a different URL. Try Connect webhook again.",
+            lastError: outcome.error ?? "Could not connect email event tracking",
           },
         });
         return {
           provider,
           ok: false,
-          error:
-            "Could not connect email event tracking. If the webhook already exists in Smartlead, click Connect webhook again.",
+          error: outcome.error ?? "Could not connect email event tracking",
           manualSetupRequired: false,
         };
       }
@@ -77,7 +75,7 @@ export async function registerWebhookForProvider(
         where: { id: wh.id },
         data: {
           status: "connected",
-          providerWebhookId: String(providerId),
+          providerWebhookId: String(outcome.providerId),
           webhookUrl,
           lastError: null,
           eventsSubscribed: [
@@ -92,10 +90,7 @@ export async function registerWebhookForProvider(
       return {
         provider,
         ok: true,
-        message:
-          wh.providerWebhookId && wh.providerWebhookId !== String(providerId)
-            ? "Email event tracking connected"
-            : needsRefreshMessage(wh, force),
+        message: needsRefreshMessage(wh, force),
       };
     } catch (err) {
       await prisma.integrationWebhook.update({
@@ -105,7 +100,9 @@ export async function registerWebhookForProvider(
       return {
         provider,
         ok: false,
-        error: "Could not connect email event tracking",
+        error: err.message?.includes("Plan expired")
+          ? "Smartlead API plan expired — renew your Smartlead subscription to register webhooks"
+          : err.message || "Could not connect email event tracking",
         manualSetupRequired: false,
       };
     }
