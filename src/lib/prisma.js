@@ -8,7 +8,7 @@ function createPrismaClient() {
 
 // In dev, Next.js keeps a hot-reloaded Prisma singleton that can go stale after
 // `prisma migrate` / `prisma generate`. Bump this when Prospect schema changes.
-const PRISMA_DEV_CACHE_KEY = "prisma_v6_external_api_keys";
+const PRISMA_DEV_CACHE_KEY = "prisma_v7_mofu_foundation";
 
 export const prisma =
   process.env.NODE_ENV === "production"
