@@ -1,0 +1,174 @@
+/* MOFU UI — ported from the design mockup, recolored to the Clarwiz palette.
+   All rules are scoped under .mofu so nothing leaks into TOFU surfaces. */
+.mofu {
+  --surface: #fffdf6; --surface-2: #f2ead7; --surface-3: #faf5ea;
+  --border: #e6dac3; --border-2: #cdbb9c;
+  --text: #1a1410; --text-2: #6b5c4e; --text-3: #9a8d7c;
+  --accent: #bf8a6f; --accent-2: #cfa088; --accent-soft: #f3e7da; --accent-ink: #9a6244;
+  --green: #7e8f6e; --green-soft: #e9eee1; --amber: #c2962f; --amber-soft: #f6ecd2;
+  --red: #c0726a; --red-soft: #f4e3e0; --blue: #7f9597; --blue-soft: #e7edec;
+  --hubspot: #ff7a59; --hubspot-soft: #fff0eb;
+  --r: 12px; --r-sm: 8px;
+  --sh: 0 1px 2px rgba(40,30,20,.04), 0 4px 16px rgba(40,30,20,.05);
+  --sh-lg: 0 8px 30px rgba(40,30,20,.14);
+  color: var(--text);
+}
+.mofu .spacer { flex: 1; }
+.mofu .muted { color: var(--text-3); font-size: 12px; }
+.mofu .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.mofu .page-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+.mofu .page-head .pt { font-size: 20px; font-weight: 750; letter-spacing: -.2px; }
+.mofu .page-head .ps { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.mofu .crumb { color: var(--text-3); font-weight: 500; }
+
+.mofu .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--sh); }
+.mofu .card-h { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.mofu .card-h .t { font-weight: 700; font-size: 14px; }
+.mofu .card-h .s { color: var(--text-3); font-size: 12px; font-weight: 500; }
+.mofu .card-b { padding: 16px; }
+.mofu .grid { display: grid; gap: 16px; }
+.mofu .cap-note { font-size: 11.5px; color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mofu .cap-note .tag { background: var(--accent-soft); color: var(--accent-ink); padding: 1px 7px; border-radius: 6px; font-weight: 600; font-size: 10.5px; }
+
+.mofu .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 18px; }
+.mofu .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 15px 16px; box-shadow: var(--sh); }
+.mofu .kpi .v { font-size: 26px; font-weight: 780; letter-spacing: -.5px; }
+.mofu .kpi .l { font-size: 12px; color: var(--text-2); margin-top: 2px; font-weight: 500; }
+.mofu .kpi .d { font-size: 11px; margin-top: 8px; font-weight: 600; }
+.mofu .kpi.alert { border-color: #e7c9c4; background: linear-gradient(180deg, var(--surface), #fbf2f0); }
+
+.mofu table { width: 100%; border-collapse: collapse; }
+.mofu thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.mofu tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+.mofu tbody tr:last-child td { border-bottom: none; }
+.mofu tbody tr:hover { background: var(--surface-3); }
+.mofu .deal-cell { display: flex; flex-direction: column; }
+.mofu .deal-cell b { font-weight: 650; }
+.mofu .deal-cell span { font-size: 11.5px; color: var(--text-3); }
+
+.mofu .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 7px; font-size: 11.5px; font-weight: 650; }
+.mofu .badge.green { background: var(--green-soft); color: #566048; }
+.mofu .badge.amber { background: var(--amber-soft); color: #8a6a12; }
+.mofu .badge.red { background: var(--red-soft); color: #9a4a44; }
+.mofu .badge.blue { background: var(--blue-soft); color: #4c6264; }
+.mofu .badge.gray { background: var(--surface-2); color: var(--text-2); }
+.mofu .badge.violet { background: var(--accent-soft); color: var(--accent-ink); }
+.mofu .stagebar { display: flex; align-items: center; gap: 5px; }
+.mofu .stagebar i { width: 18px; height: 5px; border-radius: 3px; background: var(--border-2); }
+.mofu .stagebar i.on { background: var(--accent); }
+
+.mofu .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 14px; border-radius: 9px; font-weight: 650; font-size: 13px; transition: .12s; border: 1px solid transparent; white-space: nowrap; cursor: pointer; }
+.mofu .btn:disabled { opacity: .5; cursor: default; }
+.mofu .btn svg { width: 15px; height: 15px; }
+.mofu .btn-pri { background: var(--accent); color: #fff; }
+.mofu .btn-pri:hover:not(:disabled) { background: var(--accent-ink); }
+.mofu .btn-ghost { background: var(--surface); border-color: var(--border-2); color: var(--text); }
+.mofu .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+.mofu .btn-soft { background: var(--accent-soft); color: var(--accent-ink); }
+.mofu .btn-soft:hover:not(:disabled) { background: #ecdcca; }
+.mofu .btn-sm { padding: 6px 11px; font-size: 12px; border-radius: 8px; }
+.mofu .btn-gated { background: var(--surface-2); color: var(--text-2); border: 1px dashed var(--border-2); }
+.mofu .btn-block { width: 100%; }
+
+.mofu .feed { display: flex; flex-direction: column; }
+.mofu .feed-i { display: flex; gap: 12px; padding: 11px 4px; border-bottom: 1px solid var(--border); }
+.mofu .feed-i:last-child { border-bottom: none; }
+.mofu .feed-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; font-size: 13px; }
+.mofu .fi-sig { background: var(--blue-soft); color: var(--blue); }
+.mofu .fi-nba { background: var(--accent-soft); color: var(--accent); }
+.mofu .fi-exec { background: var(--green-soft); color: var(--green); }
+.mofu .fi-fail { background: var(--red-soft); color: var(--red); }
+.mofu .fi-bundle { background: #efe6f7; color: #8a6db0; }
+.mofu .feed-i .ft { font-size: 13px; }
+.mofu .feed-i .ft b { font-weight: 650; }
+.mofu .feed-i .fm { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+.mofu .feed-i .fr { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.mofu .feed-i .time { font-size: 11px; color: var(--text-3); white-space: nowrap; }
+
+.mofu .di-head { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--sh); padding: 16px 18px; margin-bottom: 16px; }
+.mofu .di-top { display: flex; align-items: flex-start; gap: 14px; }
+.mofu .di-top .name { font-size: 18px; font-weight: 750; }
+.mofu .di-top .sub { color: var(--text-2); font-size: 12.5px; margin-top: 3px; display: flex; gap: 14px; flex-wrap: wrap; }
+.mofu .di-meta { margin-left: auto; display: flex; gap: 22px; text-align: right; }
+.mofu .di-meta .mv { font-size: 17px; font-weight: 750; }
+.mofu .di-meta .ml { font-size: 11px; color: var(--text-3); }
+.mofu .conf { display: flex; align-items: center; gap: 8px; }
+.mofu .conf .ring { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; }
+.mofu .conf .ring i { width: 28px; height: 28px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 11px; font-weight: 750; font-style: normal; }
+
+.mofu .di-layout { display: grid; grid-template-columns: 1fr 384px; gap: 16px; align-items: start; }
+.mofu .tabs { display: flex; gap: 3px; border-bottom: 1px solid var(--border); padding: 0 6px; overflow-x: auto; }
+.mofu .tab { padding: 11px 13px; font-size: 13px; font-weight: 600; color: var(--text-2); border-bottom: 2px solid transparent; white-space: nowrap; transition: .12s; background: none; border-top: none; border-left: none; border-right: none; cursor: pointer; }
+.mofu .tab:hover { color: var(--text); }
+.mofu .tab.active { color: var(--accent-ink); border-bottom-color: var(--accent); }
+.mofu .tab .n { font-size: 10px; background: var(--surface-2); padding: 0 6px; border-radius: 10px; margin-left: 5px; color: var(--text-3); }
+.mofu .dimpanel { padding: 18px; }
+.mofu .dim-row { display: flex; gap: 12px; margin-bottom: 14px; }
+.mofu .dim-ico { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex-shrink: 0; font-weight: 700; }
+.mofu .dim-row h4 { font-size: 13.5px; font-weight: 700; margin-bottom: 2px; }
+.mofu .dim-row p { font-size: 12.5px; color: var(--text-2); }
+
+.mofu .person { display: flex; align-items: center; gap: 11px; padding: 11px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 9px; }
+.mofu .person .pa { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; flex-shrink: 0; background: var(--accent); }
+.mofu .person .pn { font-weight: 650; font-size: 13px; }
+.mofu .person .pr { font-size: 11.5px; color: var(--text-3); }
+.mofu .person .pright { margin-left: auto; text-align: right; }
+
+.mofu .risk { display: flex; gap: 11px; padding: 11px; border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 9px; margin-bottom: 9px; }
+.mofu .risk h4 { font-size: 13px; font-weight: 700; }
+.mofu .risk p { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
+.mofu .nba-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--sh); position: sticky; top: 16px; }
+.mofu .nba-h { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 9px; }
+.mofu .nba-h .t { font-weight: 750; font-size: 14px; }
+.mofu .nba-h .badge { margin-left: auto; }
+.mofu .nba-list { padding: 12px; display: flex; flex-direction: column; gap: 11px; }
+.mofu .nba { border: 1px solid var(--border); border-radius: 11px; padding: 12px; transition: .12s; background: var(--surface); }
+.mofu .nba:hover { border-color: var(--accent-2); box-shadow: 0 3px 12px rgba(191,138,111,.12); }
+.mofu .nba.gated { background: var(--surface-3); border-style: dashed; }
+.mofu .nba-top { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+.mofu .nba-ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.mofu .nba-ico.int { background: var(--blue-soft); color: var(--blue); }
+.mofu .nba .rank { font-size: 10.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .4px; }
+.mofu .nba .ti { font-weight: 680; font-size: 13.5px; line-height: 1.35; }
+.mofu .nba .why { font-size: 12px; color: var(--text-2); margin: 7px 0 9px; }
+.mofu .nba-meta { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-wrap: wrap; }
+.mofu .chip { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 6px; background: var(--surface-2); color: var(--text-2); display: inline-flex; gap: 4px; align-items: center; }
+.mofu .chip.sig { background: var(--blue-soft); color: #4c6264; }
+.mofu .score { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: var(--accent-ink); }
+.mofu .score .sb { width: 34px; height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.mofu .score .sb i { display: block; height: 100%; background: var(--accent); }
+.mofu .nba-act { display: flex; gap: 7px; }
+
+/* drawer */
+.mofu-overlay { position: fixed; inset: 0; background: rgba(26,20,16,.42); opacity: 0; visibility: hidden; transition: .2s; z-index: 60; }
+.mofu-overlay.show { opacity: 1; visibility: visible; }
+.mofu-drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 560px; max-width: 94vw; background: var(--surface, #fffdf6); box-shadow: var(--sh-lg, 0 8px 30px rgba(40,30,20,.14)); transform: translateX(100%); transition: .28s cubic-bezier(.4,0,.2,1); z-index: 61; display: flex; flex-direction: column; color: #1a1410; }
+.mofu-drawer.show { transform: none; }
+.mofu-drawer .dr-h { padding: 16px 20px; border-bottom: 1px solid #e6dac3; display: flex; align-items: center; gap: 11px; }
+.mofu-drawer .dr-h .ico { width: 34px; height: 34px; border-radius: 9px; background: #f3e7da; color: #bf8a6f; display: grid; place-items: center; }
+.mofu-drawer .dr-h .ti { font-weight: 720; font-size: 15px; }
+.mofu-drawer .dr-h .su { font-size: 12px; color: #9a8d7c; }
+.mofu-drawer .dr-x { margin-left: auto; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: #6b5c4e; background: none; border: none; cursor: pointer; }
+.mofu-drawer .dr-b { padding: 18px 20px; overflow-y: auto; flex: 1; }
+.mofu-drawer .rail { display: flex; align-items: center; margin-bottom: 18px; }
+.mofu-drawer .rail .st { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; position: relative; }
+.mofu-drawer .rail .st .c { width: 26px; height: 26px; border-radius: 50%; background: #f2ead7; color: #9a8d7c; display: grid; place-items: center; font-size: 12px; font-weight: 700; border: 2px solid #e6dac3; z-index: 2; }
+.mofu-drawer .rail .st .lab { font-size: 10.5px; color: #9a8d7c; font-weight: 600; text-align: center; }
+.mofu-drawer .rail .st:not(:last-child):after { content: ""; position: absolute; top: 13px; left: 50%; width: 100%; height: 2px; background: #e6dac3; }
+.mofu-drawer .rail .st.done .c { background: #7e8f6e; color: #fff; border-color: #7e8f6e; }
+.mofu-drawer .rail .st.done:after { background: #7e8f6e; }
+.mofu-drawer .rail .st.active .c { background: #bf8a6f; color: #fff; border-color: #bf8a6f; box-shadow: 0 0 0 4px #f3e7da; }
+.mofu-drawer .field-l { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #9a8d7c; margin: 14px 0 6px; display: flex; gap: 8px; align-items: center; }
+.mofu-drawer .field-l .ai { background: linear-gradient(135deg, #bf8a6f, #cfa088); color: #fff; font-size: 9px; padding: 1px 6px; border-radius: 5px; }
+.mofu-drawer .inp { width: 100%; border: 1px solid #cdbb9c; border-radius: 9px; padding: 10px 12px; font-size: 13px; font-family: inherit; color: #1a1410; background: #faf5ea; }
+.mofu-drawer textarea.inp { resize: vertical; line-height: 1.55; }
+.mofu-drawer .jury { display: flex; gap: 8px; background: #faf5ea; border: 1px solid #e6dac3; border-radius: 10px; padding: 10px 12px; font-size: 12px; margin-top: 12px; }
+.mofu-drawer .dr-f { padding: 14px 20px; border-top: 1px solid #e6dac3; display: flex; gap: 10px; align-items: center; background: #faf5ea; }
+.mofu-drawer .dr-f .note { font-size: 11px; color: #9a8d7c; flex: 1; }
+
+@media (max-width: 1100px) {
+  .mofu .kpis { grid-template-columns: repeat(2, 1fr); }
+  .mofu .di-layout { grid-template-columns: 1fr; }
+}
