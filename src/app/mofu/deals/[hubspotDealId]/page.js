@@ -43,6 +43,8 @@ const Page = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("overview");
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +78,22 @@ const Page = () => {
   };
 
   const suggestNow = () => act(`/api/mofu/deals/${hubspotDealId}/recompute`, null, "Recomputed NBA");
+
+  const startEdit = (c) => {
+    const companyName = data?.company?.name;
+    const companySummary = data?.companyInsight?.executiveSummary?.summary;
+    const ctx = companyName
+      ? `\n\n[Company context] ${companyName}${companySummary ? `: ${companySummary}` : ""}`
+      : "";
+    const base = c.payload?.draft?.body ?? c.payload?.rationale ?? c.title;
+    setEditText(`${base}${ctx}`);
+    setEditingId(c.id);
+  };
+
+  const saveEdit = async (c) => {
+    await act(`/api/mofu/recommendations/${c.id}/draft`, { edits: { subject: c.title, body: editText } }, "Saved edited draft");
+    setEditingId(null);
+  };
 
   if (loading) {
     return (
@@ -215,6 +233,13 @@ const Page = () => {
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => (editingId === c.id ? setEditingId(null) : startEdit(c))}
+                      disabled={busy}
+                      className="rounded-md px-2.5 py-1 text-xs border border-brand-secondary/40 hover:bg-brand-sage/15 disabled:opacity-50"
+                    >
+                      {editingId === c.id ? "Cancel" : "Edit"}
+                    </button>
                     {!c.gate?.executable ? (
                       <span className="text-xs text-brand-steel">{c.gate?.cta}</span>
                     ) : (
@@ -244,6 +269,23 @@ const Page = () => {
                     )}
                   </div>
                 </div>
+                {editingId === c.id && (
+                  <div className="mt-2 space-y-2">
+                    <textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={5}
+                      className="w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm bg-white"
+                    />
+                    <button
+                      onClick={() => saveEdit(c)}
+                      disabled={busy}
+                      className="rounded-md px-3 py-1.5 text-xs bg-brand-ink text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      Save edited draft
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}

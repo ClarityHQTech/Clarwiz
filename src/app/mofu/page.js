@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import MofuTabs from "@/components/mofu/MofuTabs";
 import { ui } from "@/lib/brandUi";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -87,6 +88,8 @@ const Page = () => {
           </Link>
         </div>
       </div>
+
+      <MofuTabs />
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {[
