@@ -180,6 +180,7 @@ export const hubspotAdapter = {
         hs_email_subject: subject,
         hs_email_text: body,
         hs_email_direction: "EMAIL",
+        hs_email_status: "SENT",
         hs_timestamp: Date.now(),
       };
       if (toEmail) properties.hs_email_to_email = toEmail;
@@ -225,7 +226,7 @@ export const hubspotAdapter = {
     }
   },
 
-  async createNote(tenantId, { dealId, body }, deps = {}) {
+  async createNote(tenantId, { dealId, body, contactId }, deps = {}) {
     const t = await resolveToken(tenantId, deps);
     if (!t.ok) return t;
     try {
@@ -236,6 +237,12 @@ export const hubspotAdapter = {
         dealId,
         fetchImpl: deps.fetchImpl,
       });
+      if (contactId) {
+        await hubspotFetch(
+          `/crm/v4/objects/notes/${created.id}/associations/default/contacts/${contactId}`,
+          { accessToken: t.accessToken, method: "PUT", fetchImpl: deps.fetchImpl }
+        ).catch(() => {});
+      }
       return { ok: true, engagementId: created.id };
     } catch (err) {
       return { ok: false, reason: err.code || "hubspot_error", status: err.status };

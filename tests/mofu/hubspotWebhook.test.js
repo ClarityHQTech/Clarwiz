@@ -38,4 +38,19 @@ describe("hubspot webhook (US-13.1)", () => {
     expect(out.results[0]).toMatchObject({ skipped: true, reason: "deal_not_tracked", unlinked: true });
     expect(out.results[1]).toMatchObject({ skipped: true, reason: "unmappable" });
   });
+
+  it("contact change refreshes affected deals' cache + recomputes (US-3c)", async () => {
+    const prisma = {
+      deal: { findMany: vi.fn(async () => [{ id: "deal_1", hubspotDealId: "d1", context: { data: { cached: { contacts: [{ id: "c1" }] } } } }]) },
+      dealContext: { updateMany: vi.fn(async () => ({ count: 1 })) },
+    };
+    const recompute = vi.fn(async () => ({ ok: true }));
+    const out = await handleHubSpotWebhook(
+      { tenantId: "t1", events: [{ subscriptionType: "contact.propertyChange", objectId: "c1" }] },
+      { prisma, ingestSignal: vi.fn(), recompute }
+    );
+    expect(out.results[0]).toMatchObject({ contactEvent: true, affected: 1 });
+    expect(prisma.dealContext.updateMany).toHaveBeenCalled();
+    expect(recompute).toHaveBeenCalledTimes(1);
+  });
 });

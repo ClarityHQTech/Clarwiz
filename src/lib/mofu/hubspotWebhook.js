@@ -24,6 +24,24 @@ export async function handleHubSpotWebhook({ tenantId, events = [] }, deps = {})
   const recomputed = new Set();
 
   for (const ev of events) {
+    // Contact changes: refresh the affected deals' cached contacts + recompute.
+    const subType = String(ev?.subscriptionType || "").toLowerCase();
+    if (subType.startsWith("contact.")) {
+      const contactId = String(ev?.objectId ?? "");
+      const deals = await prisma.deal.findMany({ where: { tenantId }, include: { context: true } });
+      const affected = deals.filter((d) => (d.context?.data?.cached?.contacts ?? []).some((c) => String(c.id) === contactId));
+      for (const d of affected) {
+        // Force the next hydrate to re-pull associations (mark cache stale).
+        await prisma.dealContext.updateMany({ where: { dealId: d.id }, data: { lastSyncedAt: new Date(0) } });
+        if (deps.recompute && !recomputed.has(d.id)) {
+          recomputed.add(d.id);
+          await deps.recompute({ tenantId, hubspotDealId: d.hubspotDealId }).catch(() => {});
+        }
+      }
+      results.push({ ok: true, contactEvent: true, contactId, affected: affected.length });
+      continue;
+    }
+
     const kind = mapEventKind(ev);
     const hubspotDealId = String(ev?.objectId ?? ev?.dealId ?? "");
     if (!kind || !hubspotDealId) {

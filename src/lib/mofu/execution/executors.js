@@ -6,22 +6,31 @@ import { getAppBaseUrl } from "@/lib/cronAuth";
 
 // Each closed action type maps to exactly one executor. Outbound sends go through
 // HubSpot; PREP_MEETING is an internal brief; CALL_WITH_SCRIPT is script-only (D5).
+// Log an email engagement; fall back to a Note (works without the email-engagement
+// scope) when logEmail fails — either way the outreach lands in HubSpot, on the contact.
+async function sendEmailOrNote(adapter, tenantId, { dealId, subject, body, recipient }, deps) {
+  const r = await adapter.logEmail(
+    tenantId,
+    { dealId, subject, body, contactId: recipient?.id, toEmail: recipient?.email },
+    deps.adapterDeps
+  );
+  if (r.ok) return { ok: true, engagementId: r.engagementId, recipient: recipient ?? null };
+  const noteBody = `Email${recipient?.name ? ` to ${recipient.name}` : ""}${recipient?.email ? ` <${recipient.email}>` : ""}\nSubject: ${subject ?? ""}\n\n${body ?? ""}`;
+  const n = await adapter.createNote(tenantId, { dealId, body: noteBody, contactId: recipient?.id }, deps.adapterDeps);
+  if (n.ok) return { ok: true, engagementId: n.engagementId, recipient: recipient ?? null, loggedAs: "note" };
+  return { ok: false, reason: r.reason };
+}
+
 export async function runExecutor({ actionType, tenantId, deal, draft = {} }, deps = {}) {
   const adapter = deps.adapter ?? getSorAdapter();
   const dealId = deal?.hubspotDealId;
 
   switch (actionType) {
-    case "SEND_EMAIL": {
-      const r = await adapter.logEmail(
-        tenantId,
-        { dealId, subject: draft.subject ?? deal?.name ?? "Follow up", body: draft.body ?? "", contactId: draft.recipient?.id, toEmail: draft.recipient?.email },
-        deps.adapterDeps
-      );
-      return r.ok ? { ok: true, engagementId: r.engagementId, recipient: draft.recipient ?? null } : { ok: false, reason: r.reason };
-    }
+    case "SEND_EMAIL":
+      return sendEmailOrNote(adapter, tenantId, { dealId, subject: draft.subject ?? deal?.name ?? "Follow up", body: draft.body ?? "", recipient: draft.recipient }, deps);
     case "SEND_MARKETING_COLLATERAL":
     case "SEND_SALES_COLLATERAL": {
-      // Ensure a collateral document exists, then attach a link in the email to the recipient.
+      // Ensure a collateral document exists, then attach a link in the message to the recipient.
       const category = actionType === "SEND_SALES_COLLATERAL" ? "sales" : "marketing";
       let docLink = null;
       try {
@@ -34,12 +43,8 @@ export async function runExecutor({ actionType, tenantId, deal, draft = {} }, de
         /* attachment is best-effort */
       }
       const body = (draft.body ?? "") + (docLink ? `\n\nCollateral: ${docLink}` : "");
-      const r = await adapter.logEmail(
-        tenantId,
-        { dealId, subject: draft.subject ?? deal?.name ?? "Resource for you", body, contactId: draft.recipient?.id, toEmail: draft.recipient?.email },
-        deps.adapterDeps
-      );
-      return r.ok ? { ok: true, engagementId: r.engagementId, recipient: draft.recipient ?? null, document: docLink } : { ok: false, reason: r.reason };
+      const res = await sendEmailOrNote(adapter, tenantId, { dealId, subject: draft.subject ?? deal?.name ?? "Resource for you", body, recipient: draft.recipient }, deps);
+      return res.ok ? { ...res, document: docLink } : res;
     }
     case "SCHEDULE_MEETING": {
       const r = await adapter.createMeeting(

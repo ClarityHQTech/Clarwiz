@@ -6,9 +6,9 @@ import { ACTION_REQUIRED_CAPABILITY } from "@/lib/mofu/nbaActions";
 // Fail closed: unknown/not-connected -> capability absent -> "Connect X" CTA.
 
 const CAPABILITY_SCOPE_HINTS = {
-  EMAIL: ["sales-email", "crm.objects.contacts"],
+  EMAIL: ["sales-email", "crm.objects.contacts.write"],
   CALLING: ["calls", "communication_preferences"],
-  MEETING_SCHEDULER: ["meetings", "scheduler"],
+  MEETING_SCHEDULER: ["meetings", "scheduler", "appointments"],
   NOTE_TAKER: ["notes", "calls"],
 };
 

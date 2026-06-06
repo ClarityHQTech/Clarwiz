@@ -180,7 +180,11 @@ const Page = () => {
               <span>HubSpot deal #{deal.hubspotDealId} · live</span>
               <span className="badge amber">{deal.cachedStage || "—"}</span>
               <span className="badge gray">{deal.source}</span>
-              {company && <span className="badge blue">{company.name}</span>}
+              {company && (company.id ? (
+                <Link href={`/mofu/companies/${company.id}`} className="badge blue" style={{ textDecoration: "none" }}>{company.name} ↗</Link>
+              ) : (
+                <span className="badge blue">{company.name}</span>
+              ))}
             </div>
           </div>
           <div className="di-meta">
@@ -271,12 +275,26 @@ const Page = () => {
                 <div>
                   {OUTBOUND.has(drawer.actionType) && (
                     <>
-                      <div className="field-l">To</div>
-                      {recipient ? (
-                        <input className="inp" readOnly value={`${recipient.name}${recipient.email ? ` <${recipient.email}>` : ""}`} />
+                      <div className="field-l">To <span className="ai">pick recipient</span></div>
+                      {contacts.length ? (
+                        <select
+                          className="inp"
+                          value={recipient?.id ?? ""}
+                          onChange={(e) => {
+                            const c = contacts.find((x) => String(x.id) === e.target.value);
+                            const r = c ? { id: c.id, name: c.name, email: c.email } : null;
+                            setRecipient(r);
+                            if (drawer) post(`/api/mofu/recommendations/${drawer.id}/draft`, { edits: { subject, body, recipient: r } });
+                          }}
+                        >
+                          <option value="">— choose a contact —</option>
+                          {contacts.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}{c.email ? ` <${c.email}>` : ""}</option>
+                          ))}
+                        </select>
                       ) : (
                         <div className="jury" style={{ background: "var(--red-soft)", borderColor: "#e7c9c4" }}>
-                          ⚠️ <div>No associated contact on this deal — the email would log without a recipient. Add/associate a contact in HubSpot, then Suggest now.</div>
+                          ⚠️ <div>No associated contact on this deal. Add/associate a contact in HubSpot, then Suggest now.</div>
                         </div>
                       )}
                       <div className="field-l">Subject <span className="ai">AI</span></div>
