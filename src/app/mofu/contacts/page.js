@@ -1,5 +1,6 @@
 "use client";
 
+import "../mofu.css";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import MofuTabs from "@/components/mofu/MofuTabs";
 import { ui } from "@/lib/brandUi";
@@ -36,7 +37,7 @@ const Page = () => {
   }, [load]);
 
   return (
-    <div className={`${ui.page} ${ui.container} max-w-[1100px] space-y-5`}>
+    <div className={`mofu ${ui.page} ${ui.container} max-w-[1100px] space-y-5`}>
       <div>
         <h1 className={ui.title}>Contacts</h1>
         <p className={ui.subtitle}>Stakeholders across your deals, with inferred personas.</p>
