@@ -1,5 +1,6 @@
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { callOpenAIStructured, runJury } from "@/lib/mofu/jury";
+import { redactDeep } from "@/lib/mofu/redact";
 
 // US-3.1 — The Heptapod bundle: executive summary + six dimensions +
 // actionable_recommendations + system_metadata. Same shape for DEAL and COMPANY.
@@ -86,7 +87,13 @@ export async function computeInsightBundle(
   const generate = deps.generate ?? defaultGenerate;
   const jury = deps.jury ?? runJury;
 
-  const gen = await generate({ scope, context, signals, tenantIcp });
+  // G-8: redact PII out of the context/signals before they reach any LLM provider.
+  const gen = await generate({
+    scope,
+    context: redactDeep(context),
+    signals: redactDeep(signals),
+    tenantIcp: redactDeep(tenantIcp),
+  });
   const bundle = gen.data;
 
   let acceptance = null;

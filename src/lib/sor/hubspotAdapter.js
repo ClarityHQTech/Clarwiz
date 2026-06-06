@@ -54,7 +54,36 @@ export const hubspotAdapter = {
   async getDealEngagements(tenantId, hubspotDealId, deps = {}) {
     const t = await resolveToken(tenantId, deps);
     if (!t.ok) return t;
-    return { ok: true, items: [] }; // expanded with engagement search in Phase D
+    const fetchImpl = deps.fetchImpl;
+    const ENG = [
+      { obj: "emails", kind: "EMAIL", props: ["hs_email_subject", "hs_timestamp"], sum: (p) => p.hs_email_subject },
+      { obj: "calls", kind: "CALL_TRANSCRIPT", props: ["hs_call_title", "hs_call_body", "hs_timestamp"], sum: (p) => p.hs_call_title || (p.hs_call_body || "").slice(0, 160) },
+      { obj: "meetings", kind: "MEETING", props: ["hs_meeting_title", "hs_timestamp"], sum: (p) => p.hs_meeting_title },
+      { obj: "notes", kind: "NOTE", props: ["hs_note_body", "hs_timestamp"], sum: (p) => (p.hs_note_body || "").slice(0, 160) },
+    ];
+    const items = [];
+    for (const e of ENG) {
+      try {
+        const assoc = await hubspotFetch(`/crm/v4/objects/deals/${hubspotDealId}/associations/${e.obj}`, { accessToken: t.accessToken, fetchImpl }).catch(() => ({ results: [] }));
+        const ids = (assoc.results || []).map((r) => r.toObjectId).filter(Boolean).slice(0, 10);
+        if (!ids.length) continue;
+        const batch = await hubspotFetch(`/crm/v3/objects/${e.obj}/batch/read`, {
+          accessToken: t.accessToken, method: "POST", body: { properties: e.props, inputs: ids.map((id) => ({ id })) }, fetchImpl,
+        });
+        for (const r of batch.results || []) {
+          const p = r.properties || {};
+          items.push({
+            kind: e.kind,
+            externalId: `${e.obj}:${r.id}`,
+            summary: e.sum(p) || e.kind,
+            occurredAt: p.hs_timestamp ? new Date(Number(p.hs_timestamp) || p.hs_timestamp).toISOString() : null,
+          });
+        }
+      } catch {
+        /* skip this engagement type on error */
+      }
+    }
+    return { ok: true, items };
   },
 
   // Associated company + contacts for a deal (for company/contact-level intelligence).

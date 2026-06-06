@@ -1,5 +1,6 @@
 import { prisma as defaultPrisma } from "@/lib/prisma";
 import { runJury } from "@/lib/mofu/jury";
+import { redactDeep } from "@/lib/mofu/redact";
 import { NBA_ACTION_TYPES, isClosedActionType } from "@/lib/mofu/nbaActions";
 
 // US-4.1 — Deal-centric NBA brain. FORK of the prospect-centric TOFU
@@ -60,7 +61,7 @@ export async function computeNba(
   try {
     ranked = await jury({
       system: RANK_SYSTEM,
-      user: {
+      user: redactDeep({
         candidates,
         signals: signals.map((s) => ({
           id: s.signalReferenceId,
@@ -68,7 +69,7 @@ export async function computeNba(
           score: s.score,
           summary: s.summary,
         })),
-      },
+      }),
       schema: RANK_SCHEMA,
       purpose: "ranking",
       deps: deps.juryDeps,
