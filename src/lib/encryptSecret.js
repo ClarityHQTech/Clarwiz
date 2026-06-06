@@ -9,6 +9,7 @@ const SCRYPT_SALT_SMARTLEAD = "clarwiz-smartlead-email-account-id";
 const SCRYPT_SALT_WHATSAPP = "clarwiz-whatsapp-access-token";
 const SCRYPT_SALT_CALENDLY = "clarwiz-calendly-oauth-token";
 const SCRYPT_SALT_WEBHOOK = "clarwiz-integration-webhook-secret";
+const SCRYPT_SALT_HUBSPOT = "clarwiz-hubspot-oauth-token";
 
 function deriveKey(salt) {
   const secret = process.env.SECRET?.trim();
@@ -113,6 +114,20 @@ export function decryptCalendlyToken(stored) {
     return decryptWithSalt(stored, SCRYPT_SALT_CALENDLY, /^[A-Za-z0-9._-]{20,}$/);
   } catch {
     throw new Error("Failed to decrypt Calendly credential");
+  }
+}
+
+/** Encrypts a HubSpot Private App token or OAuth access/refresh token for storage. */
+export function encryptHubSpotToken(plainText) {
+  return encryptWithSalt(String(plainText), SCRYPT_SALT_HUBSPOT);
+}
+
+/** Decrypts a stored HubSpot credential. Supports legacy plaintext PAT rows. */
+export function decryptHubSpotToken(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_HUBSPOT, /^pat-[a-z0-9-]+$/i);
+  } catch {
+    throw new Error("Failed to decrypt HubSpot credential");
   }
 }
 
