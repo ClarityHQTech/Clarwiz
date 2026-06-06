@@ -88,6 +88,17 @@ const Page = () => {
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
 
+  const toggleAutopilot = async () => {
+    const next = !data?.deal?.autopilot;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/mofu/deals/${hubspotDealId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ autopilot: next }) });
+      if (!res.ok) throw new Error("Toggle failed");
+      toast.success(next ? "Autopilot on — internal actions auto-run" : "Autopilot off");
+      await load();
+    } catch (err) { toast.error(err.message); } finally { setBusy(false); }
+  };
+
   const openDrawer = (c) => {
     const companyName = data?.company?.name;
     const summary = data?.companyInsight?.executiveSummary?.summary;
@@ -146,6 +157,8 @@ const Page = () => {
           <div className="pt" style={{ marginTop: 2 }}>Deal Insights</div>
         </div>
         <div className="spacer" />
+        <Link href={`/mofu/deals/${hubspotDealId}/collateral`} className="btn btn-ghost" style={{ marginRight: 10 }}>Collateral</Link>
+        <button className="btn btn-ghost" onClick={toggleAutopilot} disabled={busy} style={{ marginRight: 10 }}>{deal.autopilot ? "Autopilot ✓" : "Autopilot"}</button>
         <button className="btn btn-ghost" onClick={suggestNow} disabled={busy}>⚡ {busy ? "Working…" : "Suggest now"}</button>
       </div>
 

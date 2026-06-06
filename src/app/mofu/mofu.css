@@ -168,7 +168,49 @@
 .mofu-drawer .dr-f { padding: 14px 20px; border-top: 1px solid #e6dac3; display: flex; gap: 10px; align-items: center; background: #faf5ea; }
 .mofu-drawer .dr-f .note { font-size: 11px; color: #9a8d7c; flex: 1; }
 
+/* collateral */
+.mofu .col-tabs { display: flex; gap: 9px; margin-bottom: 16px; }
+.mofu .col-pick { flex: 1; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 15px; text-align: left; box-shadow: var(--sh); cursor: pointer; }
+.mofu .col-pick:hover { border-color: var(--accent-2); }
+.mofu .col-pick.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mofu .col-pick .ph { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.mofu .col-pick .pico { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; }
+.mofu .col-pick .pa-c { background: var(--green-soft); color: var(--green); }
+.mofu .col-pick .pb-c { background: var(--accent-soft); color: var(--accent); }
+.mofu .col-pick b { font-size: 14px; font-weight: 720; }
+.mofu .col-pick .pt { font-size: 11px; color: var(--text-3); font-weight: 600; }
+.mofu .col-pick p { font-size: 12px; color: var(--text-2); }
+.mofu .pipe { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--sh); padding: 18px; margin-bottom: 16px; }
+.mofu .pipe-h { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.mofu .pipe-steps { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; }
+.mofu .pstep { text-align: center; font-size: 10.5px; font-weight: 600; color: var(--text-3); }
+.mofu .pstep .pc { height: 6px; border-radius: 4px; background: var(--surface-2); margin-bottom: 7px; overflow: hidden; }
+.mofu .pstep .pc i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+.mofu .pstep.done .pc i { width: 100%; }
+.mofu .pstep.done { color: var(--accent-ink); }
+.mofu .spin { width: 15px; height: 15px; border: 2px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: mofu-sp .7s linear infinite; }
+@keyframes mofu-sp { to { transform: rotate(360deg); } }
+.mofu .editor { display: grid; grid-template-columns: 230px 1fr 200px; gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--sh); overflow: hidden; min-height: 540px; }
+.mofu .ed-chat { border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--surface-3); }
+.mofu .ed-chat .ech { padding: 12px 14px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 12.5px; }
+.mofu .ed-msgs { flex: 1; padding: 13px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto; max-height: 420px; }
+.mofu .msg { font-size: 12px; line-height: 1.5; padding: 9px 11px; border-radius: 10px; max-width: 92%; }
+.mofu .msg.ai { background: var(--surface); border: 1px solid var(--border); align-self: flex-start; }
+.mofu .msg.me { background: var(--accent); color: #fff; align-self: flex-end; }
+.mofu .ed-in { padding: 11px; border-top: 1px solid var(--border); display: flex; gap: 7px; }
+.mofu .ed-in input { flex: 1; border: 1px solid var(--border-2); border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: inherit; outline: none; background: var(--surface); }
+.mofu .ed-doc { padding: 16px; background: var(--surface-2); }
+.mofu .paper-frame { width: 100%; height: 520px; border: 1px solid var(--border); border-radius: 6px; background: #fff; box-shadow: 0 4px 20px rgba(40,30,20,.08); }
+.mofu .ed-ver { border-left: 1px solid var(--border); padding: 13px; background: var(--surface-3); }
+.mofu .ed-ver .evh { font-weight: 700; font-size: 12.5px; margin-bottom: 10px; }
+.mofu .ver { border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; margin-bottom: 8px; background: var(--surface); }
+.mofu .ver.sel { border-color: var(--accent); background: var(--accent-soft); }
+.mofu .ver b { font-size: 12px; }
+.mofu .ver .vm { font-size: 10.5px; color: var(--text-3); }
+
 @media (max-width: 1100px) {
   .mofu .kpis { grid-template-columns: repeat(2, 1fr); }
   .mofu .di-layout { grid-template-columns: 1fr; }
+  .mofu .editor { grid-template-columns: 1fr; }
+  .mofu .pipe-steps { grid-template-columns: repeat(4, 1fr); }
 }
