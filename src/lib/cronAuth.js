@@ -24,3 +24,12 @@ export function getAppBaseUrl() {
     "http://localhost:3000";
   return base.startsWith("http") ? base.replace(/\/$/, "") : `https://${base}`;
 }
+
+/**
+ * Autopilot outreach cron (Vercel every-minute job). Requires Pro plan crons in vercel.json.
+ * Set OUTREACH_CRON_ENABLED=true on Vercel when you upgrade; always on in local development.
+ */
+export function isOutreachCronEnabled() {
+  if (process.env.NODE_ENV === "development") return true;
+  return process.env.OUTREACH_CRON_ENABLED?.trim().toLowerCase() === "true";
+}

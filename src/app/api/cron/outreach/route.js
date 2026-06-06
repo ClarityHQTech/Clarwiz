@@ -4,7 +4,7 @@ import {
   runScheduledOutreachForProspect,
   retryCommLogPush,
 } from "@/lib/execution/runCampaignExecution";
-import { isCronRequestAuthorized } from "@/lib/cronAuth";
+import { isCronRequestAuthorized, isOutreachCronEnabled } from "@/lib/cronAuth";
 import { TERMINAL_CONTACT_CAMPAIGN_STATUSES } from "@/lib/contactCampaignStatus";
 
 export async function GET(request) {
@@ -18,6 +18,15 @@ export async function POST(request) {
 async function runOutreachCron(request) {
   if (!isCronRequestAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isOutreachCronEnabled()) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason:
+        "Outreach cron is disabled. Set OUTREACH_CRON_ENABLED=true and add vercel.cron.pro.example.json to vercel.json (Vercel Pro).",
+    });
   }
 
   const now = new Date();
