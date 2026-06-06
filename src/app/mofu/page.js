@@ -19,6 +19,7 @@ function money(amount, currency) {
 const Page = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -32,6 +33,21 @@ const Page = () => {
       setLoading(false);
     }
   }, []);
+
+  const syncDeals = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/mofu/deals/sync", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.reason || "Sync failed");
+      toast.success(`Synced ${json.hydrated}/${json.total} deals from HubSpot`);
+      await fetchData();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSyncing(false);
+    }
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData();
@@ -57,10 +73,19 @@ const Page = () => {
             Next-best-actions for Account Executives across your HubSpot deals.
           </p>
         </div>
-        <Link href="/dashboard" className={`inline-flex items-center gap-1 ${ui.link}`}>
-          TOFU dashboard
-          <HiOutlineArrowRight className="h-4 w-4" />
-        </Link>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={syncDeals}
+            disabled={syncing}
+            className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm bg-brand-ink text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {syncing ? "Syncing…" : "Sync from HubSpot"}
+          </button>
+          <Link href="/dashboard" className={`inline-flex items-center gap-1 ${ui.link}`}>
+            TOFU dashboard
+            <HiOutlineArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">

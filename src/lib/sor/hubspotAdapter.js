@@ -57,6 +57,20 @@ export const hubspotAdapter = {
     return { ok: true, items: [] }; // expanded with engagement search in Phase D
   },
 
+  async listDeals(tenantId, { limit = 100 } = {}, deps = {}) {
+    const t = await resolveToken(tenantId, deps);
+    if (!t.ok) return t;
+    try {
+      const json = await hubspotFetch(
+        `/crm/v3/objects/deals?limit=${limit}&properties=${DEAL_PROPERTIES.join(",")}`,
+        { accessToken: t.accessToken, fetchImpl: deps.fetchImpl }
+      );
+      return { ok: true, deals: (json.results || []).map(mapHubSpotDeal) };
+    } catch (err) {
+      return { ok: false, reason: err.code || "hubspot_error", status: err.status };
+    }
+  },
+
   // ---- writes (executors) ----
   async logEmail(tenantId, { dealId, subject, body }, deps = {}) {
     const t = await resolveToken(tenantId, deps);
