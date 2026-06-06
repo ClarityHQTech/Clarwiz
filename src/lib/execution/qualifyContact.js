@@ -1,5 +1,6 @@
 import { getOpenAIClient } from "@/lib/openaiClient";
 import { getLatestProspectReply } from "@/lib/execution/humanizeOutboundMessage";
+import { fireTransitionOnQualification } from "@/lib/mofu/transitionTrigger";
 
 export const QUALIFICATION_REASONS = {
   CALENDLY_BOOKED: "calendly_booked",
@@ -56,6 +57,12 @@ export async function markContactCampaignQualified(
       })
       .catch(() => {});
   }
+
+  // Additive TOFU->MOFU transition trigger (no-op unless CLARWIZ_AUTO_TRANSITION=1).
+  await fireTransitionOnQualification(prismaClient, {
+    contactCampaign: updated,
+    tenantId: campaign?.tenantId ?? tenantId,
+  }).catch(() => {});
 
   return { updated: true, contactCampaign: updated };
 }
