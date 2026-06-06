@@ -1,16 +1,17 @@
-/* MOFU UI — ported from the design mockup, recolored to the Clarwiz palette.
-   All rules are scoped under .mofu so nothing leaks into TOFU surfaces. */
+/* MOFU UI — Marketing360 editorial design language (paper/ink/ember), scoped
+   under .mofu so nothing leaks into TOFU surfaces. */
 .mofu {
-  --surface: #fffdf6; --surface-2: #f2ead7; --surface-3: #faf5ea;
-  --border: #e6dac3; --border-2: #cdbb9c;
-  --text: #1a1410; --text-2: #6b5c4e; --text-3: #9a8d7c;
-  --accent: #bf8a6f; --accent-2: #cfa088; --accent-soft: #f3e7da; --accent-ink: #9a6244;
-  --green: #7e8f6e; --green-soft: #e9eee1; --amber: #c2962f; --amber-soft: #f6ecd2;
-  --red: #c0726a; --red-soft: #f4e3e0; --blue: #7f9597; --blue-soft: #e7edec;
+  --surface: #F8F2E0; --surface-2: #F1E9D6; --surface-3: #FBF6EA;
+  --border: #E2D7BE; --border-2: #D9CFB1;
+  --text: #28201A; --text-2: #6B5F4C; --text-3: #9A8E7B;
+  --accent: #D6532D; --accent-2: #E0734A; --accent-soft: #FAE3D5; --accent-ink: #8A2D14;
+  --green: #6E7F3E; --green-soft: #E6EBD2; --amber: #B07914; --amber-soft: #F3E1B6;
+  --red: #B83A2A; --red-soft: #F7D8D2; --blue: #3D5A80; --blue-soft: #DCE5EF;
   --hubspot: #ff7a59; --hubspot-soft: #fff0eb;
   --r: 12px; --r-sm: 8px;
-  --sh: 0 1px 2px rgba(40,30,20,.04), 0 4px 16px rgba(40,30,20,.05);
-  --sh-lg: 0 8px 30px rgba(40,30,20,.14);
+  --sh: 0 1px 2px rgba(40,32,26,.04), 0 4px 16px rgba(40,32,26,.06);
+  --sh-lg: 0 12px 30px rgba(40,32,26,.16);
+  --serif: var(--font-serif), "Fraunces", Georgia, serif;
   color: var(--text);
 }
 .mofu .spacer { flex: 1; }
@@ -18,9 +19,15 @@
 .mofu .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .mofu .page-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
-.mofu .page-head .pt { font-size: 20px; font-weight: 750; letter-spacing: -.2px; }
-.mofu .page-head .ps { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+.mofu .page-head .pt { font-family: var(--serif); font-size: 26px; font-weight: 700; letter-spacing: -.3px; color: var(--text); }
+.mofu .page-head .ps { color: var(--text-2); font-size: 13px; margin-top: 4px; max-width: 60ch; }
 .mofu .crumb { color: var(--text-3); font-weight: 500; }
+
+/* Editorial signatures: serif display headings + tactile cards. */
+.mofu .card-h .t, .mofu .di-top .name, .mofu .nba-h .t { font-family: var(--serif); font-weight: 700; letter-spacing: -.2px; }
+.mofu .kpi .v, .mofu .di-meta .mv, .mofu .conf .ring i { font-family: var(--serif); }
+.mofu .card.tactile, .mofu .di-head { position: relative; box-shadow: inset 0 1px 0 rgba(255,255,255,.6), var(--sh); }
+.mofu .di-head::after { content: ""; position: absolute; top: 14px; right: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .mofu .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--sh); }
 .mofu .card-h { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
