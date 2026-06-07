@@ -3,8 +3,12 @@ import {
   handleMetaWhatsAppWebhook,
   resolveWhatsAppWebhookUserId,
 } from "@/lib/execution/whatsappWebhookHandlers";
-import { verifyMetaWebhookToken } from "@/lib/webhookVerify";
-import { markWebhookEvent, WEBHOOK_PROVIDERS } from "@/lib/integrationWebhooks";
+import { verifyMetaWebhookToken, findMetaWebhookTenantsByVerifyToken } from "@/lib/webhookVerify";
+import {
+  markWebhookEvent,
+  markWebhookVerified,
+  WEBHOOK_PROVIDERS,
+} from "@/lib/integrationWebhooks";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -13,6 +17,17 @@ export async function GET(request) {
   const challenge = searchParams.get("hub.challenge");
 
   if (mode === "subscribe" && (await verifyMetaWebhookToken(token))) {
+    const tenantIds = await findMetaWebhookTenantsByVerifyToken(token);
+    await Promise.all(
+      tenantIds.map((tenantId) =>
+        markWebhookVerified(tenantId, WEBHOOK_PROVIDERS.WHATSAPP_META)
+      )
+    );
+    if (!tenantIds.length) {
+      console.warn(
+        "[meta/webhook] Verification succeeded but no tenant matched verify token"
+      );
+    }
     return new NextResponse(challenge, { status: 200 });
   }
 

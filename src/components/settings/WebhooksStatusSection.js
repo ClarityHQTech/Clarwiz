@@ -21,6 +21,9 @@ function getStatusDescription(wh, statusKey) {
     }
     if (wh.showUserSetup === false) return "Active";
     if (wh.providerWebhookId) return "Registered";
+    if (wh.verifiedAt) {
+      return `Verified in Meta · Waiting for first event (${formatWhen(wh.verifiedAt)})`;
+    }
     return "Configured — waiting for first event";
   }
   if (statusKey === "error") {
@@ -35,7 +38,12 @@ function getStatusDescription(wh, statusKey) {
     }
     return "Set up automatically when you connect this channel";
   }
-  if (wh.manualSetupRequired) return "Manual callback URL setup required";
+  if (wh.manualSetupRequired) {
+    if (wh.hasVerifyToken && wh.provider === "whatsapp_meta") {
+      return "Add callback URL in Meta — click Verify there to refresh status";
+    }
+    return "Manual callback URL setup required";
+  }
   return "Pending registration";
 }
 

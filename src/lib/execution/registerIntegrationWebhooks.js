@@ -189,13 +189,30 @@ export async function registerWebhookForProvider(
       data: { webhookUrl },
     });
 
+    const verifiedAt =
+      wh.providerMeta &&
+      typeof wh.providerMeta === "object" &&
+      !Array.isArray(wh.providerMeta)
+        ? wh.providerMeta.verifiedAt
+        : null;
+
+    if (wh.status === "connected" || verifiedAt || wh.lastEventAt) {
+      return {
+        provider,
+        ok: true,
+        message: wh.lastEventAt
+          ? "WhatsApp webhook verified and receiving events"
+          : "WhatsApp webhook verified in Meta",
+      };
+    }
+
     return {
       provider,
       ok: true,
       pending: true,
       manualSetupRequired: true,
       message:
-        "Add the callback URL in Meta Developer Console using your saved verify token. Status updates when the first event arrives.",
+        "Add the callback URL in Meta Developer Console using your saved verify token. After Meta verifies the URL, status updates automatically.",
     };
   }
 

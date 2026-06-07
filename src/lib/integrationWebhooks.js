@@ -204,6 +204,31 @@ export async function markWebhookEvent(tenantId, provider, { error = null } = {}
   });
 }
 
+/** Meta/Interakt manual webhooks: record successful provider verification (GET challenge). */
+export async function markWebhookVerified(tenantId, provider) {
+  const row = await prisma.integrationWebhook.findUnique({
+    where: { tenantId_provider: { tenantId, provider } },
+  });
+  if (!row) return;
+
+  const priorMeta =
+    row.providerMeta && typeof row.providerMeta === "object" && !Array.isArray(row.providerMeta)
+      ? row.providerMeta
+      : {};
+
+  await prisma.integrationWebhook.update({
+    where: { id: row.id },
+    data: {
+      status: "connected",
+      lastError: null,
+      providerMeta: {
+        ...priorMeta,
+        verifiedAt: priorMeta.verifiedAt ?? new Date().toISOString(),
+      },
+    },
+  });
+}
+
 export async function bootstrapWebhookSecretsFromEnv(tenantId) {
   const interaktSecret = process.env.INTERAKT_WEBHOOK_SECRET?.trim();
   if (interaktSecret) {
@@ -245,7 +270,20 @@ export async function bootstrapWebhookSecretsFromEnv(tenantId) {
 function computeWebhookDisplayStatus(row, { channelConnected, calendlyWebhooksActive } = {}) {
   if (!channelConnected) return "not_configured";
   if (calendlyWebhooksActive) return "connected";
-  if (row.lastEventAt || row.providerWebhookId || row.status === "connected") {
+
+  const verifiedAt =
+    row.providerMeta &&
+    typeof row.providerMeta === "object" &&
+    !Array.isArray(row.providerMeta)
+      ? row.providerMeta.verifiedAt
+      : null;
+
+  if (
+    row.lastEventAt ||
+    row.providerWebhookId ||
+    row.status === "connected" ||
+    verifiedAt
+  ) {
     return "connected";
   }
   if (row.lastError) return "error";
@@ -272,6 +310,13 @@ function serializeWebhookRow(row, { channelConnected = true, calendlyWebhooksAct
     calendlyWebhooksActive,
   });
 
+  const verifiedAt =
+    row.providerMeta &&
+    typeof row.providerMeta === "object" &&
+    !Array.isArray(row.providerMeta)
+      ? row.providerMeta.verifiedAt
+      : null;
+
   return {
     id: row.id,
     provider: row.provider,
@@ -281,6 +326,7 @@ function serializeWebhookRow(row, { channelConnected = true, calendlyWebhooksAct
     channelConnected,
     webhookUrl: setup.showWebhookUrl === false ? null : webhookUrl,
     lastEventAt: row.lastEventAt?.toISOString() ?? null,
+    verifiedAt: verifiedAt ? String(verifiedAt) : null,
     lastError: sanitizeWebhookError(row.provider, row.lastError),
     eventsSubscribed:
       row.eventsSubscribed ?? WEBHOOK_CAPABILITIES[row.provider] ?? [],
