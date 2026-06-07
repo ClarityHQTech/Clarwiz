@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { CkCard, CkBadge } from "../cockpit/primitives";
 import EmailModal from "./EmailModal";
+import CollateralEditorModal from "@/components/assist/collateral/CollateralEditorModal";
 
 function statusBadge(status) {
   switch (status) {
@@ -29,9 +31,50 @@ function statusBadge(status) {
 export default function NbaRail({ dealId, nbas }) {
   const router = useRouter();
   const [activeNba, setActiveNba] = useState(null);
+  const [genDocId, setGenDocId] = useState(null);
+  const [generating, setGenerating] = useState(false);
+
+  const generateCollateral = async () => {
+    if (generating) return;
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/assist/collateral/auto-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 412) {
+        toast.error("Connect HubSpot + Anthropic to generate collateral.");
+        return;
+      }
+      if (!res.ok || !data.documentId) {
+        toast.error(data.error || "Collateral generation failed");
+        return;
+      }
+      toast.success(data.reused ? "Opened existing collateral" : "Collateral generated");
+      setGenDocId(data.documentId);
+    } catch {
+      toast.error("Collateral generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const headerAction = (
+    <button
+      type="button"
+      className="ck-btn ck-btn-ghost"
+      style={{ fontSize: 11, padding: "5px 10px" }}
+      onClick={generateCollateral}
+      disabled={generating}
+    >
+      {generating ? "Generating…" : "⚡ Generate collateral"}
+    </button>
+  );
 
   return (
-    <CkCard title="Next Best Actions" count={nbas?.length || undefined}>
+    <CkCard title="Next Best Actions" count={nbas?.length || undefined} action={headerAction}>
       {!nbas?.length ? (
         <div className="ck-empty">No recommendations yet.</div>
       ) : (
@@ -69,6 +112,10 @@ export default function NbaRail({ dealId, nbas }) {
           onClose={() => setActiveNba(null)}
           onExecuted={() => router.refresh()}
         />
+      )}
+
+      {genDocId && (
+        <CollateralEditorModal documentId={genDocId} onClose={() => setGenDocId(null)} />
       )}
     </CkCard>
   );

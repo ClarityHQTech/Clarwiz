@@ -1399,43 +1399,144 @@ When generating collateral, always apply padding on all sides of the outermost c
 
 also if we have defined template in the next best action and in the user query so while genreating the collateral craft it using for the  prospect email , for the prospect company.
 
-Here is the information to incorporate:  
-my company data: {{tenantData}}  
-prospect company data : {{prospectData}}  
-next best action : {{nbaData}}  
+Here is the information to incorporate:
+my company data: {{tenantData}}
+prospect company data : {{prospectData}}
+next best action : {{nbaData}}
 playbook data : {{playbookData}}
 
-Return a single JSON object in this exact shape (no additional text, no markdown):
-make sure to give template , html , data , title , compilance always.
+OUTPUT FORMAT — STRUCTURED DOC MODEL (NOT HTML):
+You DO NOT emit HTML or React. A deterministic renderer turns your structured
+output into a beautifully-styled document, so your only job is the CONTENT and
+STRUCTURE. Emit the collateral by calling the provided tool exactly once with
+these fields:
+- title: short title for the collateral, with the prospect name.
+- assetType: one of "one_pager", "battlecard", "case_study", "roi_doc", "email_template".
+  Pick the best fit for the NBA's needed asset; default to "one_pager".
+- headline: the single, sharp hero headline.
+- subhead: one supporting line (optional).
+- audience: the primary persona (e.g. "CFO", "CISO", "VP Sales").
+- sections: ordered list of { id, title, body } where body is MARKDOWN
+  (headings, **bold**, bullet lists, and tables are supported).
+- metrics: list of { label, value, detail } for the metrics row / grid.
+- cta: { label, detail } — the single call to action.
+- For "battlecard": also fill competitor (name), capabilities:[{name,us,them}],
+  objections:[{objection,rebuttal}].
+- For "case_study": also fill challenge, solution, quote:{text,attribution}.
+- For "roi_doc": also fill payback:{summary}.
+- compliance: { score: "0-100", note } — how source-faithful the content is to
+  my company data (100 = taken directly, nothing invented).
 
-{
- "title": "short title for the collateral with the prospect name",
- "data": {},
- "template": "",
- "html": "",
- "compilance" : {
-   "score" : "0-100",
-   "note" : "description for the score"
- }
-}
-
-ADDITIONAL OUTPUT FIELD — "html" (REQUIRED):
-Alongside the React/Tailwind "template", you MUST also emit "html": a SELF-CONTAINED,
-static HTML rendering of the SAME collateral, suitable for direct embedding in an
-iframe srcdoc. Rules for "html":
-- A complete document starting with <!doctype html>, with <html>, <head>, <body>.
-- ALL styling via inline CSS (style="...") or a single <style> block in <head>.
-  Do NOT rely on Tailwind classes, external CSS, JS frameworks, or <script> tags —
-  the html must render correctly with zero script execution.
-- Use semantic HTML (header, section, main, footer) and the SAME copy, structure,
-  spacing and brand colors as the template. Generous padding on the outer container.
-- Inline the company + prospect logos as <img> with the same logo.dev URLs.
-- This is a faithful, presentation-ready snapshot of the template — not a placeholder.`;
+GROUNDING DISCIPLINE (NON-NEGOTIABLE): ground every value in the provided data.
+If a specific value is unknown, write a sensible default or a [bracket_placeholder]
+(e.g. [KeyMetric], [ChampionName]) — NEVER invent fake company names, metrics,
+logos, customers, or compliance certs. Keep copy short and sharp; no fluff.`;
 
 import { getAnthropicClient, ASSIST_AGENT_MODEL } from "@/lib/anthropicClient";
+import { renderDocumentHtml } from "@/lib/assist/renderDocument";
 
 /** Identifies which prompt revision produced a stored Document. */
-export const COLLATERAL_PROMPT_VERSION = "aura-collateral-v1";
+export const COLLATERAL_PROMPT_VERSION = "aura-collateral-v2-docmodel";
+
+/**
+ * Structured-output tool: one property per doc-model field. We force Claude to
+ * call this so it returns a validated structured doc (the source of truth) —
+ * never relying on it emitting good HTML. The deterministic renderDocumentHtml
+ * turns the doc into a styled sheet.
+ */
+export const COLLATERAL_DOC_TOOL = {
+  name: "emit_collateral",
+  description:
+    "Emit the collateral as a structured document model. A deterministic renderer styles it; you only provide content + structure. Ground every value in the provided company/deal data; use [bracket_placeholders] for unknowns, never invent specifics.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Short title incl. the prospect name." },
+      assetType: {
+        type: "string",
+        enum: ["one_pager", "battlecard", "case_study", "roi_doc", "email_template"],
+        description: "Best-fit asset layout; default one_pager.",
+      },
+      headline: { type: "string", description: "The single sharp hero headline." },
+      subhead: { type: "string", description: "One supporting line (optional)." },
+      audience: { type: "string", description: "Primary persona, e.g. CFO / CISO." },
+      sections: {
+        type: "array",
+        description: "Ordered content sections; body is markdown.",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            title: { type: "string" },
+            body: { type: "string", description: "Markdown (headings, **bold**, lists, tables)." },
+          },
+        },
+      },
+      metrics: {
+        type: "array",
+        description: "Metrics row / grid.",
+        items: {
+          type: "object",
+          properties: {
+            label: { type: "string" },
+            value: { type: "string" },
+            detail: { type: "string" },
+          },
+        },
+      },
+      cta: {
+        type: "object",
+        description: "Single call to action.",
+        properties: { label: { type: "string" }, detail: { type: "string" } },
+      },
+      competitor: { type: "string", description: "battlecard: competitor name." },
+      capabilities: {
+        type: "array",
+        description: "battlecard: us-vs-them capability rows.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            us: { type: "string" },
+            them: { type: "string" },
+          },
+        },
+      },
+      objections: {
+        type: "array",
+        description: "battlecard: objection / rebuttal pairs.",
+        items: {
+          type: "object",
+          properties: {
+            objection: { type: "string" },
+            rebuttal: { type: "string" },
+          },
+        },
+      },
+      challenge: { type: "string", description: "case_study: the challenge." },
+      solution: { type: "string", description: "case_study: the solution." },
+      quote: {
+        type: "object",
+        description: "case_study: customer quote.",
+        properties: { text: { type: "string" }, attribution: { type: "string" } },
+      },
+      payback: {
+        type: "object",
+        description: "roi_doc: payback summary.",
+        properties: { summary: { type: "string" } },
+      },
+      compliance: {
+        type: "object",
+        description: "Source-faithfulness self-score.",
+        properties: {
+          score: { type: "string", description: "0-100" },
+          note: { type: "string" },
+        },
+      },
+    },
+    required: ["title", "headline"],
+  },
+};
 
 /**
  * Fill the collateral USER template from graph-derived vars.
@@ -1456,54 +1557,70 @@ export function fillCollateralUser(template, vars = {}) {
   });
 }
 
-/** Extract concatenated text from a Claude messages response. */
-function extractText(res) {
-  return (res?.content || [])
+/**
+ * Pull the structured doc model out of a Claude response. Prefers the
+ * `emit_collateral` tool_use block (structured output); otherwise falls back to
+ * parsing JSON from any text block (robust to ```json fences / prose).
+ * Returns a plain object (the raw doc), or throws if nothing parseable.
+ */
+function extractDoc(res) {
+  const blocks = res?.content || [];
+  const tool = blocks.find(
+    (b) => b && b.type === "tool_use" && b.name === COLLATERAL_DOC_TOOL.name && b.input,
+  );
+  if (tool && typeof tool.input === "object") return tool.input;
+
+  const text = blocks
     .filter((b) => b && b.type === "text")
     .map((b) => b.text)
     .join("");
+  return parseDocJson(text);
 }
 
-/** Robustly parse the model's JSON output (strips ```json fences / prose). */
-export function parseCollateralJson(text) {
+/** Robustly parse a doc-model JSON string (strips ```json fences / prose). */
+function parseDocJson(text) {
   if (typeof text !== "string") throw new Error("collateral output was not text");
   let s = text.trim();
-
-  // Strip a leading ```json / ``` fence and trailing ``` if present.
   const fence = s.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   if (fence) s = fence[1].trim();
-
-  let obj;
   try {
-    obj = JSON.parse(s);
+    return JSON.parse(s);
   } catch {
-    // Fall back to the first balanced-looking {...} slice.
     const start = s.indexOf("{");
     const end = s.lastIndexOf("}");
     if (start === -1 || end === -1 || end <= start) {
       throw new Error("collateral output did not contain JSON");
     }
-    obj = JSON.parse(s.slice(start, end + 1));
+    return JSON.parse(s.slice(start, end + 1));
   }
+}
 
-  // The model emits the misspelled "compilance"; normalize to clean "compliance".
-  const rawCompliance = obj.compliance ?? obj.compilance ?? {};
+/**
+ * Normalize a raw doc model (object OR JSON string) into the stored shape:
+ * `{ title, data, template, html, compliance }`. `data` is the doc model
+ * (source of truth), `html` is DETERMINISTICALLY rendered from it via
+ * renderDocumentHtml (the fix for "renders as raw code"), and `template`
+ * persists the doc JSON for future react-live.
+ */
+export function parseCollateralJson(input) {
+  const doc = typeof input === "string" ? parseDocJson(input) : input && typeof input === "object" ? input : {};
+
+  // The model historically emitted the misspelled "compilance"; normalize.
+  const rawCompliance = doc.compliance ?? doc.compilance ?? {};
   const compliance = {
     score: rawCompliance.score ?? null,
     note: rawCompliance.note ?? "",
   };
 
-  const template = typeof obj.template === "string" ? obj.template : "";
-  // Prefer the model's self-contained html; otherwise synthesize a viewable doc
-  // from the template so the iframe always has something to render.
-  const html =
-    typeof obj.html === "string" && obj.html.trim() ? obj.html : templateToHtml(template);
+  // Strip the misspelled key off the stored doc so `data` is clean.
+  const { compilance, ...rest } = doc;
+  const data = { ...rest, compliance };
 
   return {
-    title: typeof obj.title === "string" ? obj.title : "",
-    data: obj.data && typeof obj.data === "object" ? obj.data : {},
-    template,
-    html,
+    title: typeof doc.title === "string" ? doc.title : "",
+    data,
+    template: JSON.stringify(data),
+    html: renderDocumentHtml(data),
     compliance,
   };
 }
@@ -1586,12 +1703,15 @@ export async function generateCollateral({
   const res = await llm.messages.create({
     model,
     max_tokens: 8000,
-    thinking: { type: "adaptive" },
+    // NOTE: adaptive thinking cannot be combined with a forced tool_choice on
+    // Opus 4.8 (400 error) — structured output is forced via tool_choice instead.
     system,
+    tools: [COLLATERAL_DOC_TOOL],
+    tool_choice: { type: "tool", name: COLLATERAL_DOC_TOOL.name },
     messages: [{ role: "user", content: userPrompt }],
   });
 
-  const parsed = parseCollateralJson(extractText(res));
+  const parsed = parseCollateralJson(extractDoc(res));
   return { ...parsed, model, promptVersion: COLLATERAL_PROMPT_VERSION };
 }
 
@@ -1601,59 +1721,54 @@ export async function generateCollateral({
  * instruction* to existing artifacts and returning the updated pair.
  */
 export const COLLATERAL_EDIT_SYSTEM = `You are Tailspin, a senior B2B SaaS collateral design engine.
-You are editing an EXISTING collateral asset. You will be given the current React/Tailwind
-"template" and (optionally) the current self-contained "html", plus a single plain-language
-EDIT INSTRUCTION from a user.
+You are editing an EXISTING collateral asset, represented as a structured DOC MODEL
+(JSON). You will be given the CURRENT DOC and a single plain-language EDIT INSTRUCTION.
 
-Apply ONLY the requested change while preserving everything else: keep the same structure,
-copy, brand colors, spacing and data-* attributes that are not affected by the instruction.
-Maintain professional spacing/padding and never invent facts, logos, metrics, or customers.
-
-Return a single JSON object in EXACTLY this shape — no prose, no markdown fences:
-{
-  "template": "<the updated React/Tailwind component string>",
-  "html": "<a self-contained static HTML rendering of the updated collateral>",
-  "compilance": { "score": "0-100", "note": "how on-brand / source-faithful the result is" }
-}
-
-Rules for "html": a complete document starting with <!doctype html>, styled ENTIRELY with
-inline CSS or a single <style> block, NO Tailwind classes / external CSS / <script> tags —
-it must render in an iframe srcdoc with zero script execution, and must visually match the
-updated template (same copy, layout, colors, generous outer padding, inline logo <img>s).`;
+A deterministic renderer styles the doc into a polished document — you only edit the
+CONTENT and STRUCTURE, never HTML. Apply ONLY the requested change and return the FULL
+updated doc by calling the provided tool exactly once. Preserve every field the
+instruction does not touch (title, assetType, headline, subhead, audience, sections,
+metrics, cta, and any battlecard/case_study/roi_doc fields). Keep copy sharp; never
+invent facts, logos, metrics, or customers — use [bracket_placeholders] for unknowns.
+Re-score "compliance" (0-100) for how source-faithful the result remains.`;
 
 /**
- * Apply a chat instruction to an existing collateral via Claude and return the
- * updated artifacts.
+ * Apply a chat instruction to an existing collateral DOC MODEL via Claude and
+ * return the updated artifacts (re-rendered deterministically).
  *
- * @param {object}  args
- * @param {object} [args.client]          Injectable Anthropic client (tests pass a fake).
- * @param {string}  args.currentTemplate  The collateral's current React/Tailwind template.
- * @param {string} [args.currentHtml]     The collateral's current self-contained HTML.
- * @param {string}  args.instruction      The user's plain-language edit instruction.
- * @param {object} [args.vars]            Optional {tenantData, prospectData, nbaData} for context.
- * @param {string} [args.model]           Model id (defaults to ASSIST_AGENT_MODEL).
- * @returns {Promise<{ template, html, compliance:{score,note} }>}
+ * @param {object}        args
+ * @param {object}       [args.client]      Injectable Anthropic client (tests pass a fake).
+ * @param {object|string} args.currentDoc   The current doc model (Document.data), object or JSON string.
+ * @param {string}        args.instruction  The user's plain-language edit instruction.
+ * @param {object}       [args.vars]        Optional {tenantData, prospectData, nbaData} for grounding.
+ * @param {string}       [args.model]       Model id (defaults to ASSIST_AGENT_MODEL).
+ * @returns {Promise<{ data, template, html, compliance:{score,note} }>}
  */
 export async function editCollateral({
   client,
-  currentTemplate = "",
-  currentHtml = "",
+  currentDoc = {},
   instruction = "",
   vars = null,
   model = ASSIST_AGENT_MODEL,
 } = {}) {
   const llm = client || getAnthropicClient();
 
+  let docObj = currentDoc;
+  if (typeof currentDoc === "string") {
+    try {
+      docObj = JSON.parse(currentDoc);
+    } catch {
+      docObj = {};
+    }
+  }
+
   const parts = [
     "EDIT INSTRUCTION:",
     String(instruction || "").trim(),
     "",
-    "CURRENT TEMPLATE (React/Tailwind):",
-    String(currentTemplate || ""),
+    "CURRENT DOC (structured model — return the FULL updated doc):",
+    JSON.stringify(docObj ?? {}),
   ];
-  if (currentHtml && String(currentHtml).trim()) {
-    parts.push("", "CURRENT HTML (self-contained):", String(currentHtml));
-  }
   if (vars && (vars.tenantData || vars.prospectData || vars.nbaData)) {
     parts.push("", "CONTEXT (for grounding — do not invent beyond this):", JSON.stringify(vars));
   }
@@ -1662,13 +1777,20 @@ export async function editCollateral({
   const res = await llm.messages.create({
     model,
     max_tokens: 8000,
-    thinking: { type: "adaptive" },
+    // Adaptive thinking cannot be combined with a forced tool_choice on Opus 4.8.
     system: COLLATERAL_EDIT_SYSTEM,
+    tools: [COLLATERAL_DOC_TOOL],
+    tool_choice: { type: "tool", name: COLLATERAL_DOC_TOOL.name },
     messages: [{ role: "user", content: userPrompt }],
   });
 
-  const parsed = parseCollateralJson(extractText(res));
-  return { template: parsed.template, html: parsed.html, compliance: parsed.compliance };
+  const parsed = parseCollateralJson(extractDoc(res));
+  return {
+    data: parsed.data,
+    template: parsed.template,
+    html: parsed.html,
+    compliance: parsed.compliance,
+  };
 }
 
 /**

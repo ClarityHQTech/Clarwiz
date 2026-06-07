@@ -55,24 +55,24 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  // The doc model (Document.data) is the source of truth we patch.
+  const currentDoc = document.data && typeof document.data === "object" ? document.data : {};
+
   // Claude edit is fenced — any failure becomes a 502, never an unhandled 500.
   let edited;
   try {
-    edited = await editCollateral({
-      currentTemplate: document.template || "",
-      currentHtml: document.html || "",
-      instruction,
-    });
+    edited = await editCollateral({ currentDoc, instruction });
   } catch (err) {
     console.warn(`[MOFU] collateral edit failed: ${err.message}`);
     return NextResponse.json({ error: "edit_failed" }, { status: 502 });
   }
 
-  // Snapshot the pre-edit artifacts into the versions history.
+  // Snapshot the pre-edit artifacts (incl. the prior doc model) into history.
   const priorVersions = Array.isArray(document.versions) ? document.versions : [];
   const versions = [
     ...priorVersions,
     {
+      data: currentDoc,
       template: document.template || "",
       html: document.html || "",
       instruction,
@@ -83,6 +83,7 @@ export async function POST(request, { params }) {
   const updated = await prisma.document.update({
     where: { id: document.id },
     data: {
+      data: edited.data ?? currentDoc,
       template: edited.template || document.template || "",
       html: edited.html || document.html || "",
       compliance: edited.compliance ?? document.compliance ?? null,

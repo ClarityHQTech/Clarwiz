@@ -4,8 +4,32 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getOpenAIClient } from "@/lib/openaiClient";
 import { logAssistAction } from "@/lib/assist/logAction";
+import {
+  assembleCollateralVars,
+  generateCollateral,
+  storeGeneratedCollateral,
+} from "@/lib/assist/collateralGen";
 
 const DRAFT_MODEL = process.env.NBA_DRAFT_MODEL || "gpt-4o-mini";
+
+/**
+ * An NBA "needs an asset" when its payload describes collateral to create. The
+ * generation prompt (prompts/index.js) puts that on `payload.asset`; older
+ * shapes nested it under `resource_requirements.asset`. Treat a non-trivial
+ * string there as a request to attach collateral.
+ */
+function neededAsset(nba) {
+  const p = nba?.payload || {};
+  const candidates = [p.asset, p?.resource_requirements?.asset];
+  for (const c of candidates) {
+    if (typeof c === "string") {
+      const t = c.trim();
+      // Skip empty / explicit "nothing"/"none"/"email"-only descriptors.
+      if (t && !/^(none|n\/a|no|not required|email)\.?$/i.test(t)) return t;
+    }
+  }
+  return null;
+}
 
 /**
  * Build the prompt for the email draft from an NBA's email_detail block.
@@ -110,9 +134,52 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
     return NextResponse.json({ ok: false, error: "draft_unparseable" }, { status: 502 });
   }
 
+  // (B) If this NBA needs an asset, generate + attach styled collateral. Fenced
+  // so a failure (no key, Claude error) still returns the email — collateral is
+  // optional. On success we append a "View / edit asset" link to the email body
+  // and stash the documentId on the draft.
+  const draftPayload = { ...draft };
+  const assetDescription = neededAsset(nba);
+  if (assetDescription && process.env.ANTHROPIC_API_KEY) {
+    try {
+      const { vars, dealHsId, companyHsId } = await assembleCollateralVars(
+        prisma,
+        ctx.tenantId,
+        { nbaId: nba.id },
+      );
+      const generated = await generateCollateral({ vars });
+      const { document } = await storeGeneratedCollateral(prisma, {
+        tenantId: ctx.tenantId,
+        generated,
+        title: generated.title,
+        dealHsId: dealHsId || nba.deal?.hubspotDealId || null,
+        companyHsId,
+      });
+
+      draftPayload.documentId = document.id;
+      draftPayload.collateralTitle = document.title;
+      draftPayload.emailHtml =
+        `${draft.emailHtml}` +
+        `<p style="margin-top:16px"><a href="/assist/collaterals?open=${document.id}">` +
+        `View / edit asset →</a></p>`;
+
+      await logAssistAction(prisma, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.user?.id ?? null,
+        entityType: "collateral",
+        hsObjectId: nba.deal?.hubspotDealId ?? null,
+        action: "COLLATERAL_SENT",
+        payload: { nbaId: nba.id, documentId: document.id, source: "GENERATED", fromNba: true },
+      });
+    } catch (err) {
+      // Collateral is optional — never block the email on a generation failure.
+      console.warn(`[MOFU] NBA collateral attach failed: ${err.message}`);
+    }
+  }
+
   const updated = await prisma.nbaRecommendation.update({
     where: { id: nba.id },
-    data: { status: "EXECUTED", executedAt: new Date(), draftPayload: draft },
+    data: { status: "EXECUTED", executedAt: new Date(), draftPayload },
   });
 
   const hsObjectId = nba.deal?.hubspotDealId ?? null;
@@ -133,5 +200,5 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
     payload: { nbaId: nba.id, subject: draft.subject },
   });
 
-  return NextResponse.json({ ok: true, draft, status: updated.status });
+  return NextResponse.json({ ok: true, draft: draftPayload, status: updated.status });
 }

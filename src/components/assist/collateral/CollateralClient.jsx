@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AssistShell from "@/components/assist/AssistShell";
 import FilterBar from "./FilterBar";
@@ -22,6 +22,20 @@ function CollateralClient({ items: initialItems }) {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [genOpen, setGenOpen] = useState(false);
   const [editor, setEditor] = useState(null); // { documentId, title }
+
+  // Auto-open the live editor when arrived at via ?open=<documentId> (e.g. the
+  // "View / edit asset →" link appended to an NBA email). Match the title from
+  // the loaded directory rows when available.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const open = new URLSearchParams(window.location.search).get("open");
+    if (!open) return;
+    setEditor((prev) => {
+      if (prev) return prev;
+      const match = (initialItems ?? []).find((it) => it.externalId === open);
+      return { documentId: open, title: match?.title };
+    });
+  }, [initialItems]);
 
   const tagOptions = useMemo(() => {
     const set = new Set();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import CollateralEditorModal from "@/components/assist/collateral/CollateralEditorModal";
 
 /**
  * Cockpit email compose modal for an NBA.
@@ -23,6 +24,10 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
   const [subject, setSubject] = useState("");
   const [html, setHtml] = useState("");
   const [drafted, setDrafted] = useState(false);
+  // Attached collateral (set by the execute route when the NBA needs an asset).
+  const [documentId, setDocumentId] = useState(null);
+  const [collateralTitle, setCollateralTitle] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -31,10 +36,14 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
       setSubject(existing.subject || "");
       setHtml(existing.emailHtml || "");
       setDrafted(true);
+      setDocumentId(existing.documentId || null);
+      setCollateralTitle(existing.collateralTitle || "");
     } else {
       setSubject("");
       setHtml("");
       setDrafted(false);
+      setDocumentId(null);
+      setCollateralTitle("");
     }
   }, [isOpen, nba]);
 
@@ -61,6 +70,8 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
       setSubject(data.draft?.subject || "");
       setHtml(data.draft?.emailHtml || "");
       setDrafted(true);
+      setDocumentId(data.draft?.documentId || null);
+      setCollateralTitle(data.draft?.collateralTitle || "");
       toast.success(data.alreadyExecuted ? "Loaded existing draft" : "Email drafted");
       onExecuted?.();
     } catch {
@@ -163,6 +174,40 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
                 />
               </div>
 
+              {documentId && (
+                <div
+                  className="ck-card"
+                  style={{
+                    marginTop: 16,
+                    padding: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div className="ck-email-eyebrow" style={{ marginBottom: 2 }}>
+                      📎 Collateral attached
+                    </div>
+                    <div
+                      style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      title={collateralTitle}
+                    >
+                      {collateralTitle || "Generated asset"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="ck-btn ck-btn-ghost"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => setEditorOpen(true)}
+                  >
+                    View / edit →
+                  </button>
+                </div>
+              )}
+
               <div className="ck-email-eyebrow" style={{ marginTop: 16, marginBottom: 6 }}>Preview</div>
               <div className="ck-email-preview" dangerouslySetInnerHTML={{ __html: html }} />
             </>
@@ -188,6 +233,14 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
           </div>
         </div>
       </div>
+
+      {editorOpen && documentId && (
+        <CollateralEditorModal
+          documentId={documentId}
+          title={collateralTitle}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
     </div>
   );
 }
