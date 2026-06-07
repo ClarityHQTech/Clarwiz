@@ -35,18 +35,37 @@ export async function findMetaWebhookTenantsByVerifyToken(provided) {
     if (token && token === provided) tenantIds.add(row.tenantId);
   }
 
-  if (
-    tenantIds.size === 0 &&
-    ENV_META_VERIFY &&
-    provided === ENV_META_VERIFY
-  ) {
-    const defaultTenant =
-      process.env.WHATSAPP_WEBHOOK_DEFAULT_TENANT_ID?.trim() ||
-      process.env.WHATSAPP_WEBHOOK_DEFAULT_USER_ID?.trim();
-    if (defaultTenant) tenantIds.add(defaultTenant);
+  if (tenantIds.size > 0) return [...tenantIds];
+
+  // Env fallback: Vercel may use WHATSAPP_META_VERIFY_TOKEN while Clarwiz DB still
+  // has an older token (or none). Resolve the tenant from connected Meta WhatsApp rows.
+  if (!ENV_META_VERIFY || provided !== ENV_META_VERIFY) return [];
+
+  const defaultTenant =
+    process.env.WHATSAPP_WEBHOOK_DEFAULT_TENANT_ID?.trim() ||
+    process.env.WHATSAPP_WEBHOOK_DEFAULT_USER_ID?.trim();
+  if (defaultTenant) return [defaultTenant];
+
+  const connectedMeta = await prisma.whatsAppIntegration.findMany({
+    where: { mode: "meta", status: "connected" },
+    select: { tenantId: true },
+  });
+
+  if (connectedMeta.length === 1) {
+    return [connectedMeta[0].tenantId];
   }
 
-  return [...tenantIds];
+  if (connectedMeta.length > 1) {
+    const connectedIds = new Set(connectedMeta.map((row) => row.tenantId));
+    for (const row of rows) {
+      if (!connectedIds.has(row.tenantId)) continue;
+      const stored = getDecryptedVerifyToken(row);
+      if (!stored || stored === provided) tenantIds.add(row.tenantId);
+    }
+    if (tenantIds.size > 0) return [...tenantIds];
+  }
+
+  return [];
 }
 
 export async function verifyInteraktWebhookSecret(provided) {

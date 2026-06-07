@@ -5,23 +5,29 @@ import {
 } from "@/lib/execution/whatsappWebhookHandlers";
 import { verifyMetaWebhookToken, findMetaWebhookTenantsByVerifyToken } from "@/lib/webhookVerify";
 import {
+  getOrCreateIntegrationWebhook,
   markWebhookEvent,
   markWebhookVerified,
+  saveMetaVerifyToken,
   WEBHOOK_PROVIDERS,
 } from "@/lib/integrationWebhooks";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const mode = searchParams.get("hub.mode");
-  const token = searchParams.get("hub.verify_token");
-  const challenge = searchParams.get("hub.challenge");
+  const mode = searchParams.get("hub.mode") ?? searchParams.get("hub_mode");
+  const token =
+    searchParams.get("hub.verify_token") ?? searchParams.get("hub_verify_token");
+  const challenge =
+    searchParams.get("hub.challenge") ?? searchParams.get("hub_challenge");
 
-  if (mode === "subscribe" && (await verifyMetaWebhookToken(token))) {
+  if (mode === "subscribe" && token && (await verifyMetaWebhookToken(token))) {
     const tenantIds = await findMetaWebhookTenantsByVerifyToken(token);
     await Promise.all(
-      tenantIds.map((tenantId) =>
-        markWebhookVerified(tenantId, WEBHOOK_PROVIDERS.WHATSAPP_META)
-      )
+      tenantIds.map(async (tenantId) => {
+        await getOrCreateIntegrationWebhook(tenantId, WEBHOOK_PROVIDERS.WHATSAPP_META);
+        await saveMetaVerifyToken(tenantId, token);
+        await markWebhookVerified(tenantId, WEBHOOK_PROVIDERS.WHATSAPP_META);
+      })
     );
     if (!tenantIds.length) {
       console.warn(
