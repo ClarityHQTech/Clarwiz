@@ -121,9 +121,13 @@ export async function getLeadView(prisma, tenantId, contactId) {
     ? await prisma.account.findFirst({ where: { tenantId, companyId }, include: { company: true } })
     : null;
 
+  // Signals are anchored to a deal/account (never a bare contact), so a lead's
+  // signals come from its resolved account; NBAs can be contact-anchored.
   const [insight, signals, nbas] = await Promise.all([
     account ? getLatestCompanyInsight(prisma, account.id) : null,
-    prisma.signal.findMany({ where: { tenantId, contactId }, orderBy: { score: "desc" } }),
+    account
+      ? prisma.signal.findMany({ where: { tenantId, accountId: account.id }, orderBy: { score: "desc" } })
+      : Promise.resolve([]),
     prisma.nbaRecommendation.findMany({ where: { tenantId, contactId }, orderBy: { score: "desc" } }),
   ]);
 
