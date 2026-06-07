@@ -37,7 +37,6 @@ import {
 } from "@/lib/whatsappSessionWindow";
 import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 import { TERMINAL_CONTACT_CAMPAIGN_STATUSES } from "@/lib/contactCampaignStatus";
-import { agentDebugLog } from "@/lib/debugAgentLog";
 
 async function loadCampaignExecutionContext(campaignId) {
   return prisma.campaign.findUnique({
@@ -220,23 +219,9 @@ async function maybePushOutboundMessage({
     );
     const hasReply = hasWhatsAppProspectReply(historyForSend);
     const hasMessage = Boolean(decision.message?.trim());
-    const inboundSignals = historyForSend.filter((l) => l.channel === "whatsapp").map((l) => ({
-      id: l.id?.slice?.(-6),
-      responseType: l.responseType,
-      hasResponseContent: Boolean(l.responseContent?.trim()),
-      lastInbound: Boolean(l.deliveryMeta?.lastInboundMessageId),
-      inboundOnly: Boolean(l.deliveryMeta?.inboundOnly),
-    }));
-
-    // #region agent log
-    agentDebugLog({ hypothesisId: "H1-H3", location: "runCampaignExecution.js:maybePushWhatsApp", message: "whatsapp push branch eval", data: { logId, forceWhatsAppFreeform, hasReply, hasMessage, templateId: decision.templateId ?? null, whatsappSendMode: decision.whatsappSendMode ?? null, msgLen: (decision.message ?? "").length, inboundSignals, historyCount: historyForSend.length } });
-    // #endregion
 
     // Hard rule: inbound WhatsApp activity or webhook reply trigger → text API only
     if ((forceWhatsAppFreeform || hasReply) && hasMessage) {
-      // #region agent log
-      agentDebugLog({ hypothesisId: "H1", location: "runCampaignExecution.js:maybePushFreeform", message: "taking freeform branch", data: { logId, forceWhatsAppFreeform, hasReply } });
-      // #endregion
       const pushResult = await pushWhatsAppText({
         tenantId: campaign.tenantId,
         prospect,
@@ -264,9 +249,6 @@ async function maybePushOutboundMessage({
     }
 
     if (sendMode === "template") {
-      // #region agent log
-      agentDebugLog({ hypothesisId: "H3-H4", location: "runCampaignExecution.js:templateBranch", message: "taking TEMPLATE branch", data: { logId, sendMode, templateId: decision.templateId ?? null, campaignId: campaign?.id ?? null, hasMessage } });
-      // #endregion
       if (!decision.templateId?.trim()) {
         return applyPushResultToCommLog(logId, {
           status: "failed",
@@ -432,12 +414,6 @@ export async function executeAndPushForProspect({
           templateId: whatsappSendMode === "freeform" ? null : decision.templateId,
         }
       : decision;
-
-  // #region agent log
-  if (decision.channel === "whatsapp" || normalizedDecision.channel === "whatsapp") {
-    agentDebugLog({ hypothesisId: "H2-H3", location: "runCampaignExecution.js:executeNormalized", message: "post-decision whatsapp state", data: { forceWhatsAppFreeform, hasWhatsAppReply, whatsappSendMode, decisionChannel: decision.channel, normalizedTemplateId: normalizedDecision.templateId ?? null, msgLen: (decision.message ?? "").length, postHistoryCount: postDecisionHistory.length, inboundDetected: hasWhatsAppProspectReply(postDecisionHistory) } });
-  }
-  // #endregion
 
   if (
     normalizedDecision.channel === "whatsapp" &&
@@ -636,10 +612,6 @@ export async function retryCommLogPush(log) {
     useProspectSchedule: campaign.status === "active",
     forceWhatsAppFreeform: sendMode === "freeform",
   });
-
-  // #region agent log
-  agentDebugLog({ hypothesisId: "H4", location: "runCampaignExecution.js:retryCommLogPush", message: "retry push done", data: { logId: log.id, sendMode, hasInbound, plannedTemplateId: planned.templateId ?? null, error: channelDelivery?.error ?? channelDelivery?.delivery?.error ?? null } });
-  // #endregion
 
   if (channelDelivery?.sent || channelDelivery?.queued) {
     await prisma.communicationLog.update({

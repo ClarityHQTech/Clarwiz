@@ -15,7 +15,6 @@ import {
   renderWhatsAppTemplatePreview,
 } from "@/lib/whatsappTemplateParameters";
 import { resolveWhatsAppTemplateParameters } from "@/lib/whatsappTemplateParameters";
-import { agentDebugLog } from "@/lib/debugAgentLog";
 import { pushWhatsAppText } from "@/lib/push/whatsappText";
 import {
   hasWhatsAppProspectReply,
@@ -93,15 +92,6 @@ async function tryWhatsAppFreeformFromCommLog({ commLogId, tenantId, prospect })
     resolveWhatsAppWindowExpiresAt(prospect, commHistory)
   );
   if (!hasInbound && !windowOpen) return null;
-
-  // #region agent log
-  agentDebugLog({
-    hypothesisId: "H7",
-    location: "whatsappTemplate.js:freeformRescue",
-    message: "pushWhatsAppTemplate rescued to freeform via commLogId",
-    data: { commLogId, hasInbound, windowOpen, messageLen: messageText.length },
-  });
-  // #endregion
 
   return pushWhatsAppText({
     tenantId,
@@ -316,10 +306,6 @@ export async function pushWhatsAppTemplateForDecision({
   renderedMessage,
   commLogId,
 }) {
-  // #region agent log
-  agentDebugLog({ hypothesisId: "H4-H5", location: "whatsappTemplate.js:pushForDecision", message: "pushWhatsAppTemplateForDecision CALLED", data: { commLogId, templateId: templateId ?? null, campaignId: campaign?.id ?? null, renderedMsgLen: (renderedMessage ?? "").length, stackHint: "template-path" } });
-  // #endregion
-
   let messageText = renderedMessage?.trim() || null;
   if (!messageText && commLogId) {
     const plannedRow = await prisma.communicationLog.findUnique({
@@ -353,9 +339,6 @@ export async function pushWhatsAppTemplateForDecision({
     );
 
     if (hasInbound || windowOpen) {
-      // #region agent log
-      agentDebugLog({ hypothesisId: "H6", location: "whatsappTemplate.js:freeformFallback", message: "ForDecision redirecting to freeform text", data: { commLogId, hasInbound, windowOpen, messageLen: messageText.length } });
-      // #endregion
       return pushWhatsAppText({
         tenantId,
         prospect,

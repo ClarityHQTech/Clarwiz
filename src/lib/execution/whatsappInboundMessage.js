@@ -7,7 +7,6 @@ import {
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
 import { computeWhatsAppWindowExpiry } from "@/lib/whatsappSessionWindow";
 import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
-import { agentDebugLog } from "@/lib/debugAgentLog";
 
 /** Match two phone numbers (full or last 10 digits). */
 export function phonesMatch(a, b) {
@@ -245,9 +244,6 @@ export async function recordWhatsAppInboundMessage({
 
     let ranExecution = false;
     if (triggerExecution) {
-      // #region agent log
-      agentDebugLog({ hypothesisId: "H2", location: "whatsappInboundMessage.js:runExecutionInboundOnly", message: "inbound-only trigger execution", data: { campaignId: created.campaignId, contactCampaignId: created.contactCampaignId, forceWhatsAppFreeform: true, commLogId: created.id } });
-      // #endregion
       await runExecutionForCampaign(created.campaignId, {
         contactCampaignIds: [created.contactCampaignId],
         skipDailyLimit: true,
@@ -339,9 +335,6 @@ export async function recordWhatsAppInboundMessage({
 
   let ranExecution = false;
   if (triggerExecution) {
-    // #region agent log
-    agentDebugLog({ hypothesisId: "H2", location: "whatsappInboundMessage.js:runExecution", message: "inbound trigger execution", data: { campaignId: updated.campaignId, contactCampaignId: updated.contactCampaignId, forceWhatsAppFreeform: true, commLogId: updated.id, responseType: updated.responseType, hasLastInbound: Boolean(updated.deliveryMeta?.lastInboundMessageId) } });
-    // #endregion
     await runExecutionForCampaign(updated.campaignId, {
       contactCampaignIds: [updated.contactCampaignId],
       skipDailyLimit: true,
