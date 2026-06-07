@@ -144,9 +144,18 @@ export function buildOpenDealsSearch({ ownerId = null, limit = 100, after } = {}
 }
 
 /** CRM Search body for MQL contacts, optionally filtered to an owner. */
+/** Lifecycle stages we treat as "open leads" (pre-deal). HubSpot defaults + common custom. */
+export const LEAD_LIFECYCLE_STAGES = [
+  "lead",
+  "marketingqualifiedlead",
+  "salesqualifiedlead",
+  "subscriber",
+  "opportunity",
+];
+
 export function buildMqlContactsSearch({ ownerId = null, limit = 100, after } = {}) {
   const filters = [
-    { propertyName: "lifecyclestage", operator: "EQ", value: "marketingqualifiedlead" },
+    { propertyName: "lifecyclestage", operator: "IN", values: LEAD_LIFECYCLE_STAGES },
   ];
   if (ownerId) {
     filters.push({ propertyName: "hubspot_owner_id", operator: "EQ", value: ownerId });

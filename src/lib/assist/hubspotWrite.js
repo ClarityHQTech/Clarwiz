@@ -54,6 +54,39 @@ export function buildNoteBody({ body, timestamp }) {
 }
 
 /**
+ * Build the body for a HubSpot meeting engagement object.
+ *
+ * `startTime`/`endTime` may be epoch ms, an ISO string, or a Date — they are
+ * normalized to epoch-ms strings (HubSpot's `hs_meeting_*_time` expect ms).
+ * `hs_timestamp` (the activity time) defaults to the meeting start. The outcome
+ * is SCHEDULED since these meetings are being booked, not logged after the fact.
+ */
+export function buildMeetingBody({ title, body, startTime, endTime }) {
+  const start = toEpochMs(startTime);
+  const end = toEpochMs(endTime);
+  const properties = {
+    hs_meeting_title: title ?? "",
+    hs_meeting_body: body ?? "",
+    hs_timestamp: start ?? Date.now(),
+    hs_meeting_outcome: "SCHEDULED",
+  };
+  if (start != null) properties.hs_meeting_start_time = start;
+  if (end != null) properties.hs_meeting_end_time = end;
+  return { properties };
+}
+
+/** Coerce a Date | ISO string | epoch-ms (number/string) to epoch-ms, or null. */
+function toEpochMs(v) {
+  if (v == null || v === "") return null;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "number") return v;
+  // numeric string → already epoch ms
+  if (/^\d+$/.test(v)) return Number(v);
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
  * Build the body for an email engagement object. This *logs* the email on the
  * HubSpot timeline (it is not an outbound mailbox send — true delivery needs a
  * connected inbox/marketing-send integration, which the MOFU layer does not
@@ -135,4 +168,53 @@ export async function logEmailEngagement(
     if (contactId) await associateEmailTo(token, id, "contacts", contactId, { fetchImpl });
   }
   return { ok: res.ok, status: res.status, id };
+}
+
+/**
+ * Create a HubSpot meeting engagement and associate it to the deal and every
+ * supplied contact (default v4 associations). Never throws.
+ *
+ * Returns:
+ *   - `{ ok:true, id, status }` on success
+ *   - `{ ok:false, reason:"write_scope", status:403 }` on a missing-scope 403 so
+ *     the caller can fall back to creating a TASK instead.
+ *   - `{ ok:false, reason:"hubspot_error", status }` on any other failure.
+ *
+ * @param token  decrypted HubSpot token
+ * @param input  { dealId, contactIds[], title, body, startTime, endTime }
+ *               (dealId / contactIds are HubSpot object ids)
+ */
+export async function createMeeting(
+  token,
+  { dealId, contactIds = [], title, body, startTime, endTime },
+  { fetchImpl = fetch } = {}
+) {
+  const res = await hsWrite(token, "/crm/v3/objects/meetings", {
+    body: buildMeetingBody({ title, body, startTime, endTime }),
+    fetchImpl,
+  });
+
+  if (!res.ok) {
+    if (res.status === 403) return { ok: false, reason: "write_scope", status: 403 };
+    return { ok: false, reason: "hubspot_error", status: res.status };
+  }
+
+  const id = res.json?.id ?? null;
+  if (id) {
+    if (dealId) await associate(token, dealId, "meetings", id, { fetchImpl }).catch(() => {});
+    for (const cid of contactIds.filter(Boolean)) {
+      await associateMeetingTo(token, id, "contacts", cid, { fetchImpl }).catch(() => {});
+    }
+  }
+  return { ok: true, id, status: res.status };
+}
+
+/** Associate a meeting object with another object (deal/contact) via default v4. */
+export async function associateMeetingTo(token, meetingId, toObjectType, toObjectId, { fetchImpl = fetch } = {}) {
+  const res = await hsWrite(
+    token,
+    `/crm/v4/objects/meetings/${meetingId}/associations/default/${toObjectType}/${toObjectId}`,
+    { method: "PUT", body: {}, fetchImpl }
+  );
+  return { ok: res.ok, status: res.status };
 }

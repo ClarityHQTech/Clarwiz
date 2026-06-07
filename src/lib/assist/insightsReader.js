@@ -8,7 +8,7 @@
  * Every function is tenant-scoped. SIGNATURES ARE A CONTRACT — keep stable.
  */
 
-const MQL_STAGES = ["marketingqualifiedlead", "lead"];
+const MQL_STAGES = ["lead", "marketingqualifiedlead", "salesqualifiedlead", "subscriber", "opportunity"];
 
 /** Dashboard: open leads (MQL contacts with no open deal), open deals, accounts. */
 export async function getDashboardData(prisma, tenantId, { ownerId = null } = {}) {

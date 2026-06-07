@@ -151,10 +151,6 @@ describe("search body builders", () => {
 
   it("builds an MQL contacts search", () => {
     const body = buildMqlContactsSearch({});
-    expect(body.filterGroups[0].filters).toContainEqual({
-      propertyName: "lifecyclestage",
-      operator: "EQ",
-      value: "marketingqualifiedlead",
-    });
+    expect(body.filterGroups[0].filters).toContainEqual({ propertyName: "lifecyclestage", operator: "IN", values: ["lead","marketingqualifiedlead","salesqualifiedlead","subscriber","opportunity"] });
   });
 });

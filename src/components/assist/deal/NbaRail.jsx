@@ -5,7 +5,27 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CkCard, CkBadge } from "../cockpit/primitives";
 import EmailModal from "./EmailModal";
+import MeetingModal from "./MeetingModal";
+import BriefModal from "./BriefModal";
 import CollateralEditorModal from "@/components/assist/collateral/CollateralEditorModal";
+import { classifyNbaAction } from "@/lib/assist/nbaActions";
+
+/** Primary-button label for a classified NBA. */
+function primaryLabel(kind, status) {
+  if (status === "EXECUTED") {
+    return kind === "meeting" ? "View meeting →" : "View draft →";
+  }
+  switch (kind) {
+    case "meeting":
+      return "Schedule meeting →";
+    case "task":
+      return "Add task →";
+    case "collateral":
+      return "Draft email →";
+    default:
+      return "Execute →";
+  }
+}
 
 function statusBadge(status) {
   switch (status) {
@@ -30,9 +50,18 @@ function statusBadge(status) {
  */
 export default function NbaRail({ dealId, nbas, contacts = [] }) {
   const router = useRouter();
-  const [activeNba, setActiveNba] = useState(null);
+  const [emailNba, setEmailNba] = useState(null);
+  const [meetingNba, setMeetingNba] = useState(null);
+  const [briefNba, setBriefNba] = useState(null);
   const [genDocId, setGenDocId] = useState(null);
   const [generating, setGenerating] = useState(false);
+
+  // Primary action for an NBA card: open the modal that fits its classified kind.
+  const openPrimary = (nba) => {
+    const { kind } = classifyNbaAction(nba);
+    if (kind === "meeting") setMeetingNba(nba);
+    else setEmailNba(nba); // email | collateral | task all draft an email here
+  };
 
   const generateCollateral = async () => {
     if (generating) return;
@@ -78,16 +107,23 @@ export default function NbaRail({ dealId, nbas, contacts = [] }) {
       {!nbas?.length ? (
         <div className="ck-empty">No recommendations yet.</div>
       ) : (
-        nbas.map((nba) => (
+        nbas.map((nba) => {
+          const { kind } = classifyNbaAction(nba);
+          return (
           <div className="ck-nba-item" key={nba.id}>
             <div className="ck-nba-row">
               <div style={{ minWidth: 0 }}>
                 <div className="ck-nba-title">{nba.title || nba.actionType || "Recommended action"}</div>
                 {nba.rationale && <div className="ck-nba-rationale">{nba.rationale}</div>}
                 <div className="ck-nba-actions">
-                  <button type="button" className="ck-nba-action primary" onClick={() => setActiveNba(nba)}>
-                    {nba.status === "EXECUTED" ? "View draft →" : "Execute →"}
+                  <button type="button" className="ck-nba-action primary" onClick={() => openPrimary(nba)}>
+                    {primaryLabel(kind, nba.status)}
                   </button>
+                  {kind === "meeting" && (
+                    <button type="button" className="ck-nba-action" onClick={() => setBriefNba(nba)}>
+                      Pre-meeting brief
+                    </button>
+                  )}
                   {nba.actionType && (
                     <span className="ck-nba-action" style={{ cursor: "default" }}>
                       {nba.actionType}
@@ -101,17 +137,43 @@ export default function NbaRail({ dealId, nbas, contacts = [] }) {
               </div>
             </div>
           </div>
-        ))
+          );
+        })
       )}
 
-      {activeNba && (
+      {emailNba && (
         <EmailModal
           dealId={dealId}
-          nba={activeNba}
+          nba={emailNba}
           contacts={contacts}
-          isOpen={!!activeNba}
-          onClose={() => setActiveNba(null)}
+          isOpen={!!emailNba}
+          onClose={() => setEmailNba(null)}
           onExecuted={() => router.refresh()}
+        />
+      )}
+
+      {meetingNba && (
+        <MeetingModal
+          dealId={dealId}
+          nba={meetingNba}
+          contacts={contacts}
+          isOpen={!!meetingNba}
+          onClose={() => setMeetingNba(null)}
+          onScheduled={() => router.refresh()}
+        />
+      )}
+
+      {briefNba && (
+        <BriefModal
+          dealId={dealId}
+          nba={briefNba}
+          isOpen={!!briefNba}
+          onClose={() => setBriefNba(null)}
+          onDraftFollowup={() => {
+            const nba = briefNba;
+            setBriefNba(null);
+            setEmailNba(nba);
+          }}
         />
       )}
 

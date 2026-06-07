@@ -10,6 +10,7 @@ import SignalsStrip from "@/components/assist/deal/SignalsStrip";
 import RisksCard from "@/components/assist/deal/RisksCard";
 import NbaRail from "@/components/assist/deal/NbaRail";
 import NoteBox from "@/components/assist/deal/NoteBox";
+import PostMeetingCard from "@/components/assist/deal/PostMeetingCard";
 import RecomputeButton from "@/components/assist/deal/RecomputeButton";
 import EmptyInsight from "@/components/assist/deal/EmptyInsight";
 
@@ -54,6 +55,7 @@ function DealWorkroomClient({ id, vm }) {
                 positiveOutcomes={vm.positiveOutcomes}
                 coachingTip={vm.coachingTip}
               />
+              <PostMeetingCard dealId={id} />
               <NoteBox dealId={id} />
             </div>
 

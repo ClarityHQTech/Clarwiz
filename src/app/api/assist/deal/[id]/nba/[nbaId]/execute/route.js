@@ -130,7 +130,7 @@ async function storePersonalizedInstance(
  * Build the prompt for the email draft from an NBA's email_detail block.
  * Pure so it is easy to reason about; the LLM call itself is injectable.
  */
-function buildDraftMessages(nba) {
+function buildDraftMessages(nba, { postMeeting = false } = {}) {
   const detail = nba?.payload?.resource_requirements?.email_detail ?? {};
   const theme = typeof detail.theme === "string" ? detail.theme : "";
   const bullets = Array.isArray(detail.content)
@@ -146,11 +146,17 @@ function buildDraftMessages(nba) {
     .filter(Boolean)
     .join("\n\n");
 
+  const framing = postMeeting
+    ? "This is a POST-MEETING FOLLOW-UP email: thank the recipient for their time, briefly recap what was " +
+      "discussed and agreed, confirm the next steps and owners, and end with one clear call to action. "
+    : "";
+
   return [
     {
       role: "system",
       content:
         "You are an expert B2B account executive writing concise, warm, professional sales follow-up emails. " +
+        framing +
         "Return STRICT JSON only, no prose, no markdown fences, shaped exactly as " +
         '{"subject": string, "emailHtml": string}. ' +
         "emailHtml must be clean inline HTML (<p>, <ul>, <li>, <strong> only — no <html>/<head>/<style>). " +
@@ -194,6 +200,16 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
 
   const { id: dealId, nbaId } = await params;
 
+  // Optional body — `{ postMeeting: true }` frames the draft as a post-meeting
+  // follow-up recap. Tolerate an absent/empty body (the existing callers send none).
+  let reqBody = {};
+  try {
+    reqBody = (await request.json()) ?? {};
+  } catch {
+    reqBody = {};
+  }
+  const postMeeting = reqBody?.postMeeting === true;
+
   const nba = await prisma.nbaRecommendation.findFirst({
     where: { id: nbaId, dealId, tenantId: ctx.tenantId },
     include: { deal: { select: { hubspotDealId: true } } },
@@ -202,8 +218,10 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
     return NextResponse.json({ error: "nba_not_found" }, { status: 404 });
   }
 
-  // Guard duplicate execution — return the existing draft idempotently.
-  if (nba.status === "EXECUTED") {
+  // Guard duplicate execution — return the existing draft idempotently. A
+  // post-meeting follow-up explicitly re-drafts (the meeting changed the context),
+  // so it skips this guard.
+  if (nba.status === "EXECUTED" && !postMeeting) {
     return NextResponse.json({ ok: true, alreadyExecuted: true, draft: nba.draftPayload ?? null });
   }
 
@@ -215,7 +233,7 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
       model: DRAFT_MODEL,
       temperature: 0.5,
       response_format: { type: "json_object" },
-      messages: buildDraftMessages(nba),
+      messages: buildDraftMessages(nba, { postMeeting }),
     });
     draft = parseDraft(completion?.choices?.[0]?.message?.content);
   } catch (err) {
