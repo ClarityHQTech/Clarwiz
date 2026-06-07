@@ -9,6 +9,7 @@ const SCRYPT_SALT_SMARTLEAD = "clarwiz-smartlead-email-account-id";
 const SCRYPT_SALT_WHATSAPP = "clarwiz-whatsapp-access-token";
 const SCRYPT_SALT_CALENDLY = "clarwiz-calendly-oauth-token";
 const SCRYPT_SALT_WEBHOOK = "clarwiz-integration-webhook-secret";
+const SCRYPT_SALT_MOFU = "clarwiz-mofu-integration-token";
 
 function deriveKey(salt) {
   const secret = process.env.SECRET?.trim();
@@ -127,5 +128,19 @@ export function decryptWebhookSecret(stored) {
     return decryptWithSalt(stored, SCRYPT_SALT_WEBHOOK, /^.{8,}$/);
   } catch {
     throw new Error("Failed to decrypt webhook secret");
+  }
+}
+
+/** Encrypts a MOFU integration token (e.g. HubSpot private-app token) for storage. */
+export function encryptMofuToken(plainText) {
+  return encryptWithSalt(String(plainText), SCRYPT_SALT_MOFU);
+}
+
+/** Decrypts a stored MOFU integration token. */
+export function decryptMofuToken(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_MOFU);
+  } catch {
+    throw new Error("Failed to decrypt MOFU integration token");
   }
 }
