@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildEmailEngagementBody, logEmailEngagement } from "./hubspotWrite.js";
+import { buildEmailEngagementBody, logEmailEngagement, associateEmailTo } from "./hubspotWrite.js";
 
 describe("buildEmailEngagementBody", () => {
   it("maps subject/html/timestamp to logged-email properties", () => {
@@ -100,5 +100,43 @@ describe("logEmailEngagement (injected fetch)", () => {
     const res = await logEmailEngagement("tok", { dealId: "D1", subject: "S", html: "H" }, { fetchImpl });
     expect(res.ok).toBe(false);
     expect(res.status).toBe(0);
+  });
+});
+
+describe("associateEmailTo (multi-recipient send)", () => {
+  it("is exported and fires a default v4 contact association for each selected recipient", async () => {
+    const calls = [];
+    const fetchImpl = async (url, opts) => {
+      calls.push({ url, method: opts.method ?? "POST" });
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+
+    // The send route logs ONE email (EM1) then loops every selected contact.
+    const recipientContactIds = ["C1", "C2", "C3"];
+    for (const cid of recipientContactIds) {
+      const r = await associateEmailTo("tok", "EM1", "contacts", cid, { fetchImpl });
+      expect(r.ok).toBe(true);
+    }
+
+    // one PUT per recipient, all to the SAME email object EM1
+    for (const cid of recipientContactIds) {
+      expect(
+        calls.some(
+          (c) =>
+            c.method === "PUT" &&
+            c.url.includes(`/crm/v4/objects/emails/EM1/associations/default/contacts/${cid}`)
+        )
+      ).toBe(true);
+    }
+    expect(calls.filter((c) => c.method === "PUT").length).toBe(recipientContactIds.length);
+  });
+
+  it("never throws on a failed association", async () => {
+    const fetchImpl = async () => {
+      throw new Error("network down");
+    };
+    const r = await associateEmailTo("tok", "EM1", "contacts", "C9", { fetchImpl });
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe(0);
   });
 });

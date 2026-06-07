@@ -1924,3 +1924,310 @@ export async function assembleCollateralVars(
     companyHsId: account?.hubspotCompanyId ?? null,
   };
 }
+
+/** Prompt revision for the "pick a template + hyper-personalize it" path. */
+export const COLLATERAL_PERSONALIZE_VERSION = "aura-personalize-v1";
+
+/** Default brand (warm amber) — matches renderDocument's ACCENT. */
+export const DEFAULT_BRAND = {
+  primary: "#1F2937",
+  accent: "#F2A65A",
+  fontHeading: "Instrument Serif",
+  fontBody: "Inter",
+  logoUrl: null,
+  tagline: null,
+};
+
+/**
+ * Read the tenant brand from `Tenant.company_details.brand` with sane amber
+ * defaults. Accepts a tenant row (or anything with `company_details`); tolerates
+ * missing/partial brand. Returns `{ primary, accent, fontHeading, fontBody, logoUrl, tagline }`.
+ */
+export function getTenantBrand(tenant) {
+  const cd = tenant && typeof tenant === "object" ? tenant.company_details : null;
+  const brand = cd && typeof cd === "object" && cd.brand && typeof cd.brand === "object" ? cd.brand : {};
+  const pick = (v, fallback) =>
+    typeof v === "string" && v.trim() ? v.trim() : fallback;
+  return {
+    primary: pick(brand.primary, DEFAULT_BRAND.primary),
+    accent: pick(brand.accent, DEFAULT_BRAND.accent),
+    fontHeading: pick(brand.fontHeading, DEFAULT_BRAND.fontHeading),
+    fontBody: pick(brand.fontBody, DEFAULT_BRAND.fontBody),
+    logoUrl: pick(brand.logoUrl, DEFAULT_BRAND.logoUrl),
+    tagline: pick(brand.tagline, DEFAULT_BRAND.tagline),
+  };
+}
+
+/**
+ * Assemble a rich, HeyParrot-style prospect context for personalizing a brand
+ * template. Reads the MOFU graph (only reads; injectable prisma for tests).
+ *
+ * Resolution mirrors assembleCollateralVars: deal directly, via the nba's deal,
+ * or an account directly. Then loads the deal's contacts (DealContact → Contact
+ * → BusinessUser), the latest CompanyInsight / DealInsight highlights, and the
+ * top Signals — plus the NBA's needed `asset` + `email_detail`.
+ *
+ * @returns {Promise<{ brand, seller, prospect, contacts, deal, insights, signals, assetBrief, dealHsId, companyHsId }>}
+ */
+export async function assembleProspectContext(
+  prisma,
+  tenantId,
+  { dealId = null, accountId = null, nbaId = null } = {}
+) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true, name: true, company_details: true },
+  });
+
+  let deal = null;
+  if (dealId) {
+    deal = await prisma.deal.findFirst({
+      where: { id: dealId, tenantId },
+      include: { account: { include: { company: true } } },
+    });
+  }
+
+  let nba = null;
+  if (nbaId) {
+    nba = await prisma.nbaRecommendation.findFirst({
+      where: { id: nbaId, tenantId },
+      include: { deal: { include: { account: { include: { company: true } } } } },
+    });
+    if (!deal && nba?.deal) deal = nba.deal;
+  }
+
+  let account = deal?.account ?? null;
+  if (!account && accountId) {
+    account = await prisma.account.findFirst({
+      where: { id: accountId, tenantId },
+      include: { company: true },
+    });
+  }
+
+  // Key contacts — DealContact → Contact → BusinessUser (name, title, email).
+  let contacts = [];
+  if (deal?.id && prisma.dealContact?.findMany) {
+    const rows = await prisma.dealContact.findMany({
+      where: { dealId: deal.id },
+      include: { contact: { include: { businessUser: true } } },
+    });
+    contacts = (rows || [])
+      .map((dc) => {
+        const bu = dc?.contact?.businessUser;
+        if (!bu && !dc?.role) return null;
+        return {
+          name: bu?.name ?? null,
+          title: bu?.jobTitle ?? null,
+          email: bu?.email ?? null,
+          persona: dc?.contact?.persona ?? null,
+          role: dc?.role ?? null,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  // Latest company + deal insight highlights.
+  let companyInsight = null;
+  if (account?.id && prisma.companyInsight?.findFirst) {
+    companyInsight = await prisma.companyInsight.findFirst({
+      where: { accountId: account.id },
+      orderBy: { computedAt: "desc" },
+    });
+  }
+  let dealInsight = null;
+  if (deal?.id && prisma.dealInsight?.findFirst) {
+    dealInsight = await prisma.dealInsight.findFirst({
+      where: { dealId: deal.id },
+      orderBy: { computedAt: "desc" },
+    });
+  }
+
+  // Top signals over the deal / account.
+  let signals = [];
+  if ((deal?.id || account?.id) && prisma.signal?.findMany) {
+    const where = { tenantId };
+    if (deal?.id) where.dealId = deal.id;
+    else where.accountId = account.id;
+    const rows = await prisma.signal.findMany({
+      where,
+      orderBy: [{ score: "desc" }, { detectedAt: "desc" }],
+      take: 5,
+    });
+    signals = (rows || []).map((s) => ({
+      type: s.type,
+      category: s.category ?? null,
+      headline: s.headline,
+      score: s.score ?? null,
+      suggestedAngle: s.suggestedAngle ?? null,
+    }));
+  }
+
+  const brand = getTenantBrand(tenant);
+
+  const seller = {
+    name: tenant?.name ?? null,
+    company_details: tenant?.company_details ?? null,
+    brand,
+  };
+
+  const companyRow = account?.company ?? null;
+  const prospect = account
+    ? {
+        accountId: account.id,
+        hubspotCompanyId: account.hubspotCompanyId ?? null,
+        name: companyRow?.name ?? null,
+        domain: companyRow?.domain ?? null,
+        website: companyRow?.domain ? `https://${companyRow.domain}` : null,
+        industry: companyRow?.industry ?? null,
+        lifecycleStage: account.lifecycleStage ?? null,
+        payload: account.payload ?? null,
+      }
+    : null;
+
+  const dealCtx = deal
+    ? {
+        name: deal.name ?? null,
+        stage: deal.stageLabel ?? null,
+        amount: deal.amount ?? null,
+        status: deal.status ?? null,
+      }
+    : null;
+
+  const insights = {
+    company: companyInsight
+      ? { summary: companyInsight.payload ?? null, computedAt: companyInsight.computedAt ?? null }
+      : null,
+    deal: dealInsight
+      ? {
+          briefing: dealInsight.briefing ?? null,
+          summary: dealInsight.summary ?? null,
+          score: dealInsight.score ?? null,
+        }
+      : null,
+  };
+
+  // The NBA's needed-asset brief: what document + for whom, plus the email theme.
+  const p = nba?.payload || {};
+  const assetBrief = nba
+    ? {
+        nbaId: nba.id,
+        title: nba.title ?? null,
+        actionType: nba.actionType ?? null,
+        actionVerb: nba.actionVerb ?? null,
+        rationale: nba.rationale ?? null,
+        asset: p.asset ?? p?.resource_requirements?.asset ?? null,
+        emailDetail: p?.resource_requirements?.email_detail ?? p?.email_detail ?? null,
+      }
+    : null;
+
+  return {
+    brand,
+    seller,
+    prospect,
+    contacts,
+    deal: dealCtx,
+    insights,
+    signals,
+    assetBrief,
+    dealHsId: deal?.hubspotDealId ?? null,
+    companyHsId: account?.hubspotCompanyId ?? null,
+  };
+}
+
+/**
+ * System prompt for hyper-personalizing an EXISTING brand template to a specific
+ * prospect. Claude rewrites ONLY the content (names, pains, value props, metrics
+ * drawn from the provided context); it keeps the template's structure + brand,
+ * and grounds everything — unknown → [bracket_placeholder], never invented.
+ */
+export const COLLATERAL_PERSONALIZE_SYSTEM = `You are Tailspin, a senior B2B SaaS collateral engine.
+You are given an EXISTING, on-brand TEMPLATE (a structured DOC MODEL) and a rich
+PROSPECT CONTEXT (seller, prospect company, key contacts, the deal, insights, and
+signals). Your job is to HYPER-PERSONALIZE the template to THIS prospect.
+
+RULES:
+- Keep the template's STRUCTURE and BRAND. Do not change assetType, the section
+  ordering/shape, or the overall layout. Preserve every field you are not rewriting.
+- Rewrite ONLY the CONTENT to speak to this prospect: their company name, industry,
+  the contacts and their titles, the pains/value props/metrics, and the deal stage —
+  all drawn from the PROSPECT CONTEXT.
+- GROUNDING (NON-NEGOTIABLE): use ONLY facts present in the context. If a specific
+  value is unknown, leave a [bracket_placeholder] (e.g. [KeyMetric], [ChampionName]).
+  NEVER invent company names, metrics, logos, customers, quotes, or compliance certs.
+- Keep copy sharp; no fluff. Re-score "compliance" (0-100) for source-faithfulness.
+Return the FULL personalized doc by calling the provided tool exactly once.`;
+
+/**
+ * Hyper-personalize a chosen brand template to a prospect. Takes the template's
+ * doc model (or html) + the rich context, asks Claude to rewrite ONLY the
+ * content (forced tool_choice, no thinking/sampling), and re-renders
+ * deterministically via renderDocumentHtml(data, brand) when the result is a doc
+ * model; otherwise patches the provided html.
+ *
+ * @param {object}        args
+ * @param {object}       [args.client]       Injectable Anthropic client (tests pass a fake).
+ * @param {object}        args.templateDoc    The chosen template: { data?, html?, title? }.
+ * @param {object}        args.context        Output of assembleProspectContext.
+ * @param {string}       [args.instruction]   Optional extra steer.
+ * @param {string}       [args.model]         Model id (defaults to ASSIST_AGENT_MODEL).
+ * @returns {Promise<{ title, data, template, html, compliance, model, promptVersion }>}
+ */
+export async function personalizeTemplate({
+  client,
+  templateDoc = {},
+  context = {},
+  instruction = "",
+  model = ASSIST_AGENT_MODEL,
+} = {}) {
+  const llm = client || getAnthropicClient();
+  const brand = context?.brand || getTenantBrand(context?.seller);
+
+  // Resolve the template's doc model — object, JSON string, or null.
+  let baseDoc = templateDoc?.data ?? null;
+  if (typeof baseDoc === "string") {
+    try {
+      baseDoc = JSON.parse(baseDoc);
+    } catch {
+      baseDoc = null;
+    }
+  }
+  const baseHtml = typeof templateDoc?.html === "string" ? templateDoc.html : "";
+
+  const parts = [
+    "TEMPLATE (structured doc model to personalize — keep its structure + brand):",
+    JSON.stringify(baseDoc ?? { title: templateDoc?.title ?? "", note: "html-only template" }),
+    "",
+    "PROSPECT CONTEXT (the only facts you may use — never invent beyond this):",
+    JSON.stringify(context ?? {}),
+  ];
+  if (instruction && String(instruction).trim()) {
+    parts.push("", "EXTRA INSTRUCTION:", String(instruction).trim());
+  }
+  const userPrompt = parts.join("\n");
+
+  const res = await llm.messages.create({
+    model,
+    max_tokens: 8000,
+    // Adaptive thinking cannot be combined with a forced tool_choice on Opus 4.8.
+    system: COLLATERAL_PERSONALIZE_SYSTEM,
+    tools: [COLLATERAL_DOC_TOOL],
+    tool_choice: { type: "tool", name: COLLATERAL_DOC_TOOL.name },
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const parsed = parseCollateralJson(extractDoc(res));
+  // Re-render deterministically with the tenant brand. parseCollateralJson
+  // already rendered with default brand; re-render with the resolved brand so
+  // the personalized instance carries the tenant's accent/fonts.
+  const html = renderDocumentHtml(parsed.data, brand);
+
+  return {
+    title: parsed.title || templateDoc?.title || "",
+    data: parsed.data,
+    template: parsed.template,
+    html,
+    compliance: parsed.compliance,
+    model,
+    promptVersion: COLLATERAL_PERSONALIZE_VERSION,
+  };
+}

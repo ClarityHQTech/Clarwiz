@@ -11,6 +11,12 @@ import {
   COLLATERAL_EDIT_SYSTEM,
   COLLATERAL_PROMPT_VERSION,
   COLLATERAL_DOC_TOOL,
+  getTenantBrand,
+  DEFAULT_BRAND,
+  assembleProspectContext,
+  personalizeTemplate,
+  COLLATERAL_PERSONALIZE_SYSTEM,
+  COLLATERAL_PERSONALIZE_VERSION,
 } from "./collateralGen.js";
 
 /** A doc-model object the way the structured-output tool returns it. */
@@ -301,6 +307,191 @@ describe("assembleCollateralVars", () => {
     expect(vars.prospectData.company).toEqual({ name: "Gamma" });
     expect(dealHsId).toBe("HSD3");
     expect(companyHsId).toBe("HSC3");
+  });
+});
+
+describe("getTenantBrand", () => {
+  it("reads company_details.brand", () => {
+    const brand = getTenantBrand({
+      company_details: {
+        brand: { primary: "#111111", accent: "#0EA5E9", logoUrl: "https://x/y.png", tagline: "Go fast" },
+      },
+    });
+    expect(brand.primary).toBe("#111111");
+    expect(brand.accent).toBe("#0EA5E9");
+    expect(brand.logoUrl).toBe("https://x/y.png");
+    expect(brand.tagline).toBe("Go fast");
+  });
+
+  it("falls back to amber defaults when brand is missing/partial", () => {
+    expect(getTenantBrand(null).accent).toBe(DEFAULT_BRAND.accent);
+    expect(getTenantBrand({ company_details: {} }).accent).toBe(DEFAULT_BRAND.accent);
+    const partial = getTenantBrand({ company_details: { brand: { accent: "  " } } });
+    expect(partial.accent).toBe(DEFAULT_BRAND.accent); // blank string → default
+    expect(partial.fontBody).toBe(DEFAULT_BRAND.fontBody);
+  });
+});
+
+describe("assembleProspectContext", () => {
+  function fakePrisma(opts) {
+    const { tenant, deal, nba, account, dealContacts, companyInsight, dealInsight, signals } = opts;
+    return {
+      tenant: { findUnique: async () => tenant ?? null },
+      deal: { findFirst: async () => deal ?? null },
+      account: { findFirst: async () => account ?? null },
+      nbaRecommendation: { findFirst: async () => nba ?? null },
+      dealContact: { findMany: async () => dealContacts ?? [] },
+      companyInsight: { findFirst: async () => companyInsight ?? null },
+      dealInsight: { findFirst: async () => dealInsight ?? null },
+      signal: { findMany: async () => signals ?? [] },
+    };
+  }
+
+  it("assembles a rich context: brand, seller, prospect, contacts, deal, insights, signals, assetBrief", async () => {
+    const prisma = fakePrisma({
+      tenant: {
+        id: "t1",
+        name: "Clarwiz",
+        company_details: { product: "AI GTM", brand: { accent: "#0EA5E9", logoUrl: "https://c/l.png" } },
+      },
+      deal: {
+        id: "D1",
+        name: "Acme Expansion",
+        stageLabel: "Proposal",
+        amount: 42000,
+        status: "OPEN",
+        hubspotDealId: "HSD1",
+        account: {
+          id: "A1",
+          hubspotCompanyId: "HSC1",
+          lifecycleStage: "opportunity",
+          payload: { initiative: "consolidation" },
+          company: { name: "Acme", domain: "acme.com", industry: "fintech" },
+        },
+      },
+      nba: {
+        id: "N1",
+        title: "Send ROI one-pager",
+        actionType: "send_collateral",
+        actionVerb: "Sales::Justify",
+        rationale: "CFO wants ROI",
+        payload: {
+          asset: "ROI one-pager for the CFO",
+          resource_requirements: { email_detail: { theme: "ROI", content: ["payback under 6mo"] } },
+        },
+        deal: null,
+      },
+      dealContacts: [
+        {
+          role: "Champion",
+          contact: {
+            persona: "CHAMPION",
+            businessUser: { name: "Dana Lee", jobTitle: "CFO", email: "dana@acme.com" },
+          },
+        },
+      ],
+      companyInsight: { payload: { headline: "Scaling fast" }, computedAt: new Date("2026-01-01Z") },
+      dealInsight: { briefing: "Late-stage, CFO-led", summary: "Strong", score: 80 },
+      signals: [{ type: "Behavior::Engaged", category: "Behavior", headline: "Opened deck 3x", score: 90, suggestedAngle: "Strike now" }],
+    });
+
+    const ctx = await assembleProspectContext(prisma, "t1", { dealId: "D1", nbaId: "N1" });
+
+    expect(ctx.brand.accent).toBe("#0EA5E9");
+    expect(ctx.brand.logoUrl).toBe("https://c/l.png");
+    expect(ctx.seller.name).toBe("Clarwiz");
+    expect(ctx.prospect.name).toBe("Acme");
+    expect(ctx.prospect.domain).toBe("acme.com");
+    expect(ctx.prospect.website).toBe("https://acme.com");
+    expect(ctx.prospect.industry).toBe("fintech");
+    expect(ctx.contacts).toHaveLength(1);
+    expect(ctx.contacts[0]).toMatchObject({ name: "Dana Lee", title: "CFO", email: "dana@acme.com", role: "Champion" });
+    expect(ctx.deal).toMatchObject({ name: "Acme Expansion", stage: "Proposal", amount: 42000 });
+    expect(ctx.insights.company.summary).toEqual({ headline: "Scaling fast" });
+    expect(ctx.insights.deal.briefing).toBe("Late-stage, CFO-led");
+    expect(ctx.signals[0].headline).toBe("Opened deck 3x");
+    expect(ctx.assetBrief.asset).toBe("ROI one-pager for the CFO");
+    expect(ctx.assetBrief.emailDetail.theme).toBe("ROI");
+    expect(ctx.dealHsId).toBe("HSD1");
+    expect(ctx.companyHsId).toBe("HSC1");
+  });
+
+  it("resolves an account directly via accountId (no deal/nba)", async () => {
+    const prisma = fakePrisma({
+      tenant: { id: "t1", name: "Clarwiz", company_details: null },
+      account: { id: "A2", hubspotCompanyId: "HSC2", company: { name: "Beta", domain: "beta.io", industry: "saas" } },
+    });
+    const ctx = await assembleProspectContext(prisma, "t1", { accountId: "A2" });
+    expect(ctx.prospect.name).toBe("Beta");
+    expect(ctx.prospect.website).toBe("https://beta.io");
+    expect(ctx.deal).toBeNull();
+    expect(ctx.assetBrief).toBeNull();
+    expect(ctx.contacts).toEqual([]);
+    expect(ctx.brand.accent).toBe(DEFAULT_BRAND.accent);
+  });
+});
+
+describe("personalizeTemplate", () => {
+  const TEMPLATE = {
+    title: "Generic ROI One-Pager",
+    html: "<!DOCTYPE html><html>base</html>",
+    data: {
+      title: "Generic ROI One-Pager",
+      assetType: "one_pager",
+      headline: "Cut costs with [Product]",
+      sections: [{ id: "value", title: "Value", body: "Save money." }],
+      compliance: { score: "70", note: "generic" },
+    },
+  };
+
+  const PERSONALIZED = {
+    ...TEMPLATE.data,
+    headline: "Cut Acme's costs",
+    sections: [{ id: "value", title: "Value", body: "Save Acme money on consolidation." }],
+    compliance: { score: "92", note: "Grounded in Acme context." },
+  };
+
+  const CONTEXT = {
+    brand: { accent: "#0EA5E9", primary: "#111", fontHeading: "Georgia", fontBody: "Inter" },
+    seller: { name: "Clarwiz" },
+    prospect: { name: "Acme", industry: "fintech" },
+    contacts: [{ name: "Dana Lee", title: "CFO" }],
+    deal: { name: "Acme Expansion", stage: "Proposal" },
+  };
+
+  it("rewrites only the content, keeps brand, forces the tool, NO sampling/thinking params", async () => {
+    const client = fakeClient(PERSONALIZED);
+    const res = await personalizeTemplate({ client, templateDoc: TEMPLATE, context: CONTEXT });
+
+    expect(res.data.headline).toBe("Cut Acme's costs");
+    expect(res.data.assetType).toBe("one_pager"); // structure preserved
+    expect(res.html).toContain("<!DOCTYPE html>");
+    expect(res.html).toContain("Cut Acme"); // headline rendered (apostrophe is html-escaped)
+    // re-rendered with the tenant brand accent (#0EA5E9), not the default amber.
+    expect(res.html).toContain("#0EA5E9");
+    expect(res.compliance).toEqual({ score: "92", note: "Grounded in Acme context." });
+    expect(res.model).toBe("claude-opus-4-8");
+    expect(res.promptVersion).toBe(COLLATERAL_PERSONALIZE_VERSION);
+
+    const req = client.seen[0];
+    expect(req.model).toBe("claude-opus-4-8");
+    expect(req).not.toHaveProperty("thinking");
+    expect(req).not.toHaveProperty("temperature");
+    expect(req).not.toHaveProperty("top_p");
+    expect(req).not.toHaveProperty("top_k");
+    expect(req.system).toBe(COLLATERAL_PERSONALIZE_SYSTEM);
+    expect(req.tool_choice).toEqual({ type: "tool", name: COLLATERAL_DOC_TOOL.name });
+    // The user message carries BOTH the template and the prospect context.
+    const content = req.messages[0].content;
+    expect(content).toContain("Cut costs with [Product]"); // the template
+    expect(content).toContain("Acme"); // the prospect context
+    expect(content).toContain("Dana Lee");
+  });
+
+  it("includes an extra instruction when provided", async () => {
+    const client = fakeClient(PERSONALIZED);
+    await personalizeTemplate({ client, templateDoc: TEMPLATE, context: CONTEXT, instruction: "Lead with payback." });
+    expect(client.seen[0].messages[0].content).toContain("Lead with payback.");
   });
 });
 

@@ -14,10 +14,12 @@ const TYPES = [
 ];
 const SOURCES = ["GENERATED", "HEYPARROT", "PILOT", "UPLOAD"];
 const STAGES = ["LEAD", "DEAL_EARLY", "DEAL_LATE", "ANY"];
+const CATEGORIES = ["MARKETING", "SALES"];
 
 /**
  * GET — list the tenant's CollateralIndex, newest first.
- * Optional query filters: type, funnelStage, q (title/tag substring).
+ * Optional query filters: type, funnelStage, q (title/tag substring),
+ * templates=1 (only brand-template rows).
  */
 export async function GET(request) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.ASSIST_VIEW });
@@ -28,10 +30,12 @@ export async function GET(request) {
   const type = sp.get("type");
   const funnelStage = sp.get("funnelStage");
   const q = sp.get("q")?.trim();
+  const templatesOnly = sp.get("templates") === "1";
 
   const where = { tenantId: ctx.tenantId };
   if (type && TYPES.includes(type)) where.type = type;
   if (funnelStage && STAGES.includes(funnelStage)) where.funnelStage = funnelStage;
+  if (templatesOnly) where.isTemplate = true;
   if (q) {
     where.OR = [
       { title: { contains: q, mode: "insensitive" } },
@@ -48,9 +52,17 @@ export async function GET(request) {
 }
 
 /**
- * POST (COLLATERAL_MANAGE) — register a collateral item.
- * Requires url OR slug. Upserts by (tenantId, slug) when slug present,
- * otherwise creates a fresh row.
+ * POST (COLLATERAL_MANAGE) — register a brand template or an external asset.
+ *
+ * Body: { title, category, type, html?, url?, funnelStage?, tags[], slug? }
+ *
+ * - `html` present → store a Document {html, template:html, data:null} and a
+ *   CollateralIndex {isTemplate:true, source:UPLOAD, externalId:document.id}.
+ *   This is the primary "brand template" path.
+ * - `url` only (no html) → register a non-template external CollateralIndex row
+ *   (upserts by slug when a slug is supplied).
+ *
+ * Validation: title + type required; html OR url required.
  */
 export async function POST(request) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.COLLATERAL_MANAGE });
@@ -66,36 +78,70 @@ export async function POST(request) {
 
   const title = typeof body?.title === "string" ? body.title.trim() : "";
   const type = body?.type;
-  const source = body?.source;
+  const category = body?.category ?? null;
   const funnelStage = body?.funnelStage ?? "ANY";
+  const html = typeof body?.html === "string" ? body.html.trim() : "";
   const url = typeof body?.url === "string" ? body.url.trim() : "";
   const slug = typeof body?.slug === "string" ? body.slug.trim() : "";
 
   if (!title) return NextResponse.json({ error: "title_required" }, { status: 400 });
   if (!TYPES.includes(type)) return NextResponse.json({ error: "invalid_type" }, { status: 400 });
-  if (!SOURCES.includes(source)) return NextResponse.json({ error: "invalid_source" }, { status: 400 });
   if (!STAGES.includes(funnelStage)) return NextResponse.json({ error: "invalid_funnelStage" }, { status: 400 });
-  if (!url && !slug) return NextResponse.json({ error: "link_or_slug_required" }, { status: 400 });
+  if (category && !CATEGORIES.includes(category))
+    return NextResponse.json({ error: "invalid_category" }, { status: 400 });
+  if (!html && !url) return NextResponse.json({ error: "html_or_url_required" }, { status: 400 });
 
   const tags = Array.isArray(body?.tags)
     ? body.tags.map((t) => String(t).trim()).filter(Boolean)
     : [];
   const companyHsId = body?.companyHsId ? String(body.companyHsId) : null;
   const dealHsId = body?.dealHsId ? String(body.dealHsId) : null;
-  const externalId = body?.externalId ? String(body.externalId) : null;
 
+  // Brand-template path: persist the pasted markup as a Document, then index it.
+  if (html) {
+    const document = await prisma.document.create({
+      data: {
+        tenantId: ctx.tenantId,
+        title,
+        html,
+        template: html,
+        data: null,
+      },
+    });
+
+    const row = await prisma.collateralIndex.create({
+      data: {
+        tenantId: ctx.tenantId,
+        title,
+        type,
+        category,
+        source: "UPLOAD",
+        isTemplate: true,
+        externalId: document.id,
+        funnelStage,
+        tags,
+        companyHsId,
+        dealHsId,
+      },
+    });
+
+    return NextResponse.json({ item: row, documentId: document.id }, { status: 201 });
+  }
+
+  // External-link path: a non-template directory row (upsert by slug if given).
   const data = {
     tenantId: ctx.tenantId,
     title,
     type,
-    source,
+    category,
+    source: "UPLOAD",
+    isTemplate: false,
     funnelStage,
     tags,
     url: url || null,
     slug: slug || null,
     companyHsId,
     dealHsId,
-    externalId,
   };
 
   let row;

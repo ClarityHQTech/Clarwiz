@@ -11,6 +11,11 @@ export const TYPE_OPTIONS = [
   { value: "OTHER", label: "Other" },
 ];
 
+export const CATEGORY_OPTIONS = [
+  { value: "MARKETING", label: "Marketing", color: "info" },
+  { value: "SALES", label: "Sales", color: "accent" },
+];
+
 export const SOURCE_OPTIONS = [
   { value: "GENERATED", label: "Generated", color: "purple" },
   { value: "HEYPARROT", label: "HeyParrot", color: "green" },
@@ -25,6 +30,8 @@ export const STAGE_OPTIONS = [
   { value: "ANY", label: "Any stage" },
 ];
 
+export const CATEGORY_LABELS = Object.fromEntries(CATEGORY_OPTIONS.map((o) => [o.value, o.label]));
+export const CATEGORY_COLORS = Object.fromEntries(CATEGORY_OPTIONS.map((o) => [o.value, o.color]));
 export const TYPE_LABELS = Object.fromEntries(TYPE_OPTIONS.map((o) => [o.value, o.label]));
 export const STAGE_LABELS = Object.fromEntries(STAGE_OPTIONS.map((o) => [o.value, o.label]));
 export const SOURCE_LABELS = Object.fromEntries(SOURCE_OPTIONS.map((o) => [o.value, o.label]));

@@ -6,29 +6,124 @@ import { getOpenAIClient } from "@/lib/openaiClient";
 import { logAssistAction } from "@/lib/assist/logAction";
 import {
   assembleCollateralVars,
+  assembleProspectContext,
+  personalizeTemplate,
   generateCollateral,
   storeGeneratedCollateral,
 } from "@/lib/assist/collateralGen";
+import { rankCollateral } from "@/lib/assist/collateralRank";
 
 const DRAFT_MODEL = process.env.NBA_DRAFT_MODEL || "gpt-4o-mini";
 
 /**
- * An NBA "needs an asset" when its payload describes collateral to create. The
- * generation prompt (prompts/index.js) puts that on `payload.asset`; older
- * shapes nested it under `resource_requirements.asset`. Treat a non-trivial
- * string there as a request to attach collateral.
+ * Keyword → CollateralType map. An NBA only "needs a document" when its asset /
+ * action genuinely calls for a product doc, sales pitch, one-pager, battlecard,
+ * case study, or ROI doc. A scheduling / intro / follow-up email needs NONE —
+ * those must NOT attach a doc (e.g. the screenshot's "Schedule health check").
+ */
+const ASSET_KEYWORDS = [
+  [/\b(battle\s*card|battlecard|competitive|competitor|vs\b)/i, "BATTLECARD"],
+  [/\b(case\s*study|success\s*story|customer\s*story)/i, "CASE_STUDY"],
+  [/\b(roi|return\s+on\s+investment|payback|business\s+case|tco|cost\s+savings?)/i, "ROI_DOC"],
+  [/\b(one[-\s]?pager|1[-\s]?pager|datasheet|data\s*sheet)/i, "ONE_PAGER"],
+  [/\b(pitch\s*deck|sales\s*deck|deck|presentation)/i, "PITCH_DECK"],
+  [/\b(product\s+(doc|sheet|brief|overview)|spec\s*sheet|capabilit(y|ies)\s+(doc|overview))/i, "ONE_PAGER"],
+  [/\b(sales\s+pitch|pitch|collateral|brochure|white\s*paper|whitepaper|solution\s+brief)/i, "ONE_PAGER"],
+];
+
+/**
+ * Phrases that, even if "asset"-shaped, are scheduling/intro/follow-up emails —
+ * these never need a document.
+ */
+const NO_DOC_RE = /^(none|n\/a|no|not\s+required|email|follow[-\s]?up|intro(duction)?|schedule|check[-\s]?in|reminder|thank\s*you|nudge)\b/i;
+
+/**
+ * Resolve what document (if any) the NBA needs. Returns
+ * `{ description, type, category }` when a genuine document is called for, else
+ * null. `type` is a CollateralType (or "ROI_DOC" sentinel) used for ranking;
+ * `category` is MARKETING|SALES.
  */
 function neededAsset(nba) {
   const p = nba?.payload || {};
-  const candidates = [p.asset, p?.resource_requirements?.asset];
+  const candidates = [p.asset, p?.resource_requirements?.asset, nba?.title];
   for (const c of candidates) {
-    if (typeof c === "string") {
-      const t = c.trim();
-      // Skip empty / explicit "nothing"/"none"/"email"-only descriptors.
-      if (t && !/^(none|n\/a|no|not required|email)\.?$/i.test(t)) return t;
+    if (typeof c !== "string") continue;
+    const t = c.trim();
+    if (!t) continue;
+    if (NO_DOC_RE.test(t)) continue;
+    for (const [re, type] of ASSET_KEYWORDS) {
+      if (re.test(t)) {
+        // Map the ROI_DOC sentinel to a real CollateralType for ranking.
+        // Every doc the NBA can call for here is SALES-side collateral.
+        const rankType = type === "ROI_DOC" ? "CASE_STUDY" : type;
+        return { description: t, type: rankType, category: "SALES" };
+      }
     }
   }
   return null;
+}
+
+/**
+ * Map a deal's stageBand (or a free-text stage label) to a FunnelStage for
+ * template ranking. Defaults to "ANY".
+ */
+function stageToFunnel(stageBand, stageLabel) {
+  if (stageBand === "LEAD" || stageBand === "DEAL_EARLY" || stageBand === "DEAL_LATE") {
+    return stageBand;
+  }
+  const s = typeof stageLabel === "string" ? stageLabel.toLowerCase() : "";
+  if (/\b(lead|prospect|qualif)/.test(s)) return "LEAD";
+  if (/\b(discovery|demo|early|interest)/.test(s)) return "DEAL_EARLY";
+  if (/\b(proposal|negotiat|contract|closing|decision|late)/.test(s)) return "DEAL_LATE";
+  return "ANY";
+}
+
+/**
+ * Persist a personalized template instance: a non-template Document (instance)
+ * + a CollateralIndex(instance) row, linked. Mirrors storeGeneratedCollateral
+ * but keeps the template's type/category and marks the instance source.
+ */
+async function storePersonalizedInstance(
+  prisma,
+  { tenantId, personalized, type, category = null, dealHsId = null, companyHsId = null }
+) {
+  const finalTitle =
+    (personalized.title && personalized.title.trim()) || "Personalized collateral";
+
+  const document = await prisma.document.create({
+    data: {
+      tenantId,
+      dealHsId,
+      companyHsId,
+      title: finalTitle,
+      template: personalized.template || "",
+      html: personalized.html || "",
+      data: personalized.data ?? {},
+      compliance: personalized.compliance ?? null,
+      model: personalized.model,
+      promptVersion: personalized.promptVersion,
+    },
+  });
+
+  const collateral = await prisma.collateralIndex.create({
+    data: {
+      tenantId,
+      title: finalTitle,
+      type: type || "ONE_PAGER",
+      category,
+      source: "GENERATED",
+      isTemplate: false,
+      externalId: document.id,
+      companyHsId,
+      dealHsId,
+    },
+  });
+
+  await prisma.document
+    .update({ where: { id: document.id }, data: { collateralId: collateral.id } })
+    .catch(() => {});
+
+  return { document, collateral };
 }
 
 /**
@@ -134,28 +229,79 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
     return NextResponse.json({ ok: false, error: "draft_unparseable" }, { status: 502 });
   }
 
-  // (B) If this NBA needs an asset, generate + attach styled collateral. Fenced
-  // so a failure (no key, Claude error) still returns the email — collateral is
-  // optional. On success we append a "View / edit asset" link to the email body
-  // and stash the documentId on the draft.
+  // (B) If this NBA genuinely needs a document, attach hyper-personalized
+  // collateral: pick the best brand TEMPLATE from the directory and personalize
+  // it to this prospect (preferred), else fall back to generate-from-scratch.
+  // Fenced so any failure (no key, Claude error) still returns the email —
+  // collateral is optional. On success we append a "View / edit asset" link.
   const draftPayload = { ...draft };
-  const assetDescription = neededAsset(nba);
-  if (assetDescription && process.env.ANTHROPIC_API_KEY) {
+  const need = neededAsset(nba);
+  if (need && process.env.ANTHROPIC_API_KEY) {
     try {
-      const { vars, dealHsId, companyHsId } = await assembleCollateralVars(
-        prisma,
-        ctx.tenantId,
-        { nbaId: nba.id },
-      );
-      const generated = await generateCollateral({ vars });
-      const { document } = await storeGeneratedCollateral(prisma, {
-        tenantId: ctx.tenantId,
-        generated,
-        title: generated.title,
-        dealHsId: dealHsId || nba.deal?.hubspotDealId || null,
-        companyHsId,
-      });
+      const context = await assembleProspectContext(prisma, ctx.tenantId, { nbaId: nba.id });
+      const dealHsId = context.dealHsId || nba.deal?.hubspotDealId || null;
+      const companyHsId = context.companyHsId || null;
 
+      // Load this tenant's TEMPLATE collateral and pick the best by
+      // type/category/tags/funnelStage/company.
+      const templates = await prisma.collateralIndex.findMany({
+        where: { tenantId: ctx.tenantId, isTemplate: true },
+      });
+      const funnelStage = stageToFunnel(nba.deal?.stageBand, context.deal?.stage);
+      const ranked = rankCollateral(templates, {
+        type: need.type,
+        category: need.category,
+        funnelStage,
+        companyHsId,
+        industry: context.prospect?.industry ?? null,
+        persona: context.assetBrief?.audience ?? null,
+      });
+      const best = ranked[0] && ranked[0].score > 0 ? ranked[0] : null;
+
+      let stored;
+      let source;
+      if (best?.externalId) {
+        // PICK → PERSONALIZE: load the template Document, personalize, store an instance.
+        const templateDoc = await prisma.document.findFirst({
+          where: { id: best.externalId, tenantId: ctx.tenantId },
+        });
+        if (templateDoc) {
+          const personalized = await personalizeTemplate({
+            templateDoc: {
+              title: templateDoc.title,
+              html: templateDoc.html,
+              data: templateDoc.data,
+            },
+            context,
+          });
+          stored = await storePersonalizedInstance(prisma, {
+            tenantId: ctx.tenantId,
+            personalized,
+            type: best.type,
+            category: best.category,
+            dealHsId,
+            companyHsId,
+          });
+          source = "PERSONALIZED";
+        }
+      }
+
+      if (!stored) {
+        // FALLBACK: no template fits — generate from scratch (brand + context).
+        const { vars } = await assembleCollateralVars(prisma, ctx.tenantId, { nbaId: nba.id });
+        const generated = await generateCollateral({ vars });
+        const { document } = await storeGeneratedCollateral(prisma, {
+          tenantId: ctx.tenantId,
+          generated,
+          title: generated.title,
+          dealHsId,
+          companyHsId,
+        });
+        stored = { document };
+        source = "GENERATED";
+      }
+
+      const document = stored.document;
       draftPayload.documentId = document.id;
       draftPayload.collateralTitle = document.title;
       draftPayload.emailHtml =
@@ -169,7 +315,13 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
         entityType: "collateral",
         hsObjectId: nba.deal?.hubspotDealId ?? null,
         action: "COLLATERAL_SENT",
-        payload: { nbaId: nba.id, documentId: document.id, source: "GENERATED", fromNba: true },
+        payload: {
+          nbaId: nba.id,
+          documentId: document.id,
+          source,
+          templateId: source === "PERSONALIZED" ? best?.id ?? null : null,
+          fromNba: true,
+        },
       });
     } catch (err) {
       // Collateral is optional — never block the email on a generation failure.

@@ -1,7 +1,7 @@
 "use client";
 
 import { CkBadge } from "../cockpit/primitives";
-import { TYPE_LABELS, STAGE_LABELS, SOURCE_LABELS } from "./constants";
+import { TYPE_LABELS, STAGE_LABELS, SOURCE_LABELS, CATEGORY_LABELS, CATEGORY_COLORS } from "./constants";
 
 const TYPE_STYLE = {
   CASE_STUDY: { letter: "C", variant: "accent", color: "var(--accent)", grad: "rgba(242,166,90,0.15)" },
@@ -14,17 +14,19 @@ const TYPE_STYLE = {
 };
 
 /**
- * One collateral tile (cockpit). Type-badge thumbnail with a colored gradient,
- * title, meta, and Open / context actions. A GENERATED tile (backed by a
- * Document) opens the live editor; others open the redirect route.
+ * One template tile (cockpit). Type-badge thumbnail with a colored gradient,
+ * a Marketing/Sales category badge and a "Template" badge, title, meta, and
+ * Open actions. Any row backed by a Document (externalId set) — generated or an
+ * uploaded brand template — opens the live editor; link-only rows open the
+ * redirect route.
  */
 export default function CollateralTile({ item, onOpenEditor }) {
   const style = TYPE_STYLE[item.type] || TYPE_STYLE.OTHER;
-  const isGenerated = item.source === "GENERATED" && item.externalId;
   const documentId = item.externalId;
+  const isEditable = Boolean(documentId);
 
   const open = () => {
-    if (isGenerated && documentId) onOpenEditor?.(documentId, item);
+    if (isEditable && documentId) onOpenEditor?.(documentId, item);
   };
 
   return (
@@ -42,6 +44,15 @@ export default function CollateralTile({ item, onOpenEditor }) {
         </div>
       </div>
 
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "0 0 6px" }}>
+        {item.category ? (
+          <CkBadge variant={CATEGORY_COLORS[item.category] ?? "ghost"}>
+            {CATEGORY_LABELS[item.category] ?? item.category}
+          </CkBadge>
+        ) : null}
+        {item.isTemplate ? <CkBadge variant="ghost">Template</CkBadge> : null}
+      </div>
+
       <div className="ck-collateral-title">{item.title}</div>
       <div className="ck-collateral-meta">
         <span>{SOURCE_LABELS[item.source] ?? item.source}</span>
@@ -56,7 +67,7 @@ export default function CollateralTile({ item, onOpenEditor }) {
       </div>
 
       <div className="ck-collateral-actions">
-        {isGenerated ? (
+        {isEditable ? (
           <button type="button" className="ck-btn ck-btn-primary" onClick={open} style={{ fontSize: 11, padding: "6px 12px" }}>
             Open in editor →
           </button>

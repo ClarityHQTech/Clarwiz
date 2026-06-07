@@ -2,24 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { TYPE_OPTIONS, SOURCE_OPTIONS, STAGE_OPTIONS } from "./constants";
+import { TYPE_OPTIONS, CATEGORY_OPTIONS, STAGE_OPTIONS } from "./constants";
 
 const EMPTY = {
   title: "",
+  category: "SALES",
   type: "ONE_PAGER",
-  source: "UPLOAD",
   funnelStage: "ANY",
+  html: "",
   url: "",
-  slug: "",
   tags: "",
-  companyHsId: "",
-  dealHsId: "",
 };
 
 /**
- * "Register collateral" modal (cockpit). POSTs to /api/assist/collateral
- * (unchanged). Requires a link (url) OR a slug — mirrors the route's
- * `link_or_slug_required` rule.
+ * "Register collateral" modal (cockpit) — the brand-template upload path.
+ * Paste the collateral's HTML (brand colors baked in) and categorize it as
+ * Marketing or Sales. POSTs to /api/assist/collateral, which stores the markup
+ * as a Document + an isTemplate CollateralIndex row. An optional external URL is
+ * supported for link-only assets (no HTML).
  */
 export default function RegisterModal({ isOpen, onClose, onRegistered }) {
   const [form, setForm] = useState(EMPTY);
@@ -45,8 +45,8 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
       toast.error("Title is required");
       return;
     }
-    if (!form.url.trim() && !form.slug.trim()) {
-      toast.error("Provide a link or a slug");
+    if (!form.html.trim() && !form.url.trim()) {
+      toast.error("Paste HTML content or provide an external URL");
       return;
     }
     setSubmitting(true);
@@ -56,26 +56,24 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: form.title.trim(),
+          category: form.category,
           type: form.type,
-          source: form.source,
           funnelStage: form.funnelStage,
+          html: form.html.trim() || undefined,
           url: form.url.trim() || undefined,
-          slug: form.slug.trim() || undefined,
           tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
-          companyHsId: form.companyHsId.trim() || undefined,
-          dealHsId: form.dealHsId.trim() || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error || "Could not register collateral");
+        toast.error(data.error || "Could not register template");
         return;
       }
-      toast.success("Collateral registered");
+      toast.success(form.html.trim() ? "Template registered" : "Collateral registered");
       onRegistered?.(data.item);
       close();
     } catch {
-      toast.error("Could not register collateral");
+      toast.error("Could not register template");
     } finally {
       setSubmitting(false);
     }
@@ -83,32 +81,11 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
 
   if (!isOpen) return null;
 
-  const Field = ({ label, k, placeholder, hint, autoFocus }) => (
-    <div>
-      <div className="ck-eyebrow" style={{ marginBottom: 6 }}>{label}</div>
-      <input className="ck-input" value={form[k]} onChange={set(k)} placeholder={placeholder} autoFocus={autoFocus} />
-      {hint && <div className="ck-collateral-meta" style={{ marginTop: 4 }}>{hint}</div>}
-    </div>
-  );
-
-  const SelectField = ({ label, k, options }) => (
-    <div>
-      <div className="ck-eyebrow" style={{ marginBottom: 6 }}>{label}</div>
-      <select className="ck-input" value={form[k]} onChange={set(k)}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
   return (
     <div className="ck-modal" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="ck-email-frame" role="dialog" aria-label="Register collateral">
+      <div className="ck-email-frame" role="dialog" aria-label="Register collateral template">
         <div className="ck-email-header">
-          <div className="ck-email-title">Register collateral</div>
+          <div className="ck-email-title">Register brand template</div>
           <button
             type="button"
             className="ck-drawer-close"
@@ -122,20 +99,81 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
 
         <div className="ck-email-body">
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Field label="Title" k="title" autoFocus />
+            <div>
+              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Title</div>
+              <input
+                className="ck-input"
+                value={form.title}
+                onChange={set("title")}
+                placeholder="Sales one-pager"
+                autoFocus
+              />
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <SelectField label="Type" k="type" options={TYPE_OPTIONS} />
-              <SelectField label="Source" k="source" options={SOURCE_OPTIONS} />
-              <SelectField label="Funnel stage" k="funnelStage" options={STAGE_OPTIONS} />
+              <div>
+                <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Category</div>
+                <select className="ck-input" value={form.category} onChange={set("category")}>
+                  {CATEGORY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Type</div>
+                <select className="ck-input" value={form.type} onChange={set("type")}>
+                  {TYPE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Funnel stage</div>
+                <select className="ck-input" value={form.funnelStage} onChange={set("funnelStage")}>
+                  {STAGE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Field label="Slug" k="slug" placeholder="q2-pricing-onepager" hint="HeyParrot viewer slug" />
-              <Field label="Link (URL)" k="url" placeholder="https://…" hint="Used when no slug" />
+
+            <div>
+              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>HTML content</div>
+              <textarea
+                className="ck-input"
+                value={form.html}
+                onChange={set("html")}
+                placeholder={"<!DOCTYPE html><html>…paste your on-brand template markup, with {{prospect_*}} placeholders…</html>"}
+                rows={12}
+                style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 12, resize: "vertical", minHeight: 200 }}
+              />
+              <div className="ck-collateral-meta" style={{ marginTop: 4 }}>
+                The pasted markup becomes an editable brand template. Bake brand colors in; use
+                {" "}<code>{"{{prospect_name}}"}</code>-style placeholders for personalization.
+              </div>
             </div>
-            <Field label="Tags" k="tags" placeholder="fintech, cfo, security" hint="Comma-separated; powers best-match ranking" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Field label="Company HubSpot ID" k="companyHsId" placeholder="optional" />
-              <Field label="Deal HubSpot ID" k="dealHsId" placeholder="optional" />
+
+            <div>
+              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>External URL (optional)</div>
+              <input
+                className="ck-input"
+                value={form.url}
+                onChange={set("url")}
+                placeholder="https://… (use when linking an external asset instead of pasting HTML)"
+              />
+            </div>
+
+            <div>
+              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Tags</div>
+              <input
+                className="ck-input"
+                value={form.tags}
+                onChange={set("tags")}
+                placeholder="fintech, cfo, security"
+              />
+              <div className="ck-collateral-meta" style={{ marginTop: 4 }}>
+                Comma-separated; powers best-match ranking.
+              </div>
             </div>
           </div>
         </div>
@@ -147,7 +185,7 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
               Cancel
             </button>
             <button type="button" className="ck-btn ck-btn-primary" onClick={submit} disabled={submitting}>
-              {submitting ? "Registering…" : "Register"}
+              {submitting ? "Registering…" : "Register template"}
             </button>
           </div>
         </div>

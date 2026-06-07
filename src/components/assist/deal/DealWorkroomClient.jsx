@@ -58,7 +58,7 @@ function DealWorkroomClient({ id, vm }) {
             </div>
 
             <div style={{ position: "sticky", top: 72 }}>
-              <NbaRail dealId={id} nbas={vm.nbas} />
+              <NbaRail dealId={id} nbas={vm.nbas} contacts={vm.contacts} />
             </div>
           </div>
         </div>

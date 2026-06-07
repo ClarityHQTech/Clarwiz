@@ -104,7 +104,7 @@ export async function addNote(token, { dealId, body, timestamp }, { fetchImpl = 
 }
 
 /** Associate an email object with another object (deal/contact) using the default v4 association. */
-async function associateEmailTo(token, emailId, toObjectType, toObjectId, { fetchImpl = fetch } = {}) {
+export async function associateEmailTo(token, emailId, toObjectType, toObjectId, { fetchImpl = fetch } = {}) {
   const res = await hsWrite(
     token,
     `/crm/v4/objects/emails/${emailId}/associations/default/${toObjectType}/${toObjectId}`,

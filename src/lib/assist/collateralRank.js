@@ -7,9 +7,14 @@
  * Scoring (higher = better fit):
  *   +3  exact companyHsId match (item is tied to this exact company)
  *   +2  funnelStage exactly matches the context stage
+ *   +2  item.type matches the context type (e.g. ROI doc / battlecard / one-pager)
  *   +1  item.funnelStage === 'ANY' (stage-agnostic fallback) when no exact match
+ *   +1  item.category matches the context category (MARKETING | SALES)
  *   +1  per item tag that intersects the [industry, persona] keywords (ci)
  * Tie-break: newest createdAt wins.
+ *
+ * Template filtering is the caller's job: pass only `isTemplate: true` rows when
+ * picking a template to personalize. This module stays pure.
  */
 
 function ts(value) {
@@ -23,7 +28,7 @@ function scoreItem(item, ctx) {
   const reasons = [];
   let score = 0;
 
-  const { funnelStage, companyHsId, industry, persona } = ctx;
+  const { funnelStage, companyHsId, industry, persona, category, type } = ctx;
 
   if (companyHsId && item.companyHsId && String(item.companyHsId) === String(companyHsId)) {
     score += 3;
@@ -37,6 +42,18 @@ function scoreItem(item, ctx) {
   } else if (stage === "ANY") {
     score += 1;
     reasons.push("Works at any stage");
+  }
+
+  // Type match (e.g. the NBA needs an ROI doc / battlecard / one-pager).
+  if (type && item.type && String(item.type).toUpperCase() === String(type).toUpperCase()) {
+    score += 2;
+    reasons.push(`${item.type} fits the asset`);
+  }
+
+  // Category match (MARKETING | SALES).
+  if (category && item.category && String(item.category).toUpperCase() === String(category).toUpperCase()) {
+    score += 1;
+    reasons.push(`${item.category} collateral`);
   }
 
   const keywords = [industry, persona]

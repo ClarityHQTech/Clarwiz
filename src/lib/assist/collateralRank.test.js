@@ -67,6 +67,52 @@ describe("rankCollateral", () => {
     expect(r.score).toBe(3);
   });
 
+  it("scores +1 for a matching category (MARKETING|SALES)", () => {
+    const items = [base({ id: "a", funnelStage: "ANY", category: "SALES" })];
+    const [r] = rankCollateral(items, { funnelStage: "DEAL_LATE", category: "SALES" });
+    // ANY-stage +1, category +1 => 2
+    expect(r.score).toBe(2);
+    expect(r.reasons.some((x) => /SALES/i.test(x))).toBe(true);
+  });
+
+  it("does not award category when it differs (case-insensitive match only)", () => {
+    const items = [base({ id: "a", funnelStage: "ANY", category: "MARKETING" })];
+    const [r] = rankCollateral(items, { funnelStage: "DEAL_LATE", category: "sales" });
+    expect(r.score).toBe(1); // ANY-stage only
+  });
+
+  it("scores +2 for a matching type and ranks it first", () => {
+    const items = [
+      base({ id: "onepager", funnelStage: "ANY", type: "ONE_PAGER" }),
+      base({ id: "roi", funnelStage: "ANY", type: "CASE_STUDY" }),
+    ];
+    const ranked = rankCollateral(items, { funnelStage: "DEAL_LATE", type: "CASE_STUDY" });
+    expect(ranked[0].id).toBe("roi");
+    expect(ranked[0].score).toBe(3); // ANY +1, type +2
+  });
+
+  it("combines company + stage + type + category + tags", () => {
+    const items = [
+      base({
+        id: "best",
+        funnelStage: "DEAL_LATE",
+        companyHsId: "42",
+        category: "SALES",
+        type: "BATTLECARD",
+        tags: ["fintech"],
+      }),
+    ];
+    const [r] = rankCollateral(items, {
+      funnelStage: "DEAL_LATE",
+      companyHsId: "42",
+      category: "SALES",
+      type: "BATTLECARD",
+      industry: "fintech",
+    });
+    // +3 company, +2 stage, +2 type, +1 category, +1 tag = 9
+    expect(r.score).toBe(9);
+  });
+
   it("tie-breaks on newest createdAt", () => {
     const items = [
       base({ id: "old", funnelStage: "ANY", createdAt: new Date("2023-01-01Z") }),

@@ -28,7 +28,7 @@ function statusBadge(status) {
  *
  * nba = NbaRecommendation { id, title, actionType, rationale, score, status, draftPayload? }
  */
-export default function NbaRail({ dealId, nbas }) {
+export default function NbaRail({ dealId, nbas, contacts = [] }) {
   const router = useRouter();
   const [activeNba, setActiveNba] = useState(null);
   const [genDocId, setGenDocId] = useState(null);
@@ -108,6 +108,7 @@ export default function NbaRail({ dealId, nbas }) {
         <EmailModal
           dealId={dealId}
           nba={activeNba}
+          contacts={contacts}
           isOpen={!!activeNba}
           onClose={() => setActiveNba(null)}
           onExecuted={() => router.refresh()}

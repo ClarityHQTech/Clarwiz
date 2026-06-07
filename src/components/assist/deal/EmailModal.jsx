@@ -16,9 +16,14 @@ import CollateralEditorModal from "@/components/assist/collateral/CollateralEdit
  *     POST /api/assist/deal/[dealId]/nba/[nbaId]/send — a route built by another
  *     agent — and toasts the result.
  *
- * Props: { dealId, nba, isOpen, onClose, onExecuted }
+ * Props: { dealId, nba, contacts, isOpen, onClose, onExecuted }
+ *
+ * `contacts` is the deal's people (vm.contacts): { id, email, name, title }.
+ * The AE picks which of them the email goes to via a multi-select "To" field;
+ * the selected Contact ids are sent to the route, which logs one email and
+ * associates it to every selected contact's HubSpot timeline.
  */
-export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted }) {
+export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose, onExecuted }) {
   const [drafting, setDrafting] = useState(false);
   const [sending, setSending] = useState(false);
   const [subject, setSubject] = useState("");
@@ -28,6 +33,25 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
   const [documentId, setDocumentId] = useState(null);
   const [collateralTitle, setCollateralTitle] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  // Selected recipient Contact ids (multi-select "To").
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Contacts that can actually be emailed (have an address).
+  const emailable = (contacts || []).filter((c) => c?.id && c?.email);
+
+  // Default-select the primary contact = first contact with an email.
+  useEffect(() => {
+    if (!isOpen) return;
+    const primary = emailable[0];
+    setSelectedIds(primary ? [primary.id] : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, nba?.id]);
+
+  const toggleRecipient = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -95,12 +119,16 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
       toast.error("Subject and body are required");
       return;
     }
+    if (!selectedIds.length) {
+      toast.error("Select at least one recipient");
+      return;
+    }
     setSending(true);
     try {
       const res = await fetch(`/api/assist/deal/${dealId}/nba/${nba.id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, html }),
+        body: JSON.stringify({ subject, html, recipientContactIds: selectedIds }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 412) {
@@ -111,7 +139,11 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
         toast.error(data.reason || data.error || "Send failed");
         return;
       }
-      toast.success("Sent via HubSpot");
+      toast.success(
+        data.recipientCount > 1
+          ? `Sent via HubSpot to ${data.recipientCount} recipients`
+          : "Sent via HubSpot"
+      );
       onExecuted?.();
       onClose?.();
     } catch {
@@ -155,6 +187,60 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
           ) : (
             <>
               <div className="ck-email-field">
+                <div className="lbl" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>To</span>
+                  <span className="ck-email-eyebrow" style={{ textTransform: "none" }}>
+                    {selectedIds.length} selected
+                  </span>
+                </div>
+                {!(contacts || []).length ? (
+                  <div className="ck-risk-desc" style={{ fontSize: 12 }}>
+                    No people on this deal.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                    {(contacts || []).map((c) => {
+                      const hasEmail = !!c?.email;
+                      const selected = selectedIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id || c.email}
+                          type="button"
+                          onClick={() => hasEmail && toggleRecipient(c.id)}
+                          disabled={!hasEmail}
+                          aria-pressed={selected}
+                          title={hasEmail ? c.email : "No email on file"}
+                          style={{
+                            cursor: hasEmail ? "pointer" : "not-allowed",
+                            opacity: hasEmail ? 1 : 0.5,
+                            display: "inline-flex",
+                            flexDirection: "column",
+                            alignItems: "flex-start",
+                            gap: 2,
+                            textAlign: "left",
+                            padding: "6px 10px",
+                            borderRadius: 6,
+                            background: selected ? "var(--accent-soft)" : "var(--elevated)",
+                            border: `1px solid ${selected ? "var(--accent-line)" : "var(--line)"}`,
+                            color: "var(--text)",
+                          }}
+                        >
+                          <span style={{ fontSize: 12, fontWeight: 600, color: selected ? "var(--accent)" : "var(--text)" }}>
+                            {selected ? "✓ " : ""}
+                            {c.name || c.email || "Contact"}
+                            {c.title ? ` · ${c.title}` : ""}
+                          </span>
+                          <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                            {hasEmail ? c.email : "no email"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="ck-email-field" style={{ marginTop: 16 }}>
                 <div className="lbl">Subject</div>
                 <input
                   className="ck-input"
@@ -227,7 +313,12 @@ export default function EmailModal({ dealId, nba, isOpen, onClose, onExecuted })
             <button type="button" className="ck-btn" onClick={saveDraft} disabled={!drafted}>
               Save draft
             </button>
-            <button type="button" className="ck-btn ck-btn-primary" onClick={send} disabled={!drafted || sending}>
+            <button
+              type="button"
+              className="ck-btn ck-btn-primary"
+              onClick={send}
+              disabled={!drafted || sending || !selectedIds.length}
+            >
               {sending ? "Sending…" : "Send via HubSpot →"}
             </button>
           </div>

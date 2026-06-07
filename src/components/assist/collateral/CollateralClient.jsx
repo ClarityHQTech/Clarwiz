@@ -7,20 +7,19 @@ import FilterBar from "./FilterBar";
 import CollateralTile from "./CollateralTile";
 import CollateralEditorModal from "./CollateralEditorModal";
 import RegisterModal from "./RegisterModal";
-import GenerateCollateralModal from "./GenerateCollateralModal";
 
 const INITIAL_FILTERS = { q: "", type: "", funnelStage: "", tag: "" };
 
 /**
- * Collateral Hub client (cockpit grid). Holds rows + filter state, renders the
- * type-badged tile grid, the Generate-with-AI + Register modals, and the
- * full-screen live editor (for GENERATED tiles backed by a Document).
+ * Collateral library client (cockpit grid). The directory reads as a library of
+ * brand templates: register a template by pasting its HTML and categorizing it
+ * Marketing/Sales, then open any tile in the live editor. Holds rows + filter
+ * state, the Register modal, and the full-screen live editor.
  */
 function CollateralClient({ items: initialItems }) {
   const [items, setItems] = useState(initialItems ?? []);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [registerOpen, setRegisterOpen] = useState(false);
-  const [genOpen, setGenOpen] = useState(false);
   const [editor, setEditor] = useState(null); // { documentId, title }
 
   // Auto-open the live editor when arrived at via ?open=<documentId> (e.g. the
@@ -65,6 +64,8 @@ function CollateralClient({ items: initialItems }) {
       const normalized = {
         ...item,
         tags: item.tags ?? [],
+        category: item.category ?? null,
+        isTemplate: item.isTemplate ?? false,
         externalId: item.externalId ?? null,
         createdAt:
           typeof item.createdAt === "string" ? item.createdAt : new Date(item.createdAt).toISOString(),
@@ -73,40 +74,26 @@ function CollateralClient({ items: initialItems }) {
     });
   };
 
-  const onGenerated = async () => {
-    try {
-      const res = await fetch("/api/assist/collateral");
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.items)) setItems(data.items);
-      }
-    } catch {
-      /* the row exists server-side; a refresh will surface it */
-    }
-  };
-
   const hasAny = items.length > 0;
   const openEditor = (documentId, item) => setEditor({ documentId, title: item?.title });
 
   return (
-    <AssistShell active="collaterals" crumbs={["Directory"]}>
+    <AssistShell active="collaterals" crumbs={["Templates"]}>
       <div className="ck-page-header">
         <div className="ck-page-title-block">
-          <div className="ck-eyebrow">Unified Directory · Marketing + Sales</div>
+          <div className="ck-eyebrow">Brand Template Library · Marketing + Sales</div>
           <h1 className="ck-page-title">
-            Collateral <em>Hub</em>
+            Collateral <em>Templates</em>
           </h1>
           <p className="ck-page-subtitle">
-            Pitch decks, battlecards, case studies, one-pagers and email templates — generated,
-            HeyParrot, pilot and uploaded sources unified, with best-match suggestions for any deal.
+            Your library of on-brand templates — one-pagers, battlecards, case studies and more.
+            Register a template by pasting its HTML, then open any tile in the live editor to
+            personalize it for a deal.
           </p>
         </div>
         <div className="ck-page-actions">
-          <button type="button" className="ck-btn ck-btn-ghost" onClick={() => setGenOpen(true)}>
-            ⚡ Generate with AI
-          </button>
           <button type="button" className="ck-btn ck-btn-primary" onClick={() => setRegisterOpen(true)}>
-            + Register collateral
+            + Register template
           </button>
         </div>
       </div>
@@ -116,24 +103,21 @@ function CollateralClient({ items: initialItems }) {
       {!hasAny ? (
         <div className="ck-card" style={{ padding: 48, textAlign: "center" }}>
           <div className="ck-page-title" style={{ fontSize: 24, marginBottom: 12 }}>
-            No collateral <em>yet</em>
+            No templates <em>yet</em>
           </div>
           <p className="ck-page-subtitle" style={{ margin: "0 auto 20px" }}>
-            Register your first marketing or sales asset, or generate one with AI, to surface it as a
-            best-match suggestion on deals.
+            Register your first brand template by pasting its HTML and categorizing it Marketing or
+            Sales. It becomes an editable, personalizable asset for any deal.
           </p>
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button type="button" className="ck-btn ck-btn-ghost" onClick={() => setGenOpen(true)}>
-              ⚡ Generate with AI
-            </button>
             <button type="button" className="ck-btn ck-btn-primary" onClick={() => setRegisterOpen(true)}>
-              + Register collateral
+              + Register template
             </button>
           </div>
         </div>
       ) : filtered.length === 0 ? (
         <div className="ck-card">
-          <div className="ck-empty">No collateral matches these filters.</div>
+          <div className="ck-empty">No templates match these filters.</div>
         </div>
       ) : (
         <div className="ck-collateral-grid">
@@ -144,7 +128,6 @@ function CollateralClient({ items: initialItems }) {
       )}
 
       <RegisterModal isOpen={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={onRegistered} />
-      <GenerateCollateralModal isOpen={genOpen} onClose={() => setGenOpen(false)} onGenerated={onGenerated} />
 
       {editor && (
         <CollateralEditorModal
