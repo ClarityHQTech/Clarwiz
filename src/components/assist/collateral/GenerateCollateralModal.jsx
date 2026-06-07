@@ -1,46 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Badge,
-  Box,
-  Button,
-  Code,
-  Divider,
-  FormControl,
-  FormHelperText,
-  FormLabel,
-  Heading,
-  Input,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Stack,
-  Text,
-} from "@chakra-ui/react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { CkBadge } from "../cockpit/primitives";
 
 const EMPTY = { dealId: "", accountId: "", nbaId: "", title: "" };
 
-function scoreColor(score) {
+function scoreVariant(score) {
   const n = Number(score);
-  if (Number.isNaN(n)) return "gray";
-  if (n >= 80) return "green";
-  if (n >= 50) return "orange";
-  return "red";
+  if (Number.isNaN(n)) return "ghost";
+  if (n >= 80) return "ok";
+  if (n >= 50) return "warn";
+  return "danger";
 }
 
 /**
- * "Generate with AI" modal. POSTs /api/assist/collateral/generate with a
- * deal / account / nba reference, then fetches the stored Document and shows a
- * read-only preview of the compliance score + generated template/data.
- *
- * NOTE: Live React rendering of the generated Tailspin component is out of
- * scope — this preview is the raw template + data only.
+ * "Generate with AI" modal (cockpit). POSTs /api/assist/collateral/generate with
+ * a deal / account / nba reference (unchanged), then fetches the stored Document
+ * and shows a read-only preview of the compliance score + template/data.
  */
 export default function GenerateCollateralModal({ isOpen, onClose, onGenerated }) {
   const [form, setForm] = useState(EMPTY);
@@ -54,6 +31,14 @@ export default function GenerateCollateralModal({ isOpen, onClose, onGenerated }
     setResult(null);
     onClose();
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => e.key === "Escape" && close();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const submit = async () => {
     if (!form.dealId.trim() && !form.accountId.trim() && !form.nbaId.trim()) {
@@ -83,19 +68,17 @@ export default function GenerateCollateralModal({ isOpen, onClose, onGenerated }
         toast.error(msg);
         return;
       }
-
       toast.success("Collateral generated");
       onGenerated?.({ collateralId: data.collateralId, documentId: data.documentId });
 
-      // Fetch the stored Document for a read-only preview.
-      let document = null;
+      let docResult = null;
       try {
         const docRes = await fetch(`/api/assist/document/${data.documentId}`);
-        if (docRes.ok) document = (await docRes.json()).document;
+        if (docRes.ok) docResult = (await docRes.json()).document;
       } catch {
         /* preview is best-effort */
       }
-      setResult({ compliance: data.compliance, document });
+      setResult({ compliance: data.compliance, document: docResult });
     } catch {
       toast.error("Could not generate collateral");
     } finally {
@@ -103,105 +86,86 @@ export default function GenerateCollateralModal({ isOpen, onClose, onGenerated }
     }
   };
 
+  if (!isOpen) return null;
+
+  const Field = ({ label, k, placeholder, hint }) => (
+    <div>
+      <div className="ck-eyebrow" style={{ marginBottom: 6 }}>{label}</div>
+      <input className="ck-input" value={form[k]} onChange={set(k)} placeholder={placeholder} />
+      {hint && <div className="ck-collateral-meta" style={{ marginTop: 4 }}>{hint}</div>}
+    </div>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={close} isCentered size="xl" scrollBehavior="inside">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Generate collateral with AI</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
+    <div className="ck-modal" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="ck-email-frame" role="dialog" aria-label="Generate collateral">
+        <div className="ck-email-header">
+          <div className="ck-email-title">Generate collateral with AI</div>
+          <button
+            type="button"
+            className="ck-drawer-close"
+            style={{ position: "relative", top: 0, right: 0 }}
+            onClick={close}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="ck-email-body">
           {!result ? (
-            <Stack spacing={4}>
-              <Text color="gray.500" fontSize="sm">
-                Reference a deal, account, or next best action. AURA builds an on-brand
-                one-pager from your company + prospect data.
-              </Text>
-              <FormControl>
-                <FormLabel>Deal id</FormLabel>
-                <Input value={form.dealId} onChange={set("dealId")} placeholder="optional" />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Account id</FormLabel>
-                <Input value={form.accountId} onChange={set("accountId")} placeholder="optional" />
-              </FormControl>
-              <FormControl>
-                <FormLabel>NBA id</FormLabel>
-                <Input value={form.nbaId} onChange={set("nbaId")} placeholder="optional" />
-                <FormHelperText>At least one of deal / account / NBA is required.</FormHelperText>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Title</FormLabel>
-                <Input value={form.title} onChange={set("title")} placeholder="optional override" />
-              </FormControl>
-            </Stack>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <p className="ck-risk-desc">
+                Reference a deal, account, or next best action. AURA builds an on-brand one-pager
+                from your company + prospect data.
+              </p>
+              <Field label="Deal id" k="dealId" placeholder="optional" />
+              <Field label="Account id" k="accountId" placeholder="optional" />
+              <Field label="NBA id" k="nbaId" placeholder="optional" hint="At least one of deal / account / NBA is required." />
+              <Field label="Title" k="title" placeholder="optional override" />
+            </div>
           ) : (
-            <Stack spacing={4}>
-              <Box>
-                <Text fontSize="sm" color="gray.500" mb={1}>
-                  Compliance
-                </Text>
-                <Stack direction="row" align="center" spacing={3}>
-                  <Badge colorScheme={scoreColor(result.compliance?.score)} fontSize="md" px={2}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Compliance</div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <CkBadge variant={scoreVariant(result.compliance?.score)}>
                     {result.compliance?.score ?? "—"}
-                  </Badge>
-                  <Text fontSize="sm">{result.compliance?.note}</Text>
-                </Stack>
-              </Box>
+                  </CkBadge>
+                  <span className="ck-risk-desc">{result.compliance?.note}</span>
+                </div>
+              </div>
 
               {result.document && (
                 <>
-                  <Divider />
-                  <Box>
-                    <Heading size="xs" mb={2}>
-                      {result.document.title}
-                    </Heading>
-                    <Text fontSize="sm" color="gray.500" mb={1}>
-                      Template (read-only — live render is out of scope)
-                    </Text>
-                    <Code
-                      display="block"
-                      whiteSpace="pre-wrap"
-                      p={3}
-                      rounded="md"
-                      fontSize="xs"
-                      maxH="200px"
-                      overflowY="auto"
-                    >
-                      {result.document.template || "(empty)"}
-                    </Code>
-                  </Box>
-                  <Box>
-                    <Text fontSize="sm" color="gray.500" mb={1}>
-                      Data
-                    </Text>
-                    <Code
-                      display="block"
-                      whiteSpace="pre-wrap"
-                      p={3}
-                      rounded="md"
-                      fontSize="xs"
-                      maxH="200px"
-                      overflowY="auto"
-                    >
-                      {JSON.stringify(result.document.data ?? {}, null, 2)}
-                    </Code>
-                  </Box>
+                  <div className="ck-section-title">Template (read-only)</div>
+                  <pre className="ck-textarea" style={{ maxHeight: 200, overflow: "auto", margin: 0 }}>
+                    {result.document.template || "(empty)"}
+                  </pre>
+                  <div className="ck-section-title">Data</div>
+                  <pre className="ck-textarea" style={{ maxHeight: 200, overflow: "auto", margin: 0 }}>
+                    {JSON.stringify(result.document.data ?? {}, null, 2)}
+                  </pre>
                 </>
               )}
-            </Stack>
+            </div>
           )}
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={close} isDisabled={submitting}>
-            {result ? "Close" : "Cancel"}
-          </Button>
-          {!result && (
-            <Button colorScheme="orange" onClick={submit} isLoading={submitting}>
-              Generate with AI
-            </Button>
-          )}
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        </div>
+
+        <div className="ck-email-footer">
+          <div className="ck-email-footer-meta" />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="ck-btn ck-btn-ghost" onClick={close} disabled={submitting}>
+              {result ? "Close" : "Cancel"}
+            </button>
+            {!result && (
+              <button type="button" className="ck-btn ck-btn-primary" onClick={submit} disabled={submitting}>
+                {submitting ? "Generating…" : "Generate with AI"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

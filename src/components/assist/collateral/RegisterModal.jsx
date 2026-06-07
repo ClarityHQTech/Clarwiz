@@ -1,23 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Button,
-  FormControl,
-  FormHelperText,
-  FormLabel,
-  Input,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Select,
-  SimpleGrid,
-  Stack,
-} from "@chakra-ui/react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TYPE_OPTIONS, SOURCE_OPTIONS, STAGE_OPTIONS } from "./constants";
 
@@ -34,8 +17,9 @@ const EMPTY = {
 };
 
 /**
- * "Register collateral" modal. POSTs to /api/assist/collateral. Requires a
- * link (url) OR a slug — mirrors the route's `link_or_slug_required` rule.
+ * "Register collateral" modal (cockpit). POSTs to /api/assist/collateral
+ * (unchanged). Requires a link (url) OR a slug — mirrors the route's
+ * `link_or_slug_required` rule.
  */
 export default function RegisterModal({ isOpen, onClose, onRegistered }) {
   const [form, setForm] = useState(EMPTY);
@@ -47,6 +31,14 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
     setForm(EMPTY);
     onClose();
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => e.key === "Escape" && close();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const submit = async () => {
     if (!form.title.trim()) {
@@ -69,10 +61,7 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
           funnelStage: form.funnelStage,
           url: form.url.trim() || undefined,
           slug: form.slug.trim() || undefined,
-          tags: form.tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
+          tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
           companyHsId: form.companyHsId.trim() || undefined,
           dealHsId: form.dealHsId.trim() || undefined,
         }),
@@ -92,92 +81,77 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
     }
   };
 
+  if (!isOpen) return null;
+
+  const Field = ({ label, k, placeholder, hint, autoFocus }) => (
+    <div>
+      <div className="ck-eyebrow" style={{ marginBottom: 6 }}>{label}</div>
+      <input className="ck-input" value={form[k]} onChange={set(k)} placeholder={placeholder} autoFocus={autoFocus} />
+      {hint && <div className="ck-collateral-meta" style={{ marginTop: 4 }}>{hint}</div>}
+    </div>
+  );
+
+  const SelectField = ({ label, k, options }) => (
+    <div>
+      <div className="ck-eyebrow" style={{ marginBottom: 6 }}>{label}</div>
+      <select className="ck-input" value={form[k]} onChange={set(k)}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={close} isCentered size="xl">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Register collateral</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <Stack spacing={4}>
-            <FormControl isRequired>
-              <FormLabel>Title</FormLabel>
-              <Input value={form.title} onChange={set("title")} autoFocus />
-            </FormControl>
+    <div className="ck-modal" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="ck-email-frame" role="dialog" aria-label="Register collateral">
+        <div className="ck-email-header">
+          <div className="ck-email-title">Register collateral</div>
+          <button
+            type="button"
+            className="ck-drawer-close"
+            style={{ position: "relative", top: 0, right: 0 }}
+            onClick={close}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
 
-            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3}>
-              <FormControl>
-                <FormLabel>Type</FormLabel>
-                <Select value={form.type} onChange={set("type")}>
-                  {TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Source</FormLabel>
-                <Select value={form.source} onChange={set("source")}>
-                  {SOURCE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Funnel stage</FormLabel>
-                <Select value={form.funnelStage} onChange={set("funnelStage")}>
-                  {STAGE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              </FormControl>
-            </SimpleGrid>
+        <div className="ck-email-body">
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Field label="Title" k="title" autoFocus />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <SelectField label="Type" k="type" options={TYPE_OPTIONS} />
+              <SelectField label="Source" k="source" options={SOURCE_OPTIONS} />
+              <SelectField label="Funnel stage" k="funnelStage" options={STAGE_OPTIONS} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Field label="Slug" k="slug" placeholder="q2-pricing-onepager" hint="HeyParrot viewer slug" />
+              <Field label="Link (URL)" k="url" placeholder="https://…" hint="Used when no slug" />
+            </div>
+            <Field label="Tags" k="tags" placeholder="fintech, cfo, security" hint="Comma-separated; powers best-match ranking" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Field label="Company HubSpot ID" k="companyHsId" placeholder="optional" />
+              <Field label="Deal HubSpot ID" k="dealHsId" placeholder="optional" />
+            </div>
+          </div>
+        </div>
 
-            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
-              <FormControl>
-                <FormLabel>Slug</FormLabel>
-                <Input value={form.slug} onChange={set("slug")} placeholder="q2-pricing-onepager" />
-                <FormHelperText>HeyParrot viewer slug</FormHelperText>
-              </FormControl>
-              <FormControl>
-                <FormLabel>Link (URL)</FormLabel>
-                <Input value={form.url} onChange={set("url")} placeholder="https://…" />
-                <FormHelperText>Used when no slug</FormHelperText>
-              </FormControl>
-            </SimpleGrid>
-
-            <FormControl>
-              <FormLabel>Tags</FormLabel>
-              <Input value={form.tags} onChange={set("tags")} placeholder="fintech, cfo, security" />
-              <FormHelperText>Comma-separated; powers best-match ranking</FormHelperText>
-            </FormControl>
-
-            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
-              <FormControl>
-                <FormLabel>Company HubSpot ID</FormLabel>
-                <Input value={form.companyHsId} onChange={set("companyHsId")} placeholder="optional" />
-              </FormControl>
-              <FormControl>
-                <FormLabel>Deal HubSpot ID</FormLabel>
-                <Input value={form.dealHsId} onChange={set("dealHsId")} placeholder="optional" />
-              </FormControl>
-            </SimpleGrid>
-          </Stack>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={close} isDisabled={submitting}>
-            Cancel
-          </Button>
-          <Button colorScheme="orange" onClick={submit} isLoading={submitting}>
-            Register
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        <div className="ck-email-footer">
+          <div className="ck-email-footer-meta" />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="ck-btn ck-btn-ghost" onClick={close} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="button" className="ck-btn ck-btn-primary" onClick={submit} disabled={submitting}>
+              {submitting ? "Registering…" : "Register"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

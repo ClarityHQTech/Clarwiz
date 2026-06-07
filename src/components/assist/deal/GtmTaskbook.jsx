@@ -1,40 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  Badge,
-  Box,
-  Button,
-  Checkbox,
-  Heading,
-  HStack,
-  Stack,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
 import { toast } from "sonner";
+import { CkCard } from "../cockpit/primitives";
 
 /**
- * GTM paths rendered as a checkable taskbook. Selected steps are pushed to
- * HubSpot as tasks via POST /api/assist/deal/[id]/tasks.
+ * GTM paths rendered as a cockpit taskbook with checkable steps. Selected steps
+ * are pushed to HubSpot as tasks via POST /api/assist/deal/[id]/tasks (unchanged).
  */
 export default function GtmTaskbook({ dealId, gtmPaths }) {
-  // selection keyed as `${pathIndex}:${stepIndex}`
-  const [selected, setSelected] = useState({});
+  const [selected, setSelected] = useState({}); // `${pathIndex}:${stepIndex}` -> bool
   const [submitting, setSubmitting] = useState(false);
 
   const stepsByKey = useMemo(() => {
     const map = {};
     gtmPaths.forEach((p) => {
       p.steps.forEach((step, si) => {
-        map[`${p.index}:${si}`] = { subject: step, body: p.whyThisWorks ? `Why this works: ${p.whyThisWorks}` : "" };
+        map[`${p.index}:${si}`] = {
+          subject: step,
+          body: p.whyThisWorks ? `Why this works: ${p.whyThisWorks}` : "",
+        };
       });
     });
     return map;
   }, [gtmPaths]);
 
   const selectedKeys = Object.keys(selected).filter((k) => selected[k]);
-
   const toggle = (key) => setSelected((s) => ({ ...s, [key]: !s[key] }));
 
   const onCreate = async () => {
@@ -73,72 +64,58 @@ export default function GtmTaskbook({ dealId, gtmPaths }) {
 
   if (!gtmPaths.length) {
     return (
-      <Box borderWidth="1px" borderRadius="lg" bg="white" p={5}>
-        <Heading size="sm" mb={2}>
-          GTM paths
-        </Heading>
-        <Text color="gray.500" fontSize="sm">
-          No GTM paths suggested yet.
-        </Text>
-      </Box>
+      <CkCard title="GTM Taskbook">
+        <div className="ck-empty">No GTM paths suggested yet.</div>
+      </CkCard>
     );
   }
 
-  return (
-    <Box borderWidth="1px" borderRadius="lg" bg="white" p={5}>
-      <HStack justify="space-between" mb={4} align="center">
-        <Heading size="sm">GTM paths — taskbook</Heading>
-        <Button
-          size="sm"
-          colorScheme="orange"
-          onClick={onCreate}
-          isLoading={submitting}
-          isDisabled={!selectedKeys.length}
-        >
-          Create {selectedKeys.length || ""} task{selectedKeys.length === 1 ? "" : "s"}
-        </Button>
-      </HStack>
+  const action = (
+    <button
+      type="button"
+      className="ck-card-action"
+      onClick={onCreate}
+      disabled={!selectedKeys.length || submitting}
+      style={{ color: selectedKeys.length ? "var(--accent)" : undefined }}
+    >
+      {submitting ? "Creating…" : `Create ${selectedKeys.length || ""} task${selectedKeys.length === 1 ? "" : "s"}`}
+    </button>
+  );
 
-      <Stack spacing={5}>
-        {gtmPaths.map((path) => (
-          <Box key={path.index}>
-            <HStack mb={2} align="center" spacing={2}>
-              <Text fontWeight="semibold" fontSize="sm">
-                {path.title}
-              </Text>
-              {path.scoreImpact !== null && (
-                <Badge colorScheme="green">+{path.scoreImpact}</Badge>
-              )}
-            </HStack>
-            {path.whyThisWorks && (
-              <Text fontSize="xs" color="gray.500" mb={2}>
-                {path.whyThisWorks}
-              </Text>
-            )}
-            <VStack align="stretch" spacing={1.5} pl={1}>
-              {path.steps.length ? (
-                path.steps.map((step, si) => {
-                  const key = `${path.index}:${si}`;
-                  return (
-                    <Checkbox
-                      key={key}
-                      colorScheme="orange"
-                      isChecked={!!selected[key]}
-                      onChange={() => toggle(key)}
+  return (
+    <CkCard title="GTM Taskbook" action={action}>
+      {gtmPaths.map((path) => (
+        <div className="ck-task-path" key={path.index}>
+          <div className="ck-task-path-header">
+            <div className="ck-task-path-title">{path.title}</div>
+            {path.scoreImpact != null && <div className="ck-task-path-impact">+{path.scoreImpact} score</div>}
+          </div>
+          {path.steps.length ? (
+            <ul className="ck-task-steps">
+              {path.steps.map((step, si) => {
+                const key = `${path.index}:${si}`;
+                const done = !!selected[key];
+                return (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      className={`ck-task-step${done ? " done" : ""}`}
+                      onClick={() => toggle(key)}
+                      aria-pressed={done}
                     >
-                      <Text fontSize="sm">{step}</Text>
-                    </Checkbox>
-                  );
-                })
-              ) : (
-                <Text fontSize="xs" color="gray.400">
-                  No steps listed.
-                </Text>
-              )}
-            </VStack>
-          </Box>
-        ))}
-      </Stack>
-    </Box>
+                      <span className="ck-task-checkbox">✓</span>
+                      {step}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="ck-risk-desc">No steps listed.</div>
+          )}
+          {path.whyThisWorks && <div className="ck-task-why">Why this works: {path.whyThisWorks}</div>}
+        </div>
+      ))}
+    </CkCard>
   );
 }

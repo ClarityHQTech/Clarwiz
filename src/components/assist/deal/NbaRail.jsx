@@ -1,81 +1,75 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Box, Button, Heading, HStack, Stack, Text, VStack } from "@chakra-ui/react";
-import NbaDrawer from "./NbaDrawer";
+import { useRouter } from "next/navigation";
+import { CkCard, CkBadge } from "../cockpit/primitives";
+import EmailModal from "./EmailModal";
 
-function statusColor(status) {
+function statusBadge(status) {
   switch (status) {
     case "EXECUTED":
-      return "green";
+      return <CkBadge variant="ok">Executed</CkBadge>;
     case "DRAFTED":
     case "APPROVED":
-      return "blue";
+      return <CkBadge variant="info">Drafted</CkBadge>;
     case "DISMISSED":
-      return "gray";
+      return <CkBadge variant="ghost">Dismissed</CkBadge>;
     default:
-      return "orange";
+      return <CkBadge variant="accent">Suggested</CkBadge>;
   }
 }
 
-/** Right-rail of NBA recommendations; each opens the execute/draft drawer. */
-export default function NbaRail({ dealId, nbas, onRefresh }) {
+/**
+ * Right-rail of NBA recommendations (cockpit). Each card shows a SUGGESTED badge,
+ * score, rationale and an Execute action that opens the cockpit EmailModal
+ * (draft → edit → Send via HubSpot).
+ *
+ * nba = NbaRecommendation { id, title, actionType, rationale, score, status, draftPayload? }
+ */
+export default function NbaRail({ dealId, nbas }) {
+  const router = useRouter();
   const [activeNba, setActiveNba] = useState(null);
 
   return (
-    <Box borderWidth="1px" borderRadius="lg" bg="white" p={5}>
-      <Heading size="sm" mb={4}>
-        Next best actions
-      </Heading>
-
+    <CkCard title="Next Best Actions" count={nbas?.length || undefined}>
       {!nbas?.length ? (
-        <Text color="gray.500" fontSize="sm">
-          No recommendations yet.
-        </Text>
+        <div className="ck-empty">No recommendations yet.</div>
       ) : (
-        <Stack spacing={3}>
-          {nbas.map((nba) => (
-            <Box key={nba.id} borderWidth="1px" borderRadius="md" p={3} _hover={{ borderColor: "orange.300" }}>
-              <HStack justify="space-between" align="flex-start" mb={1}>
-                <Text fontWeight="semibold" fontSize="sm">
-                  {nba.title}
-                </Text>
-                <Badge colorScheme={statusColor(nba.status)}>{nba.status}</Badge>
-              </HStack>
-              <HStack spacing={2} mb={2}>
-                {nba.actionType && (
-                  <Badge variant="subtle" colorScheme="gray">
-                    {nba.actionType}
-                  </Badge>
-                )}
-                {typeof nba.score === "number" && (
-                  <Text fontSize="xs" color="gray.500">
-                    score {nba.score}
-                  </Text>
-                )}
-              </HStack>
-              {nba.rationale && (
-                <Text fontSize="xs" color="gray.600" noOfLines={2} mb={2}>
-                  {nba.rationale}
-                </Text>
-              )}
-              <Button size="xs" colorScheme="orange" variant="outline" onClick={() => setActiveNba(nba)}>
-                {nba.status === "EXECUTED" ? "View draft" : "Execute"}
-              </Button>
-            </Box>
-          ))}
-        </Stack>
+        nbas.map((nba) => (
+          <div className="ck-nba-item" key={nba.id}>
+            <div className="ck-nba-row">
+              <div style={{ minWidth: 0 }}>
+                <div className="ck-nba-title">{nba.title || nba.actionType || "Recommended action"}</div>
+                {nba.rationale && <div className="ck-nba-rationale">{nba.rationale}</div>}
+                <div className="ck-nba-actions">
+                  <button type="button" className="ck-nba-action primary" onClick={() => setActiveNba(nba)}>
+                    {nba.status === "EXECUTED" ? "View draft →" : "Execute →"}
+                  </button>
+                  {nba.actionType && (
+                    <span className="ck-nba-action" style={{ cursor: "default" }}>
+                      {nba.actionType}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="ck-nba-side">
+                {typeof nba.score === "number" && <div className="ck-nba-score">+{nba.score}</div>}
+                {statusBadge(nba.status)}
+              </div>
+            </div>
+          </div>
+        ))
       )}
 
       {activeNba && (
-        <NbaDrawer
+        <EmailModal
           dealId={dealId}
           nba={activeNba}
           isOpen={!!activeNba}
           onClose={() => setActiveNba(null)}
-          onExecuted={onRefresh}
+          onExecuted={() => router.refresh()}
         />
       )}
-    </Box>
+    </CkCard>
   );
 }

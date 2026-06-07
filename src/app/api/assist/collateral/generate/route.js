@@ -80,6 +80,7 @@ export async function POST(request) {
       companyHsId,
       title,
       template: generated.template || "",
+      html: generated.html || "",
       data: generated.data ?? {},
       compliance: generated.compliance ?? null,
       model: generated.model,

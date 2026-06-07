@@ -53,6 +53,23 @@ export function buildNoteBody({ body, timestamp }) {
   return { properties: { hs_note_body: body, hs_timestamp: timestamp ?? Date.now() } };
 }
 
+/**
+ * Build the body for an email engagement object. This *logs* the email on the
+ * HubSpot timeline (it is not an outbound mailbox send — true delivery needs a
+ * connected inbox/marketing-send integration, which the MOFU layer does not
+ * configure). `hs_email_direction: "EMAIL"` marks it as a logged email.
+ */
+export function buildEmailEngagementBody({ subject, html, timestamp }) {
+  return {
+    properties: {
+      hs_email_subject: subject ?? "",
+      hs_email_html: html ?? "",
+      hs_email_direction: "EMAIL",
+      hs_timestamp: timestamp ?? Date.now(),
+    },
+  };
+}
+
 // ── calls ──────────────────────────────────────────────────────────────────
 export async function createDeal(token, input, { fetchImpl = fetch } = {}) {
   const res = await hsWrite(token, "/crm/v3/objects/deals", { body: buildDealCreateBody(input), fetchImpl });
@@ -84,4 +101,38 @@ export async function addNote(token, { dealId, body, timestamp }, { fetchImpl = 
     await associate(token, dealId, "notes", res.json.id, { fetchImpl });
   }
   return { ok: res.ok, status: res.status, id: res.json?.id ?? null };
+}
+
+/** Associate an email object with another object (deal/contact) using the default v4 association. */
+async function associateEmailTo(token, emailId, toObjectType, toObjectId, { fetchImpl = fetch } = {}) {
+  const res = await hsWrite(
+    token,
+    `/crm/v4/objects/emails/${emailId}/associations/default/${toObjectType}/${toObjectId}`,
+    { method: "PUT", body: {}, fetchImpl }
+  );
+  return { ok: res.ok, status: res.status };
+}
+
+/**
+ * Log an email engagement on the HubSpot timeline and associate it to the deal
+ * (and primary contact, if provided). This records the message as a logged
+ * email on the deal/contact timeline — it is *not* an outbound mailbox send.
+ * Never throws; returns { ok, status, id }. On a 403 / missing write scope the
+ * caller gets ok:false (status 403) so it can degrade gracefully.
+ */
+export async function logEmailEngagement(
+  token,
+  { dealId, contactId, subject, html, timestamp },
+  { fetchImpl = fetch } = {}
+) {
+  const res = await hsWrite(token, "/crm/v3/objects/emails", {
+    body: buildEmailEngagementBody({ subject, html, timestamp }),
+    fetchImpl,
+  });
+  const id = res.json?.id ?? null;
+  if (res.ok && id) {
+    if (dealId) await associateEmailTo(token, id, "deals", dealId, { fetchImpl });
+    if (contactId) await associateEmailTo(token, id, "contacts", contactId, { fetchImpl });
+  }
+  return { ok: res.ok, status: res.status, id };
 }

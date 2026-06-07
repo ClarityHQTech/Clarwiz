@@ -1,41 +1,29 @@
 "use client";
 
 import NextLink from "next/link";
-import { Box, Button, Heading, Icon, Text } from "@chakra-ui/react";
-import { FiLink, FiAlertCircle } from "react-icons/fi";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AssistShell from "@/components/assist/AssistShell";
 
-const ICONS = { link: FiLink, alert: FiAlertCircle };
-
 /**
- * Full-page notice inside the assist chrome — used for the "Connect HubSpot"
- * empty state and the "no active workspace" state.
+ * Full-page cockpit notice — used for the "Connect HubSpot" empty state and the
+ * "no active workspace" state.
  */
-function AssistNotice({ title, message, ctaLabel, ctaHref, icon = "link" }) {
+function AssistNotice({ title, message, ctaLabel, ctaHref }) {
   return (
-    <AssistShell active="dashboard" title="Your day">
-      <Box
-        borderWidth="1px"
-        borderColor="gray.200"
-        rounded="xl"
-        bg="white"
-        p={10}
-        textAlign="center"
-      >
-        <Icon as={ICONS[icon] || FiLink} boxSize={10} color="orange.400" mb={4} />
-        <Heading size="md" mb={2}>
+    <AssistShell active="dashboard" crumbs={["Today"]}>
+      <div className="ck-card" style={{ padding: 48, textAlign: "center", maxWidth: 640, margin: "40px auto" }}>
+        <div className="ck-page-title" style={{ fontSize: 30, marginBottom: 12 }}>
           {title}
-        </Heading>
-        <Text color="gray.500" mb={6} maxW="md" mx="auto">
+        </div>
+        <p className="ck-page-subtitle" style={{ margin: "0 auto 24px" }}>
           {message}
-        </Text>
+        </p>
         {ctaLabel && ctaHref && (
-          <Button as={NextLink} href={ctaHref} colorScheme="orange">
+          <NextLink href={ctaHref} className="ck-btn ck-btn-primary">
             {ctaLabel}
-          </Button>
+          </NextLink>
         )}
-      </Box>
+      </div>
     </AssistShell>
   );
 }

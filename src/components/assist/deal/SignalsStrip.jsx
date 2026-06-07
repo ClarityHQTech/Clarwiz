@@ -1,56 +1,43 @@
 "use client";
 
-import { Badge, Box, Flex, Heading, HStack, Text, Tooltip } from "@chakra-ui/react";
+import { CkCard } from "../cockpit/primitives";
 
-const TYPE_COLORS = {
-  intent: "purple",
-  risk: "red",
-  engagement: "blue",
-  buying: "green",
-  technical: "cyan",
-};
-
-function tierColor(tier) {
-  const t = (tier || "").toLowerCase();
-  if (t === "hot") return "red";
-  if (t === "warm") return "orange";
-  return "gray";
+/** Map a signal to a tier dot class (t1 danger / t2 warn / t3 info). */
+export function tierDot(s) {
+  const tier = String(s.tier || "").toLowerCase();
+  if (tier === "hot" || tier === "t1" || tier === "high") return "t1";
+  if (tier === "warm" || tier === "t2" || tier === "medium") return "t2";
+  if (tier === "t3" || tier === "low" || tier === "cold") return "t3";
+  const score = typeof s.score === "number" ? s.score : null;
+  if (score != null) {
+    if (score >= 70) return "t1";
+    if (score >= 40) return "t2";
+  }
+  return "t3";
 }
 
-/** Horizontal strip of deal-level signals with type badges. */
+export function signalLabel(s) {
+  return s.headline || s.category || s.type || "Signal";
+}
+
+/** Horizontal strip of deal-level signals (cockpit chips with tier dots). */
 export default function SignalsStrip({ signals }) {
   if (!signals?.length) return null;
 
   return (
-    <Box borderWidth="1px" borderRadius="lg" bg="white" p={4}>
-      <Heading size="xs" textTransform="uppercase" color="gray.500" mb={3} letterSpacing="wide">
-        Signals
-      </Heading>
-      <Flex gap={3} wrap="wrap">
+    <CkCard title="Active Signals" count={signals.length}>
+      <div className="ck-signals-strip">
         {signals.map((s) => (
-          <Tooltip
+          <span
+            className="ck-signal-chip"
             key={s.id}
-            label={s.evidence || s.suggestedAngle || ""}
-            hasArrow
-            isDisabled={!s.evidence && !s.suggestedAngle}
+            title={s.evidence || s.suggestedAngle || ""}
           >
-            <Box borderWidth="1px" borderRadius="md" px={3} py={2} minW="180px" maxW="280px" bg="gray.50">
-              <HStack mb={1} spacing={2}>
-                <Badge colorScheme={TYPE_COLORS[(s.type || "").toLowerCase()] || "gray"}>{s.type || "signal"}</Badge>
-                {s.tier && <Badge colorScheme={tierColor(s.tier)} variant="subtle">{s.tier}</Badge>}
-                {typeof s.score === "number" && (
-                  <Text fontSize="xs" color="gray.500" ml="auto">
-                    {s.score}
-                  </Text>
-                )}
-              </HStack>
-              <Text fontSize="sm" fontWeight="medium" noOfLines={2}>
-                {s.headline || s.category || "Signal"}
-              </Text>
-            </Box>
-          </Tooltip>
+            <span className={`dot ${tierDot(s)}`} />
+            {signalLabel(s)}
+          </span>
         ))}
-      </Flex>
-    </Box>
+      </div>
+    </CkCard>
   );
 }

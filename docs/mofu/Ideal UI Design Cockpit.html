@@ -1,0 +1,3079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Clarwiz · AE Cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0A0A0D;
+  --bg-grad: radial-gradient(ellipse at top, #14141A 0%, #0A0A0D 60%);
+  --panel: #111116;
+  --panel-2: #16161D;
+  --elevated: #1C1C24;
+  --line: rgba(255,255,255,0.06);
+  --line-2: rgba(255,255,255,0.10);
+  --text: #ECE9E0;
+  --text-2: #B5B1A6;
+  --muted: #6B6B72;
+  --muted-2: #4A4A50;
+  --accent: #F2A65A;        /* warm amber */
+  --accent-soft: rgba(242,166,90,0.12);
+  --accent-line: rgba(242,166,90,0.35);
+  --ok: #7FD49C;
+  --ok-soft: rgba(127,212,156,0.10);
+  --warn: #F2C94C;
+  --warn-soft: rgba(242,201,76,0.10);
+  --danger: #E5736F;
+  --danger-soft: rgba(229,115,111,0.10);
+  --info: #8AB4F8;
+  --info-soft: rgba(138,180,248,0.10);
+  --serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  background-image: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Noise overlay for depth */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E");
+}
+
+/* ============ LAYOUT ============ */
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 52px 1fr;
+  min-height: 100vh;
+  position: relative;
+  z-index: 2;
+}
+
+/* ============ TOPBAR ============ */
+.topbar {
+  grid-column: 1 / -1;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: rgba(10,10,13,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  gap: 18px;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 200px;
+}
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+}
+.brand-mark::after {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.brand-name {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.brand-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-left: 8px;
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex: 1;
+}
+.crumbs .sep { color: var(--muted-2); }
+.crumbs .active { color: var(--text-2); }
+
+.search {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 320px;
+  transition: all 0.2s;
+}
+.search:focus-within {
+  border-color: var(--accent-line);
+  background: var(--panel-2);
+}
+.search input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12px;
+  flex: 1;
+}
+.search input::placeholder { color: var(--muted); }
+.search-kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--elevated);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.icon-btn:hover {
+  border-color: var(--line-2);
+  color: var(--text);
+  background: var(--panel-2);
+}
+.icon-btn.active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  cursor: pointer;
+}
+.avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #F2A65A, #C97C3F);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+.user-chip-name {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* ============ SIDEBAR ============ */
+.sidebar {
+  border-right: 1px solid var(--line);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(17,17,22,0.4);
+}
+.nav-section-label {
+  padding: 8px 20px 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted-2);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 13px;
+  position: relative;
+  transition: all 0.15s;
+}
+.nav-item:hover {
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+}
+.nav-item.active {
+  color: var(--text);
+  background: rgba(242,166,90,0.05);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--accent);
+}
+.nav-item .icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+.nav-item.active .icon { opacity: 1; color: var(--accent); }
+.nav-count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: var(--panel);
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+}
+.sync-card {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--ok);
+}
+.sync-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============ MAIN ============ */
+.main {
+  padding: 24px 32px 60px;
+  overflow-y: auto;
+  max-height: calc(100vh - 52px);
+}
+
+.view { display: none; animation: fadeIn 0.3s ease-out; }
+.view.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============ PAGE HEADER ============ */
+.page-header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.page-title-block {
+  flex: 1;
+}
+.page-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  margin-bottom: 8px;
+}
+.page-title {
+  font-family: var(--serif);
+  font-size: 42px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.page-title em {
+  font-style: italic;
+  color: var(--accent);
+}
+.page-subtitle {
+  margin-top: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  max-width: 560px;
+}
+
+.page-actions {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text-2);
+  font-family: var(--sans);
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+.btn:hover {
+  border-color: var(--line-2);
+  color: var(--text);
+  background: var(--panel-2);
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1a1a;
+}
+.btn-primary:hover {
+  background: #f5b573;
+  border-color: #f5b573;
+  color: #1a1a1a;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: var(--line-2);
+}
+
+/* ============ STAT STRIP ============ */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.stat {
+  background: var(--panel);
+  padding: 18px 20px;
+  position: relative;
+}
+.stat-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+}
+.stat-value {
+  font-family: var(--serif);
+  font-size: 32px;
+  line-height: 1;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.stat-delta {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ok);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.stat-delta.down { color: var(--danger); }
+.stat-delta.flat { color: var(--muted); }
+
+/* ============ COLUMNS ============ */
+.col-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+.col-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.col-deal {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+}
+
+/* ============ CARDS ============ */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+.card-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title-count {
+  color: var(--text);
+  background: var(--elevated);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+.card-body { padding: 0; }
+.card-action {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.card-action:hover { color: var(--accent); }
+
+/* ============ LIST ITEMS ============ */
+.list { list-style: none; }
+.list-item {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 12px;
+  transition: background 0.12s;
+}
+.list-item:last-child { border-bottom: none; }
+.list-item:hover { background: rgba(255,255,255,0.025); }
+.list-item-name {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.list-item-meta {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.list-item-meta .dot { color: var(--muted-2); }
+.list-item-side {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-2);
+}
+.list-item-side .amount {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+.list-item-side .activity {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ============ BADGES ============ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-radius: 4px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.badge-ok { background: var(--ok-soft); color: var(--ok); border-color: rgba(127,212,156,0.2); }
+.badge-warn { background: var(--warn-soft); color: var(--warn); border-color: rgba(242,201,76,0.2); }
+.badge-danger { background: var(--danger-soft); color: var(--danger); border-color: rgba(229,115,111,0.2); }
+.badge-info { background: var(--info-soft); color: var(--info); border-color: rgba(138,180,248,0.2); }
+.badge-accent { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
+.badge-ghost { background: var(--elevated); color: var(--muted); border-color: var(--line); }
+
+/* ============ SCORE RING ============ */
+.score-ring {
+  position: relative;
+  width: 56px;
+  height: 56px;
+}
+.score-ring svg { transform: rotate(-90deg); }
+.score-ring-bg { stroke: var(--line); fill: none; stroke-width: 4; }
+.score-ring-fg { stroke: var(--accent); fill: none; stroke-width: 4; stroke-linecap: round; }
+.score-ring-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--serif);
+  font-size: 18px;
+  color: var(--text);
+}
+
+/* ============ DEAL HERO ============ */
+.deal-hero {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.deal-hero::before {
+  content: '';
+  position: absolute;
+  top: -100px; right: -100px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  pointer-events: none;
+}
+.deal-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  position: relative;
+}
+.deal-hero-meta {
+  flex: 1;
+}
+.deal-company {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 8px;
+}
+.deal-name {
+  font-family: var(--serif);
+  font-size: 36px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.deal-stage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stage-pill {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-2);
+  padding: 4px 10px;
+  background: var(--elevated);
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+
+.deal-score-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+.deal-amount-box {
+  text-align: right;
+}
+.deal-amount-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.deal-amount-value {
+  font-family: var(--serif);
+  font-size: 30px;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.deal-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+.hero-stat {
+  background: var(--panel-2);
+  padding: 12px 16px;
+}
+.hero-stat-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+.hero-stat-value {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ============ BRIEFING ============ */
+.briefing {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px 26px;
+  margin-bottom: 16px;
+  position: relative;
+}
+.briefing-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 12px;
+}
+.briefing-text {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+.briefing-text em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+/* ============ SIGNALS ============ */
+.signals-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  background: var(--panel-2);
+}
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.signal-chip:hover {
+  border-color: var(--line-2);
+  color: var(--text);
+}
+.signal-chip .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+.signal-chip .dot.t1 { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+.signal-chip .dot.t2 { background: var(--warn); }
+.signal-chip .dot.t3 { background: var(--info); }
+
+/* ============ NBA CARDS ============ */
+.nba-item {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.nba-item:last-child { border-bottom: none; }
+.nba-item:hover { background: rgba(255,255,255,0.02); }
+.nba-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 2px; height: 0;
+  background: var(--accent);
+  transition: height 0.2s;
+}
+.nba-item:hover::before { height: 40px; }
+.nba-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.nba-title {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 4px;
+  letter-spacing: -0.005em;
+}
+.nba-rationale {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.nba-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 80px;
+}
+.nba-score {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+}
+.nba-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+}
+.nba-action {
+  padding: 4px 10px;
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--sans);
+}
+.nba-action:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.nba-action.primary {
+  background: var(--accent);
+  color: #1a1a1a;
+  border-color: var(--accent);
+  font-weight: 500;
+}
+.nba-action.primary:hover {
+  background: #f5b573;
+}
+
+/* ============ TASKBOOK ============ */
+.task-path {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.task-path:last-child { border-bottom: none; }
+.task-path-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.task-path-title {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+.task-path-impact {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+.task-steps {
+  list-style: none;
+  padding: 0;
+}
+.task-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.task-checkbox {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.task-step:hover .task-checkbox { border-color: var(--accent); }
+.task-step.done .task-checkbox {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.task-step.done .task-checkbox::after {
+  content: '✓';
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: 700;
+}
+.task-step.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted-2); }
+.task-why {
+  margin-top: 8px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--muted);
+  padding-left: 24px;
+}
+
+/* ============ SCORE TREND ============ */
+.score-trend-container {
+  padding: 16px 20px;
+}
+.score-trend-svg {
+  width: 100%;
+  height: 80px;
+}
+.score-trend-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 8px;
+}
+
+/* ============ COMPANY TABS (DRAWER) ============ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,5,8,0.7);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  animation: fadeIn 0.2s;
+}
+.modal-overlay.open { display: flex; }
+.drawer {
+  width: 880px;
+  max-width: 92vw;
+  height: 100vh;
+  background: var(--bg);
+  border-left: 1px solid var(--line-2);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+}
+@keyframes slideIn {
+  from { transform: translateX(40px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.drawer-header {
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.drawer-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--elevated);
+  border: 1px solid var(--line);
+}
+.drawer-close:hover { color: var(--text); }
+.drawer-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 8px;
+}
+.drawer-title {
+  font-family: var(--serif);
+  font-size: 32px;
+  line-height: 1;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.drawer-stats {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.drawer-stats .lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 2px;
+}
+.drawer-stats .val { color: var(--text); font-weight: 500; }
+
+.drawer-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.drawer-tabs::-webkit-scrollbar { display: none; }
+.drawer-tab {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.drawer-tab:hover { color: var(--text-2); }
+.drawer-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 60px;
+}
+.tab-pane { display: none; }
+.tab-pane.active { display: block; animation: fadeIn 0.2s; }
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.kv {
+  background: var(--panel);
+  padding: 14px 16px;
+}
+.kv-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+.kv-value {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.section-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin: 24px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.stakeholder {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--panel);
+}
+.sh-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--elevated);
+  display: grid;
+  place-items: center;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--accent);
+  font-size: 14px;
+  border: 1px solid var(--accent-line);
+  flex-shrink: 0;
+}
+.sh-info { flex: 1; }
+.sh-name {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+.sh-role {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.sh-meters {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sh-meter {
+  text-align: right;
+}
+.sh-meter .val { color: var(--text); font-size: 12px; }
+
+/* ============ CHAT DOCK ============ */
+.chat-dock {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 380px;
+  max-width: 94vw;
+  height: 540px;
+  max-height: 76vh;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  display: none;
+  flex-direction: column;
+  z-index: 90;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  animation: chatIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+}
+.chat-dock.open { display: flex; }
+@keyframes chatIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.chat-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel-2);
+}
+.chat-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--text);
+}
+.chat-context {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-left: 8px;
+}
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.chat-msg {
+  max-width: 86%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1px solid var(--accent-line);
+}
+.chat-msg.ai {
+  align-self: flex-start;
+  background: var(--elevated);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.chat-msg.ai strong { color: var(--accent); font-weight: 500; }
+.chat-cite {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  border: 1px solid var(--accent-line);
+}
+.chat-input-row {
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+}
+.chat-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12px;
+  outline: none;
+}
+.chat-input:focus { border-color: var(--accent-line); }
+.chat-send {
+  padding: 0 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #1a1a1a;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ============ INSIGHT GRID ============ */
+.risk-card {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.risk-card:last-child { border-bottom: none; }
+.risk-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.risk-name {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+.risk-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+/* ============ COACHING ============ */
+.coaching {
+  background: linear-gradient(135deg, var(--accent-soft) 0%, transparent 70%);
+  border: 1px solid var(--accent-line);
+  border-radius: 12px;
+  padding: 20px 24px;
+  position: relative;
+}
+.coaching-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 10px;
+}
+.coaching-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.coaching-quote-mark {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  font-family: var(--serif);
+  font-size: 64px;
+  color: var(--accent-line);
+  line-height: 1;
+}
+
+/* ============ COLLATERAL ============ */
+.collateral-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.collateral-tile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.18s;
+  position: relative;
+  overflow: hidden;
+}
+.collateral-tile:hover {
+  border-color: var(--accent-line);
+  transform: translateY(-1px);
+  background: var(--panel-2);
+}
+.collateral-thumb {
+  height: 120px;
+  background: var(--elevated);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.collateral-thumb-grad {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--accent-soft), transparent 60%);
+}
+.collateral-thumb-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 38px;
+  color: var(--accent);
+}
+.collateral-type-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+.collateral-title {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+.collateral-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ============ ACTION LOG ============ */
+.log-feed { padding: 0; }
+.log-day {
+  padding: 16px 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+.log-row {
+  display: grid;
+  grid-template-columns: 90px 24px 1fr;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  align-items: start;
+}
+.log-row:last-child { border-bottom: none; }
+.log-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 1px;
+}
+.log-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted-2);
+  margin: 6px 0 0 8px;
+}
+.log-dot.accent { background: var(--accent); }
+.log-dot.ok { background: var(--ok); }
+.log-dot.info { background: var(--info); }
+.log-text {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.log-text strong { color: var(--text); font-weight: 500; }
+.log-text em { font-style: normal; color: var(--accent); }
+
+/* ============ EMAIL MODAL ============ */
+.email-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5,5,8,0.7);
+  backdrop-filter: blur(8px);
+}
+.email-modal.open { display: flex; }
+.email-frame {
+  width: 680px;
+  max-width: 92vw;
+  max-height: 88vh;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: chatIn 0.25s;
+}
+.email-header {
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.email-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  color: var(--text);
+}
+.email-body {
+  padding: 22px 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+.email-field {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.email-field .lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-top: 4px;
+}
+.email-field .val { color: var(--text); }
+.email-content {
+  margin-top: 18px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  font-family: var(--sans);
+}
+.email-content p { margin-bottom: 12px; }
+.email-attach {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line-2);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel-2);
+}
+.email-attach-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--accent-soft);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.email-attach-name { font-size: 12.5px; color: var(--text); font-weight: 500; }
+.email-attach-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+.email-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--panel-2);
+}
+
+/* ============ HELP ============ */
+.helper-strip {
+  margin: 28px 0 14px;
+  padding: 14px 18px;
+  background: var(--panel-2);
+  border: 1px dashed var(--line-2);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.helper-strip .key {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--text-2);
+}
+
+.empty-msg {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+}
+
+/* ============ SCROLLBAR ============ */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 5px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--line-2); }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .col-3 { grid-template-columns: 1fr; }
+  .col-deal { grid-template-columns: 1fr; }
+  .stat-strip { grid-template-columns: repeat(2, 1fr); }
+  .deal-hero-stats { grid-template-columns: repeat(2, 1fr); }
+  .kv-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .search { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ TOPBAR ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-name">Clarwiz</div>
+      <div class="brand-tag">MOFU</div>
+    </div>
+
+    <div class="crumbs" id="crumbs">
+      <span class="active">AE Cockpit</span>
+      <span class="sep">/</span>
+      <span>Today</span>
+    </div>
+
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--muted)">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+      </svg>
+      <input type="text" placeholder="Search deals, companies, contacts, signals..." />
+      <span class="search-kbd">⌘K</span>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="icon-btn" title="Sync HubSpot" id="syncBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M21 21v-5h-5"/>
+        </svg>
+      </button>
+      <button class="icon-btn" title="Notifications">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="chatToggle" title="AE Chat">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+      <div class="user-chip">
+        <div class="avatar">Y</div>
+        <span class="user-chip-name">Yash V.</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item active" onclick="setView('dashboard', this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="setView('deal', this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg>
+      Deal Workroom
+      <span class="nav-count">12</span>
+    </div>
+    <div class="nav-item" onclick="setView('lead', this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="5"/><path d="M3 21a9 9 0 0 1 18 0"/></svg>
+      Lead Workroom
+      <span class="nav-count">8</span>
+    </div>
+    <div class="nav-item" onclick="setView('collateral', this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      Collateral
+      <span class="nav-count">47</span>
+    </div>
+    <div class="nav-item" onclick="setView('log', this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+      Activity Log
+    </div>
+
+    <div class="nav-section-label" style="margin-top:24px">Pinned</div>
+    <div class="nav-item" onclick="setView('deal', this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Northwind · Q2
+      <span class="badge badge-warn" style="margin-left:auto">Hot</span>
+    </div>
+    <div class="nav-item" onclick="setView('deal', this)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      Cypress Labs
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sync-card">HubSpot Portal</div>
+      <div class="sync-status">
+        <span class="sync-dot"></span>
+        Synced · 2m ago
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+
+    <!-- ============ DASHBOARD VIEW ============ -->
+    <section class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div class="page-title-block">
+          <div class="page-eyebrow">Monday · June 8 · Week 24</div>
+          <h1 class="page-title">Good morning, <em>Yash.</em></h1>
+          <div class="page-subtitle">
+            Three deals need attention before EOD. Two new MQLs landed overnight from the
+            <strong style="color:var(--text)">enterprise-ABM</strong> sequence — both fit ICP.
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost">Filter: My Pipeline</button>
+          <button class="btn btn-primary" onclick="document.getElementById('syncBtn').click()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+            Sync HubSpot
+          </button>
+        </div>
+      </div>
+
+      <!-- Stat strip -->
+      <div class="stat-strip">
+        <div class="stat">
+          <div class="stat-label">Pipeline value</div>
+          <div class="stat-value">$2.4M</div>
+          <div class="stat-delta">↗ +$320K this week</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Open deals</div>
+          <div class="stat-value">12</div>
+          <div class="stat-delta">↗ 3 new since Monday</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">MQLs awaiting touch</div>
+          <div class="stat-value">8</div>
+          <div class="stat-delta down">↘ 2 aged &gt;48h</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Win-prob (weighted)</div>
+          <div class="stat-value">61%</div>
+          <div class="stat-delta">↗ +4 pts vs last week</div>
+        </div>
+      </div>
+
+      <!-- Three columns: Leads · Deals · Companies -->
+      <div class="col-3">
+        <!-- Open Leads -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Open Leads <span class="card-title-count">8</span></div>
+            <button class="card-action">View all →</button>
+          </div>
+          <ul class="list">
+            <li class="list-item" onclick="setView('lead', document.querySelector('[data-nav=&quot;lead&quot;]'))">
+              <div>
+                <div class="list-item-name">Sarah Chen</div>
+                <div class="list-item-meta">
+                  <span>Northwind Robotics</span>
+                  <span class="dot">·</span>
+                  <span>VP Eng</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-accent">High intent</span>
+                  <span class="badge badge-ghost">ICP fit</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="activity">14m ago</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Marcus Webb</div>
+                <div class="list-item-meta">
+                  <span>Atlas Foundry</span>
+                  <span class="dot">·</span>
+                  <span>Head of RevOps</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-warn">Aged 52h</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="activity">2d ago</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Priya Ramaswamy</div>
+                <div class="list-item-meta">
+                  <span>Linde Health</span>
+                  <span class="dot">·</span>
+                  <span>Director, GTM</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-info">Webinar reply</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="activity">6h ago</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Jonas Roth</div>
+                <div class="list-item-meta">
+                  <span>Helio Aerospace</span>
+                  <span class="dot">·</span>
+                  <span>VP Sales Ops</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-ghost">ICP fit</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="activity">1d ago</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Working Deals -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Working Deals <span class="card-title-count">12</span></div>
+            <button class="card-action">View all →</button>
+          </div>
+          <ul class="list">
+            <li class="list-item" onclick="setView('deal', document.querySelector('[onclick*=&quot;deal&quot;]'))">
+              <div>
+                <div class="list-item-name">Northwind · Robotics Platform Q2</div>
+                <div class="list-item-meta">
+                  <span>Proposal</span>
+                  <span class="dot">·</span>
+                  <span>Stage 4 of 6</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-danger">Stalled 9d</span>
+                  <span class="badge badge-accent">NBA ready</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">$240K</div>
+                <div class="activity">Score 78</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Cypress Labs · Onboarding</div>
+                <div class="list-item-meta">
+                  <span>Closing</span>
+                  <span class="dot">·</span>
+                  <span>Stage 5 of 6</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-ok">On track</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">$95K</div>
+                <div class="activity">Score 84</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Mariner Foods · Pilot expansion</div>
+                <div class="list-item-meta">
+                  <span>Discovery</span>
+                  <span class="dot">·</span>
+                  <span>Stage 2 of 6</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-warn">Multi-thread risk</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">$180K</div>
+                <div class="activity">Score 62</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Quanta Energy · Phase 2</div>
+                <div class="list-item-meta">
+                  <span>Demo scheduled</span>
+                  <span class="dot">·</span>
+                  <span>Stage 3 of 6</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-info">Demo Thurs</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">$310K</div>
+                <div class="activity">Score 71</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Companies Rail -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Companies <span class="card-title-count">23</span></div>
+            <button class="card-action">View all →</button>
+          </div>
+          <ul class="list">
+            <li class="list-item" onclick="openCompanyDrawer()">
+              <div>
+                <div class="list-item-name">Northwind Robotics</div>
+                <div class="list-item-meta">
+                  <span>Industrial automation</span>
+                  <span class="dot">·</span>
+                  <span>2.4K employees</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-accent">Hot account</span>
+                  <span class="badge badge-info">3 signals</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">82</div>
+                <div class="activity">Health</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Cypress Labs</div>
+                <div class="list-item-meta">
+                  <span>Biotech R&amp;D</span>
+                  <span class="dot">·</span>
+                  <span>480 employees</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-ok">Closing</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">88</div>
+                <div class="activity">Health</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Mariner Foods</div>
+                <div class="list-item-meta">
+                  <span>CPG · Mid-market</span>
+                  <span class="dot">·</span>
+                  <span>1.1K employees</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-warn">Coalition risk</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">64</div>
+                <div class="activity">Health</div>
+              </div>
+            </li>
+            <li class="list-item">
+              <div>
+                <div class="list-item-name">Atlas Foundry</div>
+                <div class="list-item-meta">
+                  <span>Manufacturing</span>
+                  <span class="dot">·</span>
+                  <span>3.8K employees</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:4px;">
+                  <span class="badge badge-ghost">Discovery</span>
+                </div>
+              </div>
+              <div class="list-item-side">
+                <div class="amount">71</div>
+                <div class="activity">Health</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="helper-strip">
+        <span>Click any deal, lead, or company to open its workroom</span>
+        <span style="margin-left:auto"><span class="key">⌘ K</span> Search · <span class="key">⌘ /</span> Chat · <span class="key">⌘ N</span> New note</span>
+      </div>
+    </section>
+
+
+    <!-- ============ DEAL WORKROOM ============ -->
+    <section class="view" id="view-deal">
+      <!-- Deal Hero -->
+      <div class="deal-hero">
+        <div class="deal-hero-top">
+          <div class="deal-hero-meta">
+            <div class="deal-company">Northwind Robotics · Industrial Automation</div>
+            <div class="deal-name">Robotics Platform <em style="color:var(--accent); font-style:italic">— Q2 Renewal</em></div>
+            <div class="deal-stage-row">
+              <span class="stage-pill">Proposal · Stage 4 of 6</span>
+              <span class="badge badge-danger">Stalled 9d</span>
+              <span class="badge badge-info">+3 new signals</span>
+            </div>
+          </div>
+
+          <div class="deal-score-block">
+            <div class="score-ring">
+              <svg width="56" height="56" viewBox="0 0 56 56">
+                <circle class="score-ring-bg" cx="28" cy="28" r="24"/>
+                <circle class="score-ring-fg" cx="28" cy="28" r="24"
+                        stroke-dasharray="150.7" stroke-dashoffset="33.2"/>
+              </svg>
+              <div class="score-ring-text">78</div>
+            </div>
+            <div class="deal-amount-box">
+              <div class="deal-amount-label">Annual contract</div>
+              <div class="deal-amount-value">$240,000</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="deal-hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-label">Last activity</div>
+            <div class="hero-stat-value">9 days ago · Email reply</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Stakeholders</div>
+            <div class="hero-stat-value">5 contacts · 2 champions</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Close date</div>
+            <div class="hero-stat-value">June 28 · 20 days out</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-label">Decision committee</div>
+            <div class="hero-stat-value">VP Eng + CFO sign-off</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Account briefing -->
+      <div class="briefing">
+        <div class="briefing-label">Account Briefing · Computed 14m ago</div>
+        <div class="briefing-text">
+          Northwind is <em>nine days dark</em> after asking for procurement timing — a soft "yes" that quietly became a "wait." The CFO change (Apr 14) and a parallel Salesforce conversation surfaced in BuiltWith are likely the real reasons. The play here isn't another check-in; it's a procurement-grade ROI doc to the new CFO and a coalition move with the VP Eng champion.
+        </div>
+      </div>
+
+      <!-- Signals strip -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div class="card-title">Active Signals <span class="card-title-count">7</span></div>
+          <button class="card-action">View all →</button>
+        </div>
+        <div class="signals-strip">
+          <span class="signal-chip"><span class="dot t1"></span>CFO change · Apr 14</span>
+          <span class="signal-chip"><span class="dot t1"></span>Procurement objection</span>
+          <span class="signal-chip"><span class="dot t2"></span>Competitor in BuiltWith</span>
+          <span class="signal-chip"><span class="dot t2"></span>9-day silence (DealHealth)</span>
+          <span class="signal-chip"><span class="dot t3"></span>Expansion: 2nd dept eval</span>
+          <span class="signal-chip"><span class="dot t3"></span>Champion liked our blog</span>
+          <span class="signal-chip"><span class="dot t3"></span>Integration: Snowflake</span>
+        </div>
+      </div>
+
+      <!-- Two columns: NBA + Insights / Trend + Tasks -->
+      <div class="col-deal">
+        <!-- LEFT: NBA + Coaching -->
+        <div>
+          <!-- Next Best Actions -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <div class="card-title">Next Best Actions <span class="card-title-count">4</span></div>
+              <button class="card-action">Re-rank</button>
+            </div>
+            <div class="card-body">
+              <div class="nba-item">
+                <div class="nba-row">
+                  <div>
+                    <div class="nba-title">Send procurement-grade ROI deck to new CFO</div>
+                    <div class="nba-rationale">
+                      Daniel Stoll (CFO, started Apr 14) needs the financial case before he'll greenlight. Pull the 18-month TCO model from Cypress Labs win — adapt for Northwind's volume tier.
+                    </div>
+                    <div class="nba-actions">
+                      <button class="nba-action primary" onclick="openEmail()">Draft email →</button>
+                      <button class="nba-action">Attach Cypress case study</button>
+                      <button class="nba-action">Dismiss</button>
+                    </div>
+                  </div>
+                  <div class="nba-side">
+                    <div class="nba-score">+12</div>
+                    <span class="badge badge-danger">P1</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="nba-item">
+                <div class="nba-row">
+                  <div>
+                    <div class="nba-title">Activate VP Eng champion with battlecard against Salesforce</div>
+                    <div class="nba-rationale">
+                      Maya Lin has shipped two LinkedIn posts on automation ROI in the last week — she's primed. Send the Salesforce-comparison battlecard, ask her to pre-sell internally.
+                    </div>
+                    <div class="nba-actions">
+                      <button class="nba-action primary" onclick="openEmail()">Draft email →</button>
+                      <button class="nba-action">Open battlecard</button>
+                      <button class="nba-action">Schedule call</button>
+                    </div>
+                  </div>
+                  <div class="nba-side">
+                    <div class="nba-score">+9</div>
+                    <span class="badge badge-warn">P2</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="nba-item">
+                <div class="nba-row">
+                  <div>
+                    <div class="nba-title">Multi-thread: get intro to Director of Procurement</div>
+                    <div class="nba-rationale">
+                      Single-threading to VP Eng is the largest deal risk. Champion asked for "internal champion materials" two weeks ago — that's the ask. Loop in procurement before they're a blocker, not after.
+                    </div>
+                    <div class="nba-actions">
+                      <button class="nba-action primary">Draft intro request</button>
+                      <button class="nba-action">Create task</button>
+                    </div>
+                  </div>
+                  <div class="nba-side">
+                    <div class="nba-score">+7</div>
+                    <span class="badge badge-info">P3</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coaching tip -->
+          <div class="coaching">
+            <div class="coaching-quote-mark">"</div>
+            <div class="coaching-label">Coaching</div>
+            <div class="coaching-text">
+              When a deal goes dark after a "we're working on it," it's almost never the buyer rethinking — it's an internal shift you don't see yet. The CFO change is your shift. Lead with the financial case directly to the new CFO, don't route it through the champion. Save the champion for the political ground game.
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Trend + Taskbook + Risks -->
+        <div>
+          <!-- Score trend -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <div class="card-title">Score Trend · 30d</div>
+              <div style="font-family:var(--mono); font-size:11px; color:var(--danger)">↘ −6 pts</div>
+            </div>
+            <div class="score-trend-container">
+              <svg class="score-trend-svg" viewBox="0 0 320 80" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#F2A65A" stop-opacity="0.35"/>
+                    <stop offset="100%" stop-color="#F2A65A" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M 0,40 L 30,32 L 60,38 L 90,22 L 120,18 L 150,24 L 180,28 L 210,34 L 240,38 L 270,46 L 300,52 L 320,48 L 320,80 L 0,80 Z" fill="url(#grad)"/>
+                <path d="M 0,40 L 30,32 L 60,38 L 90,22 L 120,18 L 150,24 L 180,28 L 210,34 L 240,38 L 270,46 L 300,52 L 320,48" stroke="#F2A65A" stroke-width="1.5" fill="none"/>
+                <circle cx="320" cy="48" r="3" fill="#F2A65A"/>
+                <circle cx="120" cy="18" r="2" fill="#F2A65A" opacity="0.6"/>
+              </svg>
+              <div class="score-trend-meta">
+                <span>May 9</span>
+                <span>Peak: 84</span>
+                <span>Today: 78</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- GTM Taskbook -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <div class="card-title">GTM Taskbook · Proposal Path</div>
+              <div style="font-family:var(--mono); font-size:11px; color:var(--accent)">+12 score</div>
+            </div>
+            <div class="card-body">
+              <div class="task-path">
+                <ul class="task-steps">
+                  <li class="task-step done" onclick="this.classList.toggle('done')">
+                    <span class="task-checkbox"></span>
+                    Initial discovery call · Maya Lin
+                  </li>
+                  <li class="task-step done" onclick="this.classList.toggle('done')">
+                    <span class="task-checkbox"></span>
+                    Technical eval w/ Solutions team
+                  </li>
+                  <li class="task-step done" onclick="this.classList.toggle('done')">
+                    <span class="task-checkbox"></span>
+                    Pricing proposal v1 sent
+                  </li>
+                  <li class="task-step" onclick="this.classList.toggle('done')">
+                    <span class="task-checkbox"></span>
+                    CFO intro + ROI document
+                  </li>
+                  <li class="task-step" onclick="this.classList.toggle('done')">
+                    <span class="task-checkbox"></span>
+                    Procurement multi-thread
+                  </li>
+                  <li class="task-step" onclick="this.classList.toggle('done')">
+                    <span class="task-checkbox"></span>
+                    Security review + DPA redlines
+                  </li>
+                </ul>
+                <div class="task-why">Why this works: every closed-won deal &gt;$200K in your pipeline had CFO sign-off lined up before week 4 of proposal.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Risks -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Risks & Early Warnings</div>
+            </div>
+            <div class="card-body">
+              <div class="risk-card">
+                <div class="risk-card-header">
+                  <div class="risk-name">Single-threaded to VP Eng</div>
+                  <span class="badge badge-danger">High</span>
+                </div>
+                <div class="risk-desc">Maya is the sole champion. If she changes roles or priorities shift, the deal evaporates. Same pattern as the lost Marcato deal in Q1.</div>
+              </div>
+              <div class="risk-card">
+                <div class="risk-card-header">
+                  <div class="risk-name">Competitor mentioned in stack</div>
+                  <span class="badge badge-warn">Med</span>
+                </div>
+                <div class="risk-desc">Salesforce Industries appeared in BuiltWith data 6 days ago. Either parallel eval or internal lobbying — investigate via Maya.</div>
+              </div>
+              <div class="risk-card">
+                <div class="risk-card-header">
+                  <div class="risk-name">CFO transition window</div>
+                  <span class="badge badge-warn">Med</span>
+                </div>
+                <div class="risk-desc">New CFOs typically freeze net-new spend for 30 days post-arrival. We're inside that window — frame as renewal/expansion, not new commitment.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="helper-strip">
+        <span>Stakeholder map · Open Company drawer for 10-tab view</span>
+        <button class="btn" style="margin-left:auto" onclick="openCompanyDrawer()">Open Northwind →</button>
+      </div>
+    </section>
+
+
+    <!-- ============ LEAD WORKROOM ============ -->
+    <section class="view" id="view-lead">
+      <div class="page-header">
+        <div class="page-title-block">
+          <div class="page-eyebrow">MQL · Northwind Robotics · 14m ago</div>
+          <h1 class="page-title">Sarah <em>Chen</em></h1>
+          <div class="page-subtitle">
+            VP Engineering · Engaged 4x in the last 9 days · ICP fit on size, vertical, and tech stack.
+            Source: enterprise-ABM sequence (Deepak). No prior Clarwiz outreach history.
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost">Skip lead</button>
+          <button class="btn btn-primary">Promote to Deal →</button>
+        </div>
+      </div>
+
+      <div class="col-deal">
+        <div>
+          <!-- Briefing -->
+          <div class="briefing">
+            <div class="briefing-label">Lead Briefing</div>
+            <div class="briefing-text">
+              Sarah leads a 40-person platform team that just shipped a robotics-ops launch — she's actively unblocking workflow tools. Her LinkedIn shows three "evaluation"-themed posts in the last month. <em>The opening here isn't pitch, it's curiosity:</em> ask about the launch, lead with the operations integration angle.
+            </div>
+          </div>
+
+          <!-- Suggested first touch -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <div class="card-title">First-Touch NBA</div>
+              <button class="card-action">Regenerate</button>
+            </div>
+            <div class="card-body">
+              <div class="nba-item">
+                <div class="nba-row">
+                  <div>
+                    <div class="nba-title">Personalized intro referencing the robotics-ops launch</div>
+                    <div class="nba-rationale">
+                      The launch hit Hacker News yesterday (78 points). Reference it specifically — not "I saw your launch" but the technical bit about the SLAM pipeline she called out in the changelog. Offer the operations playbook from Cypress, not a demo.
+                    </div>
+                    <div class="nba-actions">
+                      <button class="nba-action primary" onclick="openEmail()">Draft email →</button>
+                      <button class="nba-action">LinkedIn DM script</button>
+                      <button class="nba-action">Schedule for tomorrow AM</button>
+                    </div>
+                  </div>
+                  <div class="nba-side">
+                    <div class="nba-score">+14</div>
+                    <span class="badge badge-accent">Top</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Engagement Timeline -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Engagement Timeline · TOFU + Web</div>
+              <button class="card-action">Filter</button>
+            </div>
+            <div class="card-body">
+              <div class="log-row">
+                <div class="log-time">14m ago</div>
+                <div class="log-dot accent"></div>
+                <div class="log-text"><strong>MQL trigger</strong> — Pricing page visit (3rd in 9 days) · <em>scored to MQL</em></div>
+              </div>
+              <div class="log-row">
+                <div class="log-time">2d ago</div>
+                <div class="log-dot info"></div>
+                <div class="log-text"><strong>LinkedIn post</strong> — "Eight things I want from our workflow tools in 2026" — themes match our positioning</div>
+              </div>
+              <div class="log-row">
+                <div class="log-time">4d ago</div>
+                <div class="log-dot ok"></div>
+                <div class="log-text"><strong>Sequence reply</strong> — Replied to outbound 2 from Deepak's sequence · "Interesting, send me the case study"</div>
+              </div>
+              <div class="log-row">
+                <div class="log-time">9d ago</div>
+                <div class="log-dot"></div>
+                <div class="log-text">Webinar attendance — "Scaling RevOps integrations" · stayed 47 min of 60</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- Account Health -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <div class="card-title">Account: Northwind Robotics</div>
+              <button class="card-action" onclick="openCompanyDrawer()">10-tab view →</button>
+            </div>
+            <div class="card-body" style="padding:18px">
+              <div class="kv-grid" style="margin-bottom:0">
+                <div class="kv">
+                  <div class="kv-label">Employees</div>
+                  <div class="kv-value">2,400</div>
+                </div>
+                <div class="kv">
+                  <div class="kv-label">Stack match</div>
+                  <div class="kv-value">9/10</div>
+                </div>
+                <div class="kv">
+                  <div class="kv-label">Existing deals</div>
+                  <div class="kv-value">1 open</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Persona profile -->
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <div class="card-title">Buyer Persona</div>
+            </div>
+            <div class="card-body" style="padding:18px">
+              <div style="display:flex; gap:14px; align-items:center; margin-bottom:14px">
+                <div class="sh-avatar" style="width:48px; height:48px; font-size:18px">SC</div>
+                <div>
+                  <div style="font-size:14px; color:var(--text); font-weight:500">Sarah Chen</div>
+                  <div style="font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:2px">VP Engineering · Champion-shaped</div>
+                </div>
+              </div>
+              <div style="font-size:12px; color:var(--text-2); line-height:1.6">
+                <strong style="color:var(--text); font-weight:500">Style:</strong> Technical depth first, sales pitch second. Responds to specifics, ignores generic pitches.
+                <br><br>
+                <strong style="color:var(--text); font-weight:500">Influence:</strong> Reports to CTO. Owns engineering budget &lt; $500K direct. Above that, CFO and CTO sign-off.
+                <br><br>
+                <strong style="color:var(--text); font-weight:500">Cadence:</strong> Best reached Tue/Wed 10–11am PT. Active on LinkedIn Sundays.
+              </div>
+            </div>
+          </div>
+
+          <!-- Matched Collateral -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Matched Collateral</div>
+              <button class="card-action" onclick="setView('collateral', document.querySelectorAll('.nav-item')[3])">View all →</button>
+            </div>
+            <div class="card-body">
+              <div class="list-item">
+                <div>
+                  <div class="list-item-name">Cypress Labs case study</div>
+                  <div class="list-item-meta">
+                    <span>Case study</span><span class="dot">·</span><span>3 page</span>
+                  </div>
+                </div>
+                <div class="list-item-side">
+                  <div style="font-family:var(--mono); color:var(--accent); font-size:13px">+6</div>
+                  <div class="activity">Match score</div>
+                </div>
+              </div>
+              <div class="list-item">
+                <div>
+                  <div class="list-item-name">Operations integration playbook</div>
+                  <div class="list-item-meta">
+                    <span>Battlecard</span><span class="dot">·</span><span>Sales</span>
+                  </div>
+                </div>
+                <div class="list-item-side">
+                  <div style="font-family:var(--mono); color:var(--accent); font-size:13px">+5</div>
+                  <div class="activity">Match score</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============ COLLATERAL VIEW ============ -->
+    <section class="view" id="view-collateral">
+      <div class="page-header">
+        <div class="page-title-block">
+          <div class="page-eyebrow">Unified Directory · Marketing + Sales</div>
+          <h1 class="page-title">Collateral <em>Hub</em></h1>
+          <div class="page-subtitle">47 assets across pitch decks, battlecards, case studies, one-pagers and email templates. Generated, HeyParrot, and pilot sources unified.</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-ghost">Filter</button>
+          <button class="btn btn-primary">+ New collateral</button>
+        </div>
+      </div>
+
+      <div class="collateral-grid">
+        <div class="collateral-tile">
+          <div class="collateral-thumb">
+            <div class="collateral-thumb-grad"></div>
+            <div class="collateral-thumb-icon">C</div>
+            <span class="badge badge-accent collateral-type-badge">Case study</span>
+          </div>
+          <div class="collateral-title">Cypress Labs — 18mo TCO win</div>
+          <div class="collateral-meta">Sales · Late stage · 3 page</div>
+        </div>
+
+        <div class="collateral-tile">
+          <div class="collateral-thumb">
+            <div class="collateral-thumb-grad" style="background:linear-gradient(135deg, rgba(127,212,156,0.15), transparent 60%)"></div>
+            <div class="collateral-thumb-icon" style="color:var(--ok)">B</div>
+            <span class="badge badge-ok collateral-type-badge">Battlecard</span>
+          </div>
+          <div class="collateral-title">vs Salesforce Industries</div>
+          <div class="collateral-meta">Sales · Mid-late · Internal+Ext</div>
+        </div>
+
+        <div class="collateral-tile">
+          <div class="collateral-thumb">
+            <div class="collateral-thumb-grad" style="background:linear-gradient(135deg, rgba(138,180,248,0.15), transparent 60%)"></div>
+            <div class="collateral-thumb-icon" style="color:var(--info)">D</div>
+            <span class="badge badge-info collateral-type-badge">Deck</span>
+          </div>
+          <div class="collateral-title">Robotics Platform · Q2 pitch</div>
+          <div class="collateral-meta">Sales · Early-mid · 14 slides</div>
+        </div>
+
+        <div class="collateral-tile">
+          <div class="collateral-thumb">
+            <div class="collateral-thumb-grad"></div>
+            <div class="collateral-thumb-icon">R</div>
+            <span class="badge badge-warn collateral-type-badge">ROI doc</span>
+          </div>
+          <div class="collateral-title">CFO-grade ROI · Industrial</div>
+          <div class="collateral-meta">Sales · Late stage · 2 page</div>
+        </div>
+
+        <div class="collateral-tile">
+          <div class="collateral-thumb">
+            <div class="collateral-thumb-grad" style="background:linear-gradient(135deg, rgba(229,115,111,0.12), transparent 60%)"></div>
+            <div class="collateral-thumb-icon" style="color:var(--danger)">O</div>
+            <span class="badge badge-danger collateral-type-badge">One-pager</span>
+          </div>
+          <div class="collateral-title">Integration · Snowflake</div>
+          <div class="collateral-meta">Marketing · Any · 1 page</div>
+        </div>
+
+        <div class="collateral-tile">
+          <div class="collateral-thumb">
+            <div class="collateral-thumb-grad"></div>
+            <div class="collateral-thumb-icon">E</div>
+            <span class="badge badge-info collateral-type-badge">Email tmpl</span>
+          </div>
+          <div class="collateral-title">CFO intro · Industrial vertical</div>
+          <div class="collateral-meta">Sales · Late · Personalized</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============ ACTION LOG VIEW ============ -->
+    <section class="view" id="view-log">
+      <div class="page-header">
+        <div class="page-title-block">
+          <div class="page-eyebrow">Append-only audit feed</div>
+          <h1 class="page-title">Activity <em>Log</em></h1>
+          <div class="page-subtitle">Every NBA executed, task created, note added, insight computed. Ids only — never PII or message bodies.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="log-day">Today · Monday June 8</div>
+        <div class="log-row">
+          <div class="log-time">11:42</div>
+          <div class="log-dot accent"></div>
+          <div class="log-text"><strong>NBA executed</strong> on <em>Northwind · Q2</em> — Email draft sent to CFO · attached Cypress case study</div>
+        </div>
+        <div class="log-row">
+          <div class="log-time">11:38</div>
+          <div class="log-dot ok"></div>
+          <div class="log-text"><strong>3 tasks created</strong> in HubSpot from <em>Northwind · Q2</em> taskbook — ROI doc, CFO intro, security review</div>
+        </div>
+        <div class="log-row">
+          <div class="log-time">11:30</div>
+          <div class="log-dot info"></div>
+          <div class="log-text"><strong>Insight computed</strong> on <em>Northwind · Q2</em> — score 78 (↘ −2 from yesterday), 3 new signals detected</div>
+        </div>
+        <div class="log-row">
+          <div class="log-time">09:14</div>
+          <div class="log-dot"></div>
+          <div class="log-text"><strong>HubSpot sync</strong> — 23 companies, 84 contacts, 12 deals refreshed · 0 errors</div>
+        </div>
+        <div class="log-row">
+          <div class="log-time">09:12</div>
+          <div class="log-dot accent"></div>
+          <div class="log-text"><strong>New MQL</strong> arrived — Sarah Chen (Northwind) · enterprise-ABM sequence reply</div>
+        </div>
+
+        <div class="log-day">Friday June 5</div>
+        <div class="log-row">
+          <div class="log-time">16:51</div>
+          <div class="log-dot accent"></div>
+          <div class="log-text"><strong>Deal created</strong> from MQL promotion — <em>Mariner Foods · Pilot expansion</em> · $180K</div>
+        </div>
+        <div class="log-row">
+          <div class="log-time">14:22</div>
+          <div class="log-dot info"></div>
+          <div class="log-text"><strong>Collateral sent</strong> — Integration · Snowflake one-pager attached to <em>Cypress Labs · Onboarding</em> email</div>
+        </div>
+        <div class="log-row">
+          <div class="log-time">11:05</div>
+          <div class="log-dot ok"></div>
+          <div class="log-text"><strong>Note added</strong> to <em>Quanta Energy</em> — "Champion confirmed demo Thurs 2pm w/ procurement"</div>
+        </div>
+
+        <div class="log-day">Thursday June 4</div>
+        <div class="log-row">
+          <div class="log-time">15:30</div>
+          <div class="log-dot info"></div>
+          <div class="log-text">Chat query on <em>Mariner Foods</em> — "What was the original pilot scope?" (thread #f0a8)</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ COMPANY DRAWER (10 TABS) ============ -->
+  <div class="modal-overlay" id="companyDrawer">
+    <div class="drawer" onclick="event.stopPropagation()">
+      <div class="drawer-header">
+        <div class="drawer-close" onclick="closeCompanyDrawer()">✕</div>
+        <div class="drawer-eyebrow">Account · 2,400 employees · Industrial automation</div>
+        <h2 class="drawer-title">Northwind <em style="font-style:italic; color:var(--accent)">Robotics</em></h2>
+        <div class="drawer-stats">
+          <div>
+            <div class="lbl">Health</div>
+            <div class="val">82 / 100</div>
+          </div>
+          <div>
+            <div class="lbl">Risk</div>
+            <div class="val">Medium</div>
+          </div>
+          <div>
+            <div class="lbl">Momentum</div>
+            <div class="val">↗ Improving</div>
+          </div>
+          <div>
+            <div class="lbl">Opportunity</div>
+            <div class="val">$420K (12mo)</div>
+          </div>
+          <div>
+            <div class="lbl">Confidence</div>
+            <div class="val">High · 9 sources</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-tabs">
+        <div class="drawer-tab active" onclick="setTab(this, 'overview')">Overview</div>
+        <div class="drawer-tab" onclick="setTab(this, 'stakeholders')">Stakeholders</div>
+        <div class="drawer-tab" onclick="setTab(this, 'value')">Value</div>
+        <div class="drawer-tab" onclick="setTab(this, 'risks')">Risks</div>
+        <div class="drawer-tab" onclick="setTab(this, 'actions')">Actions</div>
+        <div class="drawer-tab" onclick="setTab(this, 'timeline')">Timeline</div>
+        <div class="drawer-tab" onclick="setTab(this, 'competitive')">Competitive</div>
+        <div class="drawer-tab" onclick="setTab(this, 'expansion')">Expansion</div>
+        <div class="drawer-tab" onclick="setTab(this, 'research')">Research</div>
+        <div class="drawer-tab" onclick="setTab(this, 'signals')">Signals</div>
+      </div>
+
+      <div class="drawer-body">
+        <!-- Overview -->
+        <div class="tab-pane active" id="tab-overview">
+          <div class="briefing" style="margin-bottom:18px">
+            <div class="briefing-label">Primary Recommendation</div>
+            <div class="briefing-text">
+              Move the conversation upstream to the new CFO this week. Northwind is in an active modernization cycle and our integration story scores 9/10 on stack-fit — but the financial frame is the unlock, not the technical one.
+            </div>
+          </div>
+
+          <div class="section-title">Critical actions required</div>
+          <div class="card" style="margin-bottom:18px">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">CFO ROI document — this week</div>
+                <span class="badge badge-danger">P1 · 72h</span>
+              </div>
+              <div class="risk-desc">Owner: Yash · Risk if delayed: deal slips a quarter, competitor parallels harden</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Procurement multi-thread</div>
+                <span class="badge badge-warn">P2 · 1wk</span>
+              </div>
+              <div class="risk-desc">Owner: Yash + Maya (champion) · Risk if delayed: surprise blocker at proposal stage</div>
+            </div>
+          </div>
+
+          <div class="section-title">Intelligence confidence</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="kv-label">Sources scanned</div><div class="kv-value">9 (BuiltWith, LinkedIn, Crunchbase, news, HubSpot, SEC)</div></div>
+            <div class="kv"><div class="kv-label">Last refresh</div><div class="kv-value">14 minutes ago</div></div>
+            <div class="kv"><div class="kv-label">Data recency</div><div class="kv-value">&lt; 7 days</div></div>
+          </div>
+        </div>
+
+        <!-- Stakeholders -->
+        <div class="tab-pane" id="tab-stakeholders">
+          <div class="section-title">Decision committee</div>
+          <div class="stakeholder">
+            <div class="sh-avatar">ML</div>
+            <div class="sh-info">
+              <div class="sh-name">Maya Lin</div>
+              <div class="sh-role">VP Engineering · Champion</div>
+            </div>
+            <div class="sh-meters">
+              <div class="sh-meter"><div class="lbl">Influence</div><div class="val">High</div></div>
+              <div class="sh-meter"><div class="lbl">Engagement</div><div class="val">Active</div></div>
+            </div>
+          </div>
+          <div class="stakeholder">
+            <div class="sh-avatar">DS</div>
+            <div class="sh-info">
+              <div class="sh-name">Daniel Stoll</div>
+              <div class="sh-role">CFO (new, Apr 14) · Unmet</div>
+            </div>
+            <div class="sh-meters">
+              <div class="sh-meter"><div class="lbl">Influence</div><div class="val">Critical</div></div>
+              <div class="sh-meter"><div class="lbl">Engagement</div><div class="val">Cold</div></div>
+            </div>
+          </div>
+          <div class="stakeholder">
+            <div class="sh-avatar">RK</div>
+            <div class="sh-info">
+              <div class="sh-name">Ravi Krishnan</div>
+              <div class="sh-role">CTO · Approver</div>
+            </div>
+            <div class="sh-meters">
+              <div class="sh-meter"><div class="lbl">Influence</div><div class="val">High</div></div>
+              <div class="sh-meter"><div class="lbl">Engagement</div><div class="val">Lukewarm</div></div>
+            </div>
+          </div>
+          <div class="stakeholder">
+            <div class="sh-avatar">JN</div>
+            <div class="sh-info">
+              <div class="sh-name">Jordan Nakamura</div>
+              <div class="sh-role">Director Procurement · Unmet</div>
+            </div>
+            <div class="sh-meters">
+              <div class="sh-meter"><div class="lbl">Influence</div><div class="val">Med</div></div>
+              <div class="sh-meter"><div class="lbl">Engagement</div><div class="val">Cold</div></div>
+            </div>
+          </div>
+
+          <div class="section-title">Coalition health</div>
+          <div class="card">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Strength · Med</div>
+                <span class="badge badge-warn">2 of 4 active</span>
+              </div>
+              <div class="risk-desc">Champion (Maya) is strong but isolated. Approver (Ravi) lukewarm without business case. CFO and Procurement remain unmet — the riskiest gap.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Value -->
+        <div class="tab-pane" id="tab-value">
+          <div class="section-title">Direct value</div>
+          <div class="kv-grid">
+            <div class="kv"><div class="kv-label">Direct ROI · Year 1</div><div class="kv-value">$340K</div></div>
+            <div class="kv"><div class="kv-label">Cost avoidance</div><div class="kv-value">$180K</div></div>
+            <div class="kv"><div class="kv-label">Investment payback</div><div class="kv-value">8.2 months</div></div>
+          </div>
+
+          <div class="section-title">Unrealized potential</div>
+          <div class="card">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Cross-sell: Logistics module</div>
+                <span class="badge badge-accent">$180K · 76%</span>
+              </div>
+              <div class="risk-desc">Q3 timeline · Requires: pilot success + Maya's expansion endorsement</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Vertical expansion: Sister div (Tustin)</div>
+                <span class="badge badge-info">$240K · 42%</span>
+              </div>
+              <div class="risk-desc">FY27 timeline · Requires: case study + CTO referral · long-cycle play</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Risks -->
+        <div class="tab-pane" id="tab-risks">
+          <div class="card">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Single-threaded champion</div>
+                <span class="badge badge-danger">High · 0.7</span>
+              </div>
+              <div class="risk-desc">Maya is the only proactive contact. Root causes: org chart access · cycle pace · 9-day silence. Mitigation: CFO + Procurement intros this week.</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Competitive parallel evaluation</div>
+                <span class="badge badge-warn">Med · 0.5</span>
+              </div>
+              <div class="risk-desc">Salesforce Industries in BuiltWith stack. Could be parallel POC or internal lobby. Mitigation: send battlecard via Maya, ask diagnostic question.</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">CFO transition freeze window</div>
+                <span class="badge badge-warn">Med · 0.6</span>
+              </div>
+              <div class="risk-desc">New CFOs commonly freeze net-new for 30 days. We're 8 weeks into the cycle — frame this as expansion of an authorized initiative, not net-new.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="tab-pane" id="tab-actions">
+          <div class="section-title">Immediate · This week</div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">ROI document → CFO Stoll</div>
+                <span class="badge badge-danger">P1</span>
+              </div>
+              <div class="risk-desc">Owner: Yash · Due: Wed · Success: CFO confirms read + agrees to 15-min</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Battlecard → Maya (champion arming)</div>
+                <span class="badge badge-warn">P2</span>
+              </div>
+              <div class="risk-desc">Owner: Yash · Due: Thu · Success: Maya commits to internal share</div>
+            </div>
+          </div>
+
+          <div class="section-title">Short-term · This month</div>
+          <div class="card">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Demo for Procurement Jordan Nakamura</div>
+                <span class="badge badge-info">Probability 70%</span>
+              </div>
+              <div class="risk-desc">Timeline: 3 wks · ROI: $240K renewal protection · Dependencies: Maya intro, CFO buy-in</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Other tabs (compressed) -->
+        <div class="tab-pane" id="tab-timeline">
+          <div class="section-title">Scenario analysis</div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Base case · Close June 28</div>
+                <span class="badge badge-ok">52%</span>
+              </div>
+              <div class="risk-desc">CFO meeting → ROI accepted → procurement on board → contract signed</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Slip · Close mid-July</div>
+                <span class="badge badge-warn">31%</span>
+              </div>
+              <div class="risk-desc">CFO needs additional review cycle → 3-week delay</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Loss · Competitor wins</div>
+                <span class="badge badge-danger">17%</span>
+              </div>
+              <div class="risk-desc">Salesforce Industries closes the gap on integration story</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="tab-competitive">
+          <div class="section-title">Threat analysis</div>
+          <div class="card">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Salesforce Industries</div>
+                <span class="badge badge-warn">Med threat</span>
+              </div>
+              <div class="risk-desc">Eval stage: appeared in BuiltWith 6 days ago · Mitigation: differentiate on workflow-ops not CRM · price below their enterprise tier</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="tab-expansion">
+          <div class="section-title">Growth vectors</div>
+          <div class="card">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">Logistics module cross-sell</div>
+                <span class="badge badge-accent">$180K · 76%</span>
+              </div>
+              <div class="risk-desc">Q3 timeline · Requirements: pilot success metric (95%+ uptime), champion endorsement</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="tab-research">
+          <div class="section-title">Web research · Refreshed 14m ago</div>
+          <div class="briefing" style="margin-bottom:14px">
+            <div class="briefing-label">Robotics-ops launch — Hacker News, 6 Jun</div>
+            <div class="briefing-text">
+              Northwind shipped a new SLAM pipeline last week. 78 points on HN; engineering team called out integration-layer pain in the changelog — explicitly named workflow orchestration as a 2026 priority. <em>This is the wedge.</em>
+            </div>
+          </div>
+          <div class="briefing">
+            <div class="briefing-label">CFO Daniel Stoll — LinkedIn, Apr 14</div>
+            <div class="briefing-text">
+              "Excited to join Northwind as CFO. The first 90 days are about getting the financial visibility right across every operational initiative." <em>That's our opening.</em>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="tab-signals">
+          <div class="section-title">Detected signals · 7 active</div>
+          <div class="card">
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">T1 · CFO Change</div>
+                <span class="badge badge-danger">SLA 48h</span>
+              </div>
+              <div class="risk-desc"><strong style="color:var(--text)">Daniel Stoll appointed CFO, started Apr 14.</strong> Suggested angle: financial-frame reach-out citing his "operational financial visibility" thesis. Source: LinkedIn · Recommended action: Add as HubSpot task.</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">T1 · Procurement objection (inferred)</div>
+                <span class="badge badge-danger">SLA 72h</span>
+              </div>
+              <div class="risk-desc">9-day silence after pricing proposal + last response was "we need to involve procurement". Recommended: multi-thread Jordan Nakamura before procurement becomes a hostile gate.</div>
+            </div>
+            <div class="risk-card">
+              <div class="risk-card-header">
+                <div class="risk-name">T2 · Competitive — Salesforce Industries</div>
+                <span class="badge badge-warn">SLA 5d</span>
+              </div>
+              <div class="risk-desc">BuiltWith detected SF Industries pixel 6 days ago. Could be eval or marketing. Diagnostic question via Maya.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============ CHAT DOCK ============ -->
+  <div class="chat-dock" id="chatDock">
+    <div class="chat-header">
+      <div>
+        <span class="chat-title">Ask the cockpit</span>
+        <span class="chat-context">Context: Northwind</span>
+      </div>
+      <div class="drawer-close" onclick="document.getElementById('chatDock').classList.remove('open'); document.getElementById('chatToggle').classList.remove('active')" style="position:relative; top:0; right:0">✕</div>
+    </div>
+    <div class="chat-body" id="chatBody">
+      <div class="chat-msg ai">
+        Grounded in your live HubSpot data + Clarwiz intelligence for <strong>Northwind Robotics · Q2 Renewal</strong>. What do you need?
+      </div>
+      <div class="chat-msg user">What's the real reason Northwind's gone dark? Be specific.</div>
+      <div class="chat-msg ai">
+        Two things, ranked by likelihood. <strong>(1) CFO transition.</strong> Daniel Stoll started Apr 14 — new CFOs typically pause net-new spend reviews for ~30 days. Your last touch landed inside that window <span class="chat-cite">S1</span>. <strong>(2) Competitive pressure.</strong> BuiltWith picked up Salesforce Industries pixels on their domain 6 days ago <span class="chat-cite">S2</span> — could be parallel eval or internal lobby.<br><br>
+        The pattern matches Marcato Q1 — where you also went silent after a CFO change. Recommend the CFO ROI move first, battlecard via Maya second.
+      </div>
+      <div class="chat-msg user">Draft me the CFO email.</div>
+      <div class="chat-msg ai">
+        Drafting now — pulling tone from your last 3 closed-won CFO emails. <strong>Click "Draft an email" on NBA #1</strong> to open the editor with the populated version. It references his "operational financial visibility" LinkedIn post and attaches the Cypress ROI artifact.
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" class="chat-input" placeholder="Ask anything about your pipeline..." />
+      <button class="chat-send">↵</button>
+    </div>
+  </div>
+
+
+  <!-- ============ EMAIL MODAL ============ -->
+  <div class="email-modal" id="emailModal" onclick="closeEmail()">
+    <div class="email-frame" onclick="event.stopPropagation()">
+      <div class="email-header">
+        <div>
+          <div style="font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:6px">NBA · Editable Draft · Gen 14m ago</div>
+          <div class="email-title">CFO intro — Northwind Robotics</div>
+        </div>
+        <div class="drawer-close" onclick="closeEmail()" style="position:relative; top:0; right:0">✕</div>
+      </div>
+      <div class="email-body">
+        <div class="email-field"><div class="lbl">To</div><div class="val">daniel.stoll@northwind-robotics.com</div></div>
+        <div class="email-field"><div class="lbl">Cc</div><div class="val">maya.lin@northwind-robotics.com</div></div>
+        <div class="email-field"><div class="lbl">Subject</div><div class="val">Financial visibility on the platform initiative — 18mo TCO</div></div>
+
+        <div class="email-content">
+          <p>Hi Daniel,</p>
+          <p>Congratulations on the move. I caught your note about getting "financial visibility right across operational initiatives" — that's exactly where Maya and I are in conversation, and I want to make sure the financial frame lands properly with you before the conversation moves further.</p>
+          <p>The short version: Cypress Labs ran our platform for 18 months in a comparable industrial-automation footprint. The TCO model is attached below — the structure should translate cleanly to Northwind's volume tier, and I've pre-marked the assumptions where your team would want to plug in their own numbers.</p>
+          <p>Happy to walk through it in 15 minutes whenever works, or just leave it with you to digest. Either way, wanted to make sure it was in your hands directly rather than via Maya.</p>
+          <p>— Yash</p>
+        </div>
+
+        <div class="email-attach">
+          <div class="email-attach-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          </div>
+          <div>
+            <div class="email-attach-name">Cypress Labs · 18mo TCO model.pdf</div>
+            <div class="email-attach-meta">Case study · auto-attached by NBA</div>
+          </div>
+        </div>
+      </div>
+      <div class="email-footer">
+        <div style="font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em">Unsaved · Score impact +12</div>
+        <div style="display:flex; gap:8px">
+          <button class="btn" onclick="closeEmail()">Save draft</button>
+          <button class="btn btn-primary">Send via HubSpot →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============ NAVIGATION ============
+function setView(viewName, navEl) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + viewName).classList.add('active');
+  if (navEl) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    navEl.classList.add('active');
+  }
+  // Update breadcrumbs
+  const titles = {
+    'dashboard': 'Today',
+    'deal': 'Northwind · Q2 Renewal',
+    'lead': 'Sarah Chen · Northwind',
+    'collateral': 'Directory',
+    'log': 'All activity'
+  };
+  document.getElementById('crumbs').innerHTML = `
+    <span class="active">AE Cockpit</span>
+    <span class="sep">/</span>
+    <span>${titles[viewName] || ''}</span>
+  `;
+  document.querySelector('.main').scrollTop = 0;
+}
+
+// Make nav items navigable by data attributes
+document.querySelectorAll('.nav-item').forEach((item, idx) => {
+  const map = ['dashboard', 'deal', 'lead', 'collateral', 'log'];
+  if (map[idx]) {
+    item.setAttribute('data-nav', map[idx]);
+  }
+});
+
+// ============ COMPANY DRAWER ============
+function openCompanyDrawer() {
+  document.getElementById('companyDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeCompanyDrawer() {
+  document.getElementById('companyDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.getElementById('companyDrawer').addEventListener('click', closeCompanyDrawer);
+
+function setTab(tabEl, paneId) {
+  document.querySelectorAll('.drawer-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  tabEl.classList.add('active');
+  document.getElementById('tab-' + paneId).classList.add('active');
+}
+
+// ============ CHAT DOCK ============
+document.getElementById('chatToggle').addEventListener('click', function() {
+  const dock = document.getElementById('chatDock');
+  dock.classList.toggle('open');
+  this.classList.toggle('active');
+});
+
+// ============ EMAIL MODAL ============
+function openEmail() {
+  document.getElementById('emailModal').classList.add('open');
+}
+function closeEmail() {
+  document.getElementById('emailModal').classList.remove('open');
+}
+
+// ============ SYNC BUTTON ============
+document.getElementById('syncBtn').addEventListener('click', function() {
+  const icon = this.querySelector('svg');
+  icon.style.transition = 'transform 0.8s ease';
+  icon.style.transform = 'rotate(360deg)';
+  setTimeout(() => {
+    icon.style.transition = 'none';
+    icon.style.transform = 'rotate(0deg)';
+  }, 800);
+});
+
+// ============ KEYBOARD SHORTCUTS ============
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    document.querySelector('.search input').focus();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+    e.preventDefault();
+    document.getElementById('chatToggle').click();
+  }
+  if (e.key === 'Escape') {
+    closeCompanyDrawer();
+    closeEmail();
+  }
+});
+</script>
+</body>
+</html>

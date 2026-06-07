@@ -1,161 +1,162 @@
 "use client";
 
-import {
-  Badge,
-  Box,
-  Grid,
-  GridItem,
-  HStack,
-  Heading,
-  Icon,
-  SimpleGrid,
-  Stack,
-  Text,
-} from "@chakra-ui/react";
-import { FiClock, FiDatabase } from "react-icons/fi";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AssistShell from "@/components/assist/AssistShell";
-import SyncButton from "./SyncButton";
+import { CkCard } from "@/components/assist/cockpit/primitives";
+import { fmtAmountShort, fmtStaleness } from "@/components/assist/cockpit/format";
+import SyncButton from "@/components/assist/cockpit/SyncButton";
 import LeadCard from "./LeadCard";
 import DealCard from "./DealCard";
 import ActivityFeed from "./ActivityFeed";
 import CompaniesRail from "./CompaniesRail";
-import { buildDashboardView, formatStaleness } from "./dashboardView";
+import { buildDashboardView } from "./dashboardView";
 
-function SectionHeader({ title, count }) {
-  return (
-    <HStack mb={3} spacing={2}>
-      <Heading size="md" letterSpacing="tight">
-        {title}
-      </Heading>
-      {typeof count === "number" && (
-        <Badge colorScheme="gray" rounded="full" px={2}>
-          {count}
-        </Badge>
-      )}
-    </HStack>
-  );
+function sumAmounts(deals) {
+  return deals.reduce((acc, d) => {
+    const n = typeof d.amount === "string" ? Number(d.amount) : d.amount;
+    return acc + (Number.isFinite(n) ? n : 0);
+  }, 0);
 }
 
-function EmptySection({ children }) {
-  return (
-    <Box borderWidth="1px" borderStyle="dashed" borderColor="gray.200" rounded="lg" p={6} bg="white">
-      <Text fontSize="sm" color="gray.400">
-        {children}
-      </Text>
-    </Box>
-  );
-}
-
-function StalenessChip({ syncedAt }) {
-  return (
-    <HStack
-      spacing={1.5}
-      px={3}
-      py={1.5}
-      rounded="full"
-      bg="gray.100"
-      color="gray.600"
-      fontSize="sm"
-    >
-      <Icon as={FiClock} />
-      <Text>Synced {formatStaleness(syncedAt)}</Text>
-    </HStack>
-  );
+function avgScore(deals) {
+  const scored = deals.filter((d) => typeof d.score === "number");
+  if (!scored.length) return null;
+  return Math.round(scored.reduce((a, d) => a + d.score, 0) / scored.length);
 }
 
 function EmptyGraph() {
   return (
-    <Box
-      borderWidth="1px"
-      borderColor="gray.200"
-      rounded="xl"
-      bg="white"
-      p={10}
-      textAlign="center"
-    >
-      <Icon as={FiDatabase} boxSize={10} color="orange.400" mb={4} />
-      <Heading size="md" mb={2}>
-        Your CRM graph is empty
-      </Heading>
-      <Text color="gray.500" mb={6} maxW="md" mx="auto">
-        Run your first sync to pull deals, leads and companies from HubSpot into your
-        AE workspace.
-      </Text>
-      <Box>
-        <SyncButton size="md">Run first sync</SyncButton>
-      </Box>
-    </Box>
+    <div className="ck-card" style={{ padding: 40, textAlign: "center" }}>
+      <div className="ck-page-title" style={{ fontSize: 28, marginBottom: 12 }}>
+        Your CRM graph is <em>empty</em>
+      </div>
+      <p className="ck-page-subtitle" style={{ margin: "0 auto 20px" }}>
+        Run your first sync to pull deals, leads and companies from HubSpot into your AE workspace.
+      </p>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <SyncButton>Run first sync</SyncButton>
+      </div>
+    </div>
   );
 }
 
 /**
- * Interactive AE dashboard shell. Receives the serializable view-model from the
- * server page and renders the three sections + activity rail. Wrapped in
- * DashboardLayout (app chrome) + AssistShell (assist nav).
+ * Cockpit AE dashboard. Receives the serializable view-model from the server
+ * page and renders the stat strip + three lists (leads · deals · companies) +
+ * activity feed. Wrapped in DashboardLayout (app chrome/auth gating).
  */
 function DashboardClient({ data, actions = [] }) {
+  const router = useRouter();
   const view = buildDashboardView(data);
+  const [syncing, setSyncing] = useState(false);
+
+  const onSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/assist/sync", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error("Sync failed");
+        return;
+      }
+      const c = d.counts || {};
+      const parts = Object.entries(c).filter(([, v]) => typeof v === "number").map(([k, v]) => `${v} ${k}`);
+      toast.success(parts.length ? `Synced ${parts.join(" · ")}` : "Sync complete");
+      router.refresh();
+    } catch {
+      toast.error("Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const pipelineValue = sumAmounts(view.deals);
+  const avg = avgScore(view.deals);
 
   return (
-    <AssistShell
-      active="dashboard"
-      title="Your day"
-      subtitle="Open leads, working deals and companies from your hydrated CRM."
-      actions={
-        <HStack spacing={3}>
-          <StalenessChip syncedAt={view.latestSyncedAt} />
+    <AssistShell active="dashboard" crumbs={["Today"]} onSync={onSync} syncing={syncing}>
+      <div className="ck-page-header">
+        <div className="ck-page-title-block">
+          <div className="ck-eyebrow">Your day · AE Cockpit</div>
+          <h1 className="ck-page-title">
+            Good <em>day.</em>
+          </h1>
+          <p className="ck-page-subtitle">
+            Open leads, working deals and companies from your hydrated CRM graph
+            {view.latestSyncedAt ? ` · synced ${fmtStaleness(view.latestSyncedAt)}` : ""}.
+          </p>
+        </div>
+        <div className="ck-page-actions">
           <SyncButton />
-        </HStack>
-      }
-    >
+        </div>
+      </div>
+
       {view.isEmpty ? (
         <EmptyGraph />
       ) : (
-        <Grid templateColumns={{ base: "1fr", lg: "1fr 320px" }} gap={6} alignItems="start">
-          <GridItem>
-            <Stack spacing={8}>
-              {/* Working Deals */}
-              <Box>
-                <SectionHeader title="Working deals" count={view.counts.deals} />
-                {view.deals.length === 0 ? (
-                  <EmptySection>No open deals right now.</EmptySection>
-                ) : (
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-                    {view.deals.map((d) => (
-                      <DealCard key={d.id} deal={d} />
-                    ))}
-                  </SimpleGrid>
-                )}
-              </Box>
+        <>
+          <div className="ck-stat-strip">
+            <div className="ck-stat">
+              <div className="ck-stat-label">Pipeline value</div>
+              <div className="ck-stat-value">{fmtAmountShort(pipelineValue)}</div>
+              <div className="ck-stat-delta flat">Open deals only</div>
+            </div>
+            <div className="ck-stat">
+              <div className="ck-stat-label">Open deals</div>
+              <div className="ck-stat-value">{view.counts.deals}</div>
+              <div className="ck-stat-delta flat">In flight</div>
+            </div>
+            <div className="ck-stat">
+              <div className="ck-stat-label">Leads awaiting touch</div>
+              <div className="ck-stat-value">{view.counts.leads}</div>
+              <div className="ck-stat-delta flat">MQLs, no open deal</div>
+            </div>
+            <div className="ck-stat">
+              <div className="ck-stat-label">Avg deal score</div>
+              <div className="ck-stat-value">{avg == null ? "—" : avg}</div>
+              <div className="ck-stat-delta flat">{view.counts.accounts} companies</div>
+            </div>
+          </div>
 
-              {/* Open Leads */}
-              <Box>
-                <SectionHeader title="Open leads" count={view.counts.leads} />
-                {view.leads.length === 0 ? (
-                  <EmptySection>No marketing-qualified leads waiting.</EmptySection>
-                ) : (
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-                    {view.leads.map((l) => (
-                      <LeadCard key={l.id} lead={l} />
-                    ))}
-                  </SimpleGrid>
-                )}
-              </Box>
-            </Stack>
-          </GridItem>
+          <div className="ck-col-3">
+            <CkCard title="Open Leads" count={view.counts.leads}>
+              {view.leads.length === 0 ? (
+                <div className="ck-empty">No marketing-qualified leads waiting.</div>
+              ) : (
+                <ul className="ck-list">
+                  {view.leads.map((l) => (
+                    <LeadCard key={l.id} lead={l} />
+                  ))}
+                </ul>
+              )}
+            </CkCard>
 
-          {/* Right rail: companies + activity */}
-          <GridItem>
-            <Stack spacing={6}>
-              <Box>
-                <SectionHeader title="Companies" count={view.counts.accounts} />
-                <CompaniesRail accounts={view.accounts} />
-              </Box>
-              <ActivityFeed actions={actions} />
-            </Stack>
-          </GridItem>
-        </Grid>
+            <CkCard title="Working Deals" count={view.counts.deals}>
+              {view.deals.length === 0 ? (
+                <div className="ck-empty">No open deals right now.</div>
+              ) : (
+                <ul className="ck-list">
+                  {view.deals.map((d) => (
+                    <DealCard key={d.id} deal={d} />
+                  ))}
+                </ul>
+              )}
+            </CkCard>
+
+            <CompaniesRail accounts={view.accounts} />
+          </div>
+
+          <div className="ck-mt-16">
+            <ActivityFeed actions={actions} />
+          </div>
+
+          <div className="ck-helper-strip">
+            <span>Click any deal, lead, or company to open its workroom</span>
+          </div>
+        </>
       )}
     </AssistShell>
   );

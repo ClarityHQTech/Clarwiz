@@ -1,24 +1,14 @@
 "use client";
 
-import { Badge, Box, Divider, Heading, HStack, Stack, Text, VStack } from "@chakra-ui/react";
+import { fmtStaleness } from "../cockpit/format";
 
-function Section({ label, children }) {
-  if (!children) return null;
-  return (
-    <Box>
-      <Text fontSize="xs" fontWeight="semibold" textTransform="uppercase" color="gray.500" letterSpacing="wide" mb={1}>
-        {label}
-      </Text>
-      <Text color="gray.700" fontSize="sm" whiteSpace="pre-wrap">
-        {children}
-      </Text>
-    </Box>
-  );
-}
-
-/** Insight briefing (W1): summary, coach voice, detected insight + meters. */
+/**
+ * Deal briefing (cockpit, W1): serif briefing text (summary + account briefing),
+ * an AURA insight callout, the italic-serif "your coach speaks" block, and the
+ * likelihood / follow-up meters. Renders from toDealViewModel output.
+ */
 export default function BriefingCard({ vm }) {
-  const { briefing, insightDetected, likelihoodToProgress, followUpEffort } = vm;
+  const { briefing, insightDetected, likelihoodToProgress, followUpEffort, insightComputedAt } = vm;
 
   const hasAny =
     briefing.briefSummary ||
@@ -30,77 +20,61 @@ export default function BriefingCard({ vm }) {
 
   if (!hasAny) {
     return (
-      <Box borderWidth="1px" borderRadius="lg" bg="white" p={5}>
-        <Heading size="sm" mb={2}>
-          Briefing
-        </Heading>
-        <Text color="gray.500" fontSize="sm">
-          No briefing has been generated for this deal yet.
-        </Text>
-      </Box>
+      <div className="ck-briefing">
+        <div className="ck-briefing-label">Account Briefing</div>
+        <div className="ck-risk-desc">No briefing has been generated for this deal yet.</div>
+      </div>
     );
   }
 
+  const lead = briefing.briefSummary || briefing.accountLevelBriefing;
+  const secondary =
+    briefing.briefSummary && briefing.accountLevelBriefing ? briefing.accountLevelBriefing : null;
+
   return (
-    <Box borderWidth="1px" borderRadius="lg" bg="white" p={5}>
-      <Heading size="sm" mb={4}>
-        Briefing
-      </Heading>
-      <Stack spacing={4}>
-        <Section label="Summary">{briefing.briefSummary}</Section>
-        <Section label="Account briefing">{briefing.accountLevelBriefing}</Section>
+    <div className="ck-briefing">
+      <div className="ck-briefing-label">
+        Account Briefing{insightComputedAt ? ` · Computed ${fmtStaleness(insightComputedAt)}` : ""}
+      </div>
 
-        {insightDetected.label && (
-          <Box bg="orange.50" borderRadius="md" p={3}>
-            <HStack mb={1}>
-              <Badge colorScheme="orange">AURA insight</Badge>
-              <Text fontWeight="semibold" fontSize="sm">
-                {insightDetected.label}
-              </Text>
-            </HStack>
-            {insightDetected.explanation && (
-              <Text fontSize="sm" color="gray.700">
-                {insightDetected.explanation}
-              </Text>
-            )}
-          </Box>
-        )}
+      {lead && <div className="ck-briefing-text">{lead}</div>}
+      {secondary && (
+        <div className="ck-briefing-text" style={{ fontSize: 15, marginTop: 14, color: "var(--text-2)" }}>
+          {secondary}
+        </div>
+      )}
 
-        {briefing.coachSpeaks && (
-          <Box borderLeftWidth="3px" borderColor="orange.300" pl={3}>
-            <Text fontSize="xs" fontWeight="semibold" color="orange.600" mb={1}>
-              Your coach speaks
-            </Text>
-            <Text fontSize="sm" color="gray.700" fontStyle="italic">
-              {briefing.coachSpeaks}
-            </Text>
-          </Box>
-        )}
+      {(insightDetected.label || insightDetected.explanation) && (
+        <div className="ck-insight-callout">
+          <div className="lbl">AURA insight detected</div>
+          {insightDetected.label && <div className="title">{insightDetected.label}</div>}
+          {insightDetected.explanation && <div className="body">{insightDetected.explanation}</div>}
+        </div>
+      )}
 
-        {(likelihoodToProgress || followUpEffort) && (
-          <>
-            <Divider />
-            <HStack spacing={6}>
-              {likelihoodToProgress && (
-                <VStack align="flex-start" spacing={0}>
-                  <Text fontSize="xs" color="gray.500">
-                    Likelihood to progress
-                  </Text>
-                  <Text fontWeight="semibold">{likelihoodToProgress}</Text>
-                </VStack>
-              )}
-              {followUpEffort && (
-                <VStack align="flex-start" spacing={0}>
-                  <Text fontSize="xs" color="gray.500">
-                    Follow-up effort
-                  </Text>
-                  <Text fontWeight="semibold">{followUpEffort}</Text>
-                </VStack>
-              )}
-            </HStack>
-          </>
-        )}
-      </Stack>
-    </Box>
+      {briefing.coachSpeaks && (
+        <div className="ck-coach">
+          <div className="lbl">Your coach speaks</div>
+          <div className="body">{briefing.coachSpeaks}</div>
+        </div>
+      )}
+
+      {(likelihoodToProgress || followUpEffort) && (
+        <div className="ck-meter-row">
+          {likelihoodToProgress && (
+            <div className="ck-meter">
+              <div className="lbl">Likelihood to progress</div>
+              <div className="val">{likelihoodToProgress}</div>
+            </div>
+          )}
+          {followUpEffort && (
+            <div className="ck-meter">
+              <div className="lbl">Follow-up effort</div>
+              <div className="val">{followUpEffort}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

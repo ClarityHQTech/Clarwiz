@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge, Box, HStack, Heading, List, ListIcon, ListItem, Stack, Text } from "@chakra-ui/react";
-import { FiZap } from "react-icons/fi";
+import { CkCard, CkBadge } from "../cockpit/primitives";
+import { asScore } from "../cockpit/format";
 
 function asString(v) {
   return typeof v === "string" && v.trim() ? v : null;
@@ -16,9 +16,9 @@ function pluck(rows, key) {
 }
 
 /**
- * Company-level AURA insight panel. Reads CompanyInsight.payload defensively —
- * every field is optional and the panel degrades to a compute notice when no
- * insight has been stored yet.
+ * Company-level AURA insight panel (cockpit). Reads CompanyInsight.payload
+ * defensively — every field is optional and the panel degrades to a compute
+ * notice when no insight has been stored yet.
  */
 export default function CompanyInsightPanel({ insight, company, account }) {
   const payload = insight?.payload && typeof insight.payload === "object" ? insight.payload : null;
@@ -26,14 +26,9 @@ export default function CompanyInsightPanel({ insight, company, account }) {
 
   if (!payload) {
     return (
-      <Box borderWidth="1px" borderColor="gray.200" rounded="lg" bg="white" p={5}>
-        <Heading size="sm" mb={1}>
-          {companyName}
-        </Heading>
-        <Text color="gray.500" fontSize="sm">
-          No company insight computed yet.
-        </Text>
-      </Box>
+      <CkCard title={`Account · ${companyName}`}>
+        <div className="ck-empty">No company insight computed yet.</div>
+      </CkCard>
     );
   }
 
@@ -47,81 +42,48 @@ export default function CompanyInsightPanel({ insight, company, account }) {
       : {};
   const insightLabel = asString(detected.insight_label);
   const insightExplanation = asString(detected.insight_explanation);
-  const score =
-    typeof payload.account_score === "number" ? payload.account_score : null;
+  const score = asScore(payload.account_score);
   const positives = pluck(payload.positive_outcomes_observed, "outcome");
   const warnings = pluck(payload.early_warning_signal, "warning_signal");
 
-  return (
-    <Box borderWidth="1px" borderColor="gray.200" rounded="lg" bg="white" p={5}>
-      <HStack justify="space-between" mb={3} align="flex-start">
-        <Heading size="sm" letterSpacing="tight">
-          {companyName}
-        </Heading>
-        {score !== null && (
-          <Badge colorScheme="orange" rounded="md" fontSize="0.8em">
-            Score {score}
-          </Badge>
-        )}
-      </HStack>
+  const action = score != null ? <CkBadge variant="accent">Score {score}</CkBadge> : null;
 
-      <Stack spacing={4}>
-        {summary && (
-          <Text color="gray.700" fontSize="sm" whiteSpace="pre-wrap">
-            {summary}
-          </Text>
-        )}
+  return (
+    <CkCard title={`Account · ${companyName}`} action={action}>
+      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+        {summary && <div className="ck-risk-desc" style={{ fontSize: 13 }}>{summary}</div>}
 
         {(insightLabel || insightExplanation) && (
-          <Box bg="orange.50" rounded="md" p={3}>
-            {insightLabel && (
-              <HStack spacing={2} mb={1}>
-                <Box as={FiZap} color="orange.500" />
-                <Text fontWeight="semibold" fontSize="sm" color="orange.700">
-                  {insightLabel}
-                </Text>
-              </HStack>
-            )}
-            {insightExplanation && (
-              <Text fontSize="sm" color="gray.700">
-                {insightExplanation}
-              </Text>
-            )}
-          </Box>
+          <div className="ck-insight-callout" style={{ marginTop: 0 }}>
+            {insightLabel && <div className="title">{insightLabel}</div>}
+            {insightExplanation && <div className="body">{insightExplanation}</div>}
+          </div>
         )}
 
         {positives.length > 0 && (
-          <Box>
-            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={1} textTransform="uppercase">
-              Positive signals
-            </Text>
-            <List spacing={1}>
-              {positives.map((p, i) => (
-                <ListItem key={i} fontSize="sm" color="gray.700">
-                  <ListIcon as={FiZap} color="green.500" />
-                  {p}
-                </ListItem>
-              ))}
-            </List>
-          </Box>
+          <div>
+            <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Positive signals</div>
+            {positives.map((p, i) => (
+              <div className="ck-risk-desc" key={i} style={{ marginBottom: 4 }}>
+                <span style={{ color: "var(--ok)" }}>✓ </span>
+                {p}
+              </div>
+            ))}
+          </div>
         )}
 
         {warnings.length > 0 && (
-          <Box>
-            <Text fontSize="xs" fontWeight="semibold" color="gray.500" mb={1} textTransform="uppercase">
-              Watch-outs
-            </Text>
-            <List spacing={1}>
-              {warnings.map((w, i) => (
-                <ListItem key={i} fontSize="sm" color="gray.700">
-                  <ListIcon as={FiZap} color="red.400" />
-                  {w}
-                </ListItem>
-              ))}
-            </List>
-          </Box>
+          <div>
+            <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Watch-outs</div>
+            {warnings.map((w, i) => (
+              <div className="ck-risk-desc" key={i} style={{ marginBottom: 4 }}>
+                <span style={{ color: "var(--danger)" }}>⚠ </span>
+                {w}
+              </div>
+            ))}
+          </div>
         )}
-      </Stack>
-    </Box>
+      </div>
+    </CkCard>
   );
 }

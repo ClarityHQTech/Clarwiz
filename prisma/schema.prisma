@@ -734,8 +734,10 @@ model Document {
   companyHsId   String?
   title         String
   template      String   @db.Text
+  html          String?  @db.Text
   data          Json?
   compliance    Json?
+  versions      Json?
   model         String?
   promptVersion String?
   createdAt     DateTime @default(now())

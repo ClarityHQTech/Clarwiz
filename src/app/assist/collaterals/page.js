@@ -23,6 +23,7 @@ export default async function CollateralsPage() {
     title: r.title,
     type: r.type,
     source: r.source,
+    externalId: r.externalId ?? null,
     url: r.url ?? null,
     slug: r.slug ?? null,
     funnelStage: r.funnelStage,

@@ -1405,18 +1405,32 @@ prospect company data : {{prospectData}}
 next best action : {{nbaData}}  
 playbook data : {{playbookData}}
 
-Return a single JSON object in this exact shape (no additional text, no markdown):  
-make sure to give template , data , title , compilance always.
+Return a single JSON object in this exact shape (no additional text, no markdown):
+make sure to give template , html , data , title , compilance always.
 
-{  
- "title": "short title for the collateral with the prospect name",  
- "data": {},  
- "template": "",  
- "compilance" : {  
-   "score" : "0-100",  
-   "note" : "description for the score"  
- }  
-}`;
+{
+ "title": "short title for the collateral with the prospect name",
+ "data": {},
+ "template": "",
+ "html": "",
+ "compilance" : {
+   "score" : "0-100",
+   "note" : "description for the score"
+ }
+}
+
+ADDITIONAL OUTPUT FIELD — "html" (REQUIRED):
+Alongside the React/Tailwind "template", you MUST also emit "html": a SELF-CONTAINED,
+static HTML rendering of the SAME collateral, suitable for direct embedding in an
+iframe srcdoc. Rules for "html":
+- A complete document starting with <!doctype html>, with <html>, <head>, <body>.
+- ALL styling via inline CSS (style="...") or a single <style> block in <head>.
+  Do NOT rely on Tailwind classes, external CSS, JS frameworks, or <script> tags —
+  the html must render correctly with zero script execution.
+- Use semantic HTML (header, section, main, footer) and the SAME copy, structure,
+  spacing and brand colors as the template. Generous padding on the outer container.
+- Inline the company + prospect logos as <img> with the same logo.dev URLs.
+- This is a faithful, presentation-ready snapshot of the template — not a placeholder.`;
 
 import { getAnthropicClient, ASSIST_AGENT_MODEL } from "@/lib/anthropicClient";
 
@@ -1479,12 +1493,74 @@ export function parseCollateralJson(text) {
     note: rawCompliance.note ?? "",
   };
 
+  const template = typeof obj.template === "string" ? obj.template : "";
+  // Prefer the model's self-contained html; otherwise synthesize a viewable doc
+  // from the template so the iframe always has something to render.
+  const html =
+    typeof obj.html === "string" && obj.html.trim() ? obj.html : templateToHtml(template);
+
   return {
     title: typeof obj.title === "string" ? obj.title : "",
     data: obj.data && typeof obj.data === "object" ? obj.data : {},
-    template: typeof obj.template === "string" ? obj.template : "",
+    template,
+    html,
     compliance,
   };
+}
+
+/**
+ * Best-effort fallback that turns a React/Tailwind (JSX) template string into a
+ * self-contained, viewable HTML document for an iframe `srcdoc`. This is NOT a
+ * full React compiler — it strips the function wrapper, rewrites JSX-isms
+ * (`className`→`class`, self-closing voids), drops obvious JS expressions, and
+ * wraps the result in a minimal HTML shell that loads the Tailwind Play CDN so
+ * utility classes still render. Used only when the model omits an `html` field.
+ *
+ * @param {string} template  The JSX/markup template (may be empty).
+ * @returns {string} A complete `<!doctype html>` document string.
+ */
+export function templateToHtml(template) {
+  const raw = typeof template === "string" ? template : "";
+
+  // Pull the JSX out of `return ( ... );` if the template is a full component;
+  // otherwise treat the whole string as markup.
+  let body = raw;
+  const ret = raw.match(/return\s*\(([\s\S]*)\)\s*;?\s*}?\s*$/);
+  if (ret) body = ret[1];
+
+  body = body
+    // JSX attribute names → HTML.
+    .replace(/className=/g, "class=")
+    .replace(/htmlFor=/g, "for=")
+    // Drop JSX comments {/* ... */}.
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "")
+    // Collapse simple {'string'} / {"string"} literals to their text.
+    .replace(/\{\s*['"]([^'"]*)['"]\s*\}/g, "$1")
+    // Remove remaining {js expression} braces (best-effort — leaves a blank).
+    .replace(/\{[^{}]*\}/g, "")
+    .trim();
+
+  const safeBody =
+    body ||
+    '<div style="padding:48px;font-family:system-ui,sans-serif;color:#475569">No preview available for this template.</div>';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html,body{margin:0;padding:0;background:#ffffff;color:#0f172a;font-family:Inter,system-ui,-apple-system,sans-serif}
+  .clarwiz-collateral{padding:32px}
+</style>
+</head>
+<body>
+<div class="clarwiz-collateral">
+${safeBody}
+</div>
+</body>
+</html>`;
 }
 
 /**
@@ -1517,6 +1593,131 @@ export async function generateCollateral({
 
   const parsed = parseCollateralJson(extractText(res));
   return { ...parsed, model, promptVersion: COLLATERAL_PROMPT_VERSION };
+}
+
+/**
+ * System prompt for chat-driven edits of an already-generated collateral.
+ * Reuses the Tailspin design discipline but is scoped to *applying one
+ * instruction* to existing artifacts and returning the updated pair.
+ */
+export const COLLATERAL_EDIT_SYSTEM = `You are Tailspin, a senior B2B SaaS collateral design engine.
+You are editing an EXISTING collateral asset. You will be given the current React/Tailwind
+"template" and (optionally) the current self-contained "html", plus a single plain-language
+EDIT INSTRUCTION from a user.
+
+Apply ONLY the requested change while preserving everything else: keep the same structure,
+copy, brand colors, spacing and data-* attributes that are not affected by the instruction.
+Maintain professional spacing/padding and never invent facts, logos, metrics, or customers.
+
+Return a single JSON object in EXACTLY this shape — no prose, no markdown fences:
+{
+  "template": "<the updated React/Tailwind component string>",
+  "html": "<a self-contained static HTML rendering of the updated collateral>",
+  "compilance": { "score": "0-100", "note": "how on-brand / source-faithful the result is" }
+}
+
+Rules for "html": a complete document starting with <!doctype html>, styled ENTIRELY with
+inline CSS or a single <style> block, NO Tailwind classes / external CSS / <script> tags —
+it must render in an iframe srcdoc with zero script execution, and must visually match the
+updated template (same copy, layout, colors, generous outer padding, inline logo <img>s).`;
+
+/**
+ * Apply a chat instruction to an existing collateral via Claude and return the
+ * updated artifacts.
+ *
+ * @param {object}  args
+ * @param {object} [args.client]          Injectable Anthropic client (tests pass a fake).
+ * @param {string}  args.currentTemplate  The collateral's current React/Tailwind template.
+ * @param {string} [args.currentHtml]     The collateral's current self-contained HTML.
+ * @param {string}  args.instruction      The user's plain-language edit instruction.
+ * @param {object} [args.vars]            Optional {tenantData, prospectData, nbaData} for context.
+ * @param {string} [args.model]           Model id (defaults to ASSIST_AGENT_MODEL).
+ * @returns {Promise<{ template, html, compliance:{score,note} }>}
+ */
+export async function editCollateral({
+  client,
+  currentTemplate = "",
+  currentHtml = "",
+  instruction = "",
+  vars = null,
+  model = ASSIST_AGENT_MODEL,
+} = {}) {
+  const llm = client || getAnthropicClient();
+
+  const parts = [
+    "EDIT INSTRUCTION:",
+    String(instruction || "").trim(),
+    "",
+    "CURRENT TEMPLATE (React/Tailwind):",
+    String(currentTemplate || ""),
+  ];
+  if (currentHtml && String(currentHtml).trim()) {
+    parts.push("", "CURRENT HTML (self-contained):", String(currentHtml));
+  }
+  if (vars && (vars.tenantData || vars.prospectData || vars.nbaData)) {
+    parts.push("", "CONTEXT (for grounding — do not invent beyond this):", JSON.stringify(vars));
+  }
+  const userPrompt = parts.join("\n");
+
+  const res = await llm.messages.create({
+    model,
+    max_tokens: 8000,
+    thinking: { type: "adaptive" },
+    system: COLLATERAL_EDIT_SYSTEM,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const parsed = parseCollateralJson(extractText(res));
+  return { template: parsed.template, html: parsed.html, compliance: parsed.compliance };
+}
+
+/**
+ * Persist a freshly-generated collateral: store the Document (template + html +
+ * data + compliance), register a CollateralIndex row (source GENERATED), and
+ * link the two. Shared by the on-demand generate route and the auto-generate
+ * (on-the-fly-from-a-deal) route. Takes an injectable prisma.
+ *
+ * @returns {Promise<{ document, collateral }>}
+ */
+export async function storeGeneratedCollateral(
+  prisma,
+  { tenantId, generated, title, dealHsId = null, companyHsId = null }
+) {
+  const finalTitle =
+    (title && title.trim()) || (generated.title && generated.title.trim()) || "Generated collateral";
+
+  const document = await prisma.document.create({
+    data: {
+      tenantId,
+      dealHsId,
+      companyHsId,
+      title: finalTitle,
+      template: generated.template || "",
+      html: generated.html || "",
+      data: generated.data ?? {},
+      compliance: generated.compliance ?? null,
+      model: generated.model,
+      promptVersion: generated.promptVersion,
+    },
+  });
+
+  const collateral = await prisma.collateralIndex.create({
+    data: {
+      tenantId,
+      title: finalTitle,
+      type: "ONE_PAGER",
+      source: "GENERATED",
+      externalId: document.id,
+      companyHsId,
+      dealHsId,
+    },
+  });
+
+  await prisma.document
+    .update({ where: { id: document.id }, data: { collateralId: collateral.id } })
+    .catch(() => {});
+
+  return { document, collateral };
 }
 
 /**

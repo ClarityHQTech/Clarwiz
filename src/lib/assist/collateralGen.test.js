@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   generateCollateral,
+  editCollateral,
+  templateToHtml,
   assembleCollateralVars,
   fillCollateralUser,
   parseCollateralJson,
   COLLATERAL_SYSTEM,
   COLLATERAL_USER,
+  COLLATERAL_EDIT_SYSTEM,
   COLLATERAL_PROMPT_VERSION,
 } from "./collateralGen.js";
 
@@ -14,6 +17,7 @@ const FENCED = `\`\`\`json
   "title": "Acme x Clarwiz — Security One-Pager",
   "data": { "headline": "De-risk your rollout", "missing_fields": [] },
   "template": "<div className=\\"p-8\\">Hello</div>",
+  "html": "<!doctype html><html><body><div style=\\"padding:32px\\">Hello</div></body></html>",
   "compilance": { "score": "88", "note": "On-brand; no invented facts." }
 }
 \`\`\``;
@@ -48,8 +52,18 @@ describe("parseCollateralJson", () => {
     const parsed = parseCollateralJson(FENCED);
     expect(parsed.title).toContain("Acme");
     expect(parsed.template).toContain("Hello");
+    expect(parsed.html).toContain("<!doctype html>");
     expect(parsed.data.headline).toBe("De-risk your rollout");
     expect(parsed.compliance).toEqual({ score: "88", note: "On-brand; no invented facts." });
+  });
+
+  it("falls back to a wrapped html when the model omits html", () => {
+    const parsed = parseCollateralJson(
+      '{"title":"T","data":{},"template":"<div className=\\"p-8\\">Hi</div>","compilance":{"score":"50","note":"ok"}}',
+    );
+    // No html key in the model output → synthesize a viewable HTML doc.
+    expect(parsed.html).toContain("<!doctype html>");
+    expect(parsed.html).toContain("Hi");
   });
 
   it("parses raw (unfenced) JSON embedded in prose", () => {
@@ -98,6 +112,74 @@ describe("generateCollateral", () => {
     const client = fakeClient();
     await generateCollateral({ client, system: "OVERRIDE", vars: {} });
     expect(client.seen[0].system).toBe("OVERRIDE");
+  });
+});
+
+describe("templateToHtml", () => {
+  it("wraps a JSX/markup template in a self-contained HTML document", () => {
+    const html = templateToHtml('<div className="p-8">Hi there</div>');
+    expect(html).toContain("<!doctype html>");
+    expect(html).toContain("Hi there");
+    // JSX `className` is rewritten to `class` for the browser.
+    expect(html).toContain('class="p-8"');
+    expect(html).not.toContain("className");
+  });
+
+  it("returns a safe placeholder doc for empty input", () => {
+    const html = templateToHtml("");
+    expect(html).toContain("<!doctype html>");
+  });
+});
+
+describe("editCollateral", () => {
+  const EDITED = `\`\`\`json
+{
+  "template": "<div className=\\"p-10\\">Edited</div>",
+  "html": "<!doctype html><html><body><div style=\\"padding:40px\\">Edited</div></body></html>",
+  "compilance": { "score": "90", "note": "Tightened per instruction." }
+}
+\`\`\``;
+
+  it("applies the instruction, parses the result, sends adaptive thinking + NO temperature", async () => {
+    const client = fakeClient(EDITED);
+    const res = await editCollateral({
+      client,
+      currentTemplate: '<div className="p-8">Hello</div>',
+      currentHtml: "<!doctype html><html><body>Hello</body></html>",
+      instruction: "Make the padding larger and the headline bolder",
+    });
+
+    expect(res.template).toContain("Edited");
+    expect(res.html).toContain("Edited");
+    expect(res.compliance).toEqual({ score: "90", note: "Tightened per instruction." });
+
+    const req = client.seen[0];
+    expect(req.model).toBe("claude-opus-4-8");
+    // adaptive thinking IS sent
+    expect(req.thinking).toEqual({ type: "adaptive" });
+    // NO temperature/top_p/top_k (400 on Opus 4.8)
+    expect(req).not.toHaveProperty("temperature");
+    expect(req).not.toHaveProperty("top_p");
+    expect(req).not.toHaveProperty("top_k");
+    expect(req.system).toBe(COLLATERAL_EDIT_SYSTEM);
+    expect(req.messages).toHaveLength(1);
+    // The user message must carry both the instruction and the current template.
+    const content = req.messages[0].content;
+    expect(content).toContain("Make the padding larger and the headline bolder");
+    expect(content).toContain('<div className="p-8">Hello</div>');
+  });
+
+  it("synthesizes html from the edited template when the model omits html", async () => {
+    const noHtml = '{"template":"<div className=\\"p-10\\">Edited</div>","compilance":{"score":"77","note":"ok"}}';
+    const client = fakeClient(noHtml);
+    const res = await editCollateral({
+      client,
+      currentTemplate: "<div>old</div>",
+      currentHtml: "<!doctype html>old</html>",
+      instruction: "change copy",
+    });
+    expect(res.html).toContain("<!doctype html>");
+    expect(res.html).toContain("Edited");
   });
 });
 

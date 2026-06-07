@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, Badge, Box, HStack, Heading, Link as CLink, Stack, Text } from "@chakra-ui/react";
+import { CkBadge, initials } from "../cockpit/primitives";
 
 const PERSONA_LABEL = {
   DECISION_MAKER: "Decision Maker",
@@ -12,8 +12,8 @@ const PERSONA_LABEL = {
 };
 
 /**
- * Lead identity card: name, title, persona, company, email/phone.
- * Defensive — businessUser/company may be partially populated.
+ * Lead identity card (cockpit): avatar, name, persona badge, title · company,
+ * email/phone. Defensive — businessUser/company may be partially populated.
  */
 export default function ContactCard({ contact, businessUser, company }) {
   const bu = businessUser ?? contact?.businessUser ?? {};
@@ -22,48 +22,37 @@ export default function ContactCard({ contact, businessUser, company }) {
   const persona = PERSONA_LABEL[contact?.persona] ?? "Contact";
 
   return (
-    <Box borderWidth="1px" borderColor="gray.200" rounded="lg" bg="white" p={5}>
-      <HStack spacing={4} align="flex-start">
-        <Avatar name={name} bg="orange.500" color="white" />
-        <Stack spacing={1} flex="1" minW={0}>
-          <HStack spacing={2} wrap="wrap">
-            <Heading size="md" letterSpacing="tight" noOfLines={1}>
-              {name}
-            </Heading>
-            <Badge colorScheme="orange" rounded="md">
-              {persona}
-            </Badge>
-          </HStack>
-          {bu.jobTitle && (
-            <Text color="gray.600" fontSize="sm" noOfLines={1}>
+    <div className="ck-card" style={{ padding: 18 }}>
+      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
+        <div className="ck-sh-avatar" style={{ width: 48, height: 48, fontSize: 18 }}>
+          {initials(name)}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ fontSize: 16, color: "var(--text)", fontWeight: 600 }}>{name}</div>
+            <CkBadge variant="accent">{persona}</CkBadge>
+          </div>
+          {(bu.jobTitle || co?.name) && (
+            <div className="ck-sh-role" style={{ marginTop: 4 }}>
               {bu.jobTitle}
-              {co?.name ? ` · ${co.name}` : ""}
-            </Text>
+              {bu.jobTitle && co?.name ? " · " : ""}
+              {co?.name}
+            </div>
           )}
-          {!bu.jobTitle && co?.name && (
-            <Text color="gray.600" fontSize="sm" noOfLines={1}>
-              {co.name}
-            </Text>
-          )}
-          <Stack spacing={0.5} pt={1}>
-            {bu.email && (
-              <CLink href={`mailto:${bu.email}`} fontSize="sm" color="orange.600">
-                {bu.email}
-              </CLink>
-            )}
-            {bu.phone && (
-              <Text fontSize="sm" color="gray.500">
-                {bu.phone}
-              </Text>
-            )}
-            {contact?.lifecycleStage && (
-              <Text fontSize="xs" color="gray.400" textTransform="uppercase" letterSpacing="wide">
-                {contact.lifecycleStage}
-              </Text>
-            )}
-          </Stack>
-        </Stack>
-      </HStack>
-    </Box>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {bu.email && (
+          <a href={`mailto:${bu.email}`} style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none" }}>
+            {bu.email}
+          </a>
+        )}
+        {bu.phone && <div style={{ fontSize: 13, color: "var(--text-2)" }}>{bu.phone}</div>}
+        {contact?.lifecycleStage && (
+          <div className="ck-eyebrow" style={{ margin: 0 }}>{contact.lifecycleStage}</div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,31 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Box,
-  Button,
-  Flex,
-  HStack,
-  IconButton,
-  Input,
-  Spinner,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
-import { FiMessageSquare, FiX, FiSend, FiRefreshCw } from "react-icons/fi";
 
 /**
- * AE Chat Dock (C1) — floating, bottom-right in-Clarwiz copilot grounded in the
- * AE's CRM context + current page. Thread + history live in component state;
- * each send POSTs recent history + pageContext to /api/assist/chat.
+ * AE Chat Dock (C1) — floating dark copilot grounded in the AE's CRM context +
+ * current page. Restyled to the AE Cockpit mockup. Thread + history live in
+ * component state; each send POSTs recent history + pageContext to
+ * /api/assist/chat (unchanged).
  *
- * Mounted globally by AssistShell. `pageContext` defaults to the pipeline
- * overview when not on a focused entity page.
+ * Open-state is controlled by AssistShell (the topbar chat-toggle) via
+ * `open` / `onOpenChange`; falls back to internal state if uncontrolled.
  *
  * Message shape: { id, role: 'user'|'assistant', content, status?: 'pending'|'error' }
  */
-export default function ChatDock({ pageContext = { entityType: "pipeline" } }) {
-  const [open, setOpen] = useState(false);
+export default function ChatDock({ pageContext = { entityType: "pipeline" }, open, onOpenChange }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = typeof open === "boolean";
+  const isOpen = isControlled ? open : internalOpen;
+  const setOpen = useCallback(
+    (v) => {
+      if (isControlled) onOpenChange?.(v);
+      else setInternalOpen(v);
+    },
+    [isControlled, onOpenChange]
+  );
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -33,10 +32,9 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" } }) {
   const listEndRef = useRef(null);
 
   useEffect(() => {
-    if (open) listEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, open]);
+    if (isOpen) listEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isOpen]);
 
-  // History of completed turns to send to the model (excludes pending/error).
   const buildHistory = useCallback(
     (extra = []) =>
       [...messages, ...extra]
@@ -52,7 +50,6 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" } }) {
 
       const userMsg = { id: `u_${Date.now()}`, role: "user", content };
       const pendingId = `a_${Date.now()}`;
-      // history = prior completed turns + this new user turn
       const history = [...buildHistory(), { role: "user", content }];
 
       setMessages((prev) => [
@@ -77,13 +74,9 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" } }) {
         const data = await res.json();
         const reply = typeof data?.reply === "string" ? data.reply : "";
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === pendingId ? { ...m, content: reply, status: undefined } : m
-          )
+          prev.map((m) => (m.id === pendingId ? { ...m, content: reply, status: undefined } : m))
         );
       } catch {
-        // Mark the user turn as failed for a retry affordance; drop the pending
-        // bubble; do NOT clear the input (restore it so the AE can resend).
         setMessages((prev) =>
           prev
             .filter((m) => m.id !== pendingId)
@@ -107,157 +100,93 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" } }) {
 
   const retry = useCallback(
     (failed) => {
-      // Remove the failed turn, then resend its content.
       setMessages((prev) => prev.filter((m) => m.id !== failed.id));
       send(failed.content, { keepInput: true });
     },
     [send]
   );
 
-  if (!open) {
+  const contextLabel =
+    pageContext?.label ||
+    (pageContext?.entityType && pageContext.entityType !== "pipeline"
+      ? pageContext.entityType
+      : "Pipeline");
+
+  if (!isOpen) {
     return (
-      <IconButton
+      <button
+        type="button"
+        className="ck-chat-fab"
         aria-label="Open AE Assist chat"
-        icon={<FiMessageSquare />}
-        colorScheme="orange"
-        size="lg"
-        isRound
-        position="fixed"
-        bottom={6}
-        right={6}
-        zIndex={1400}
-        boxShadow="lg"
         onClick={() => setOpen(true)}
-      />
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </button>
     );
   }
 
   return (
-    <Flex
-      direction="column"
-      position="fixed"
-      bottom={6}
-      right={6}
-      zIndex={1400}
-      w={{ base: "calc(100vw - 32px)", sm: "380px" }}
-      maxW="380px"
-      h="520px"
-      maxH="calc(100vh - 48px)"
-      bg="white"
-      borderWidth="1px"
-      borderColor="gray.200"
-      borderRadius="lg"
-      boxShadow="2xl"
-      overflow="hidden"
-    >
-      <HStack
-        px={4}
-        py={3}
-        bg="orange.500"
-        color="white"
-        justify="space-between"
-        flexShrink={0}
-      >
-        <HStack spacing={2}>
-          <FiMessageSquare />
-          <Text fontWeight="semibold" fontSize="sm">
-            AE Assist
-          </Text>
-        </HStack>
-        <IconButton
+    <div className="ck-chat-dock" role="dialog" aria-label="AE Assist chat">
+      <div className="ck-chat-header">
+        <div>
+          <span className="ck-chat-title">Ask the cockpit</span>
+          <span className="ck-chat-context">Context: {contextLabel}</span>
+        </div>
+        <button
+          type="button"
+          className="ck-drawer-close"
+          style={{ position: "relative", top: 0, right: 0 }}
           aria-label="Close chat"
-          icon={<FiX />}
-          size="sm"
-          variant="ghost"
-          color="white"
-          _hover={{ bg: "orange.600" }}
           onClick={() => setOpen(false)}
-        />
-      </HStack>
+        >
+          ✕
+        </button>
+      </div>
 
-      <VStack
-        align="stretch"
-        spacing={3}
-        flex="1"
-        overflowY="auto"
-        px={4}
-        py={4}
-        bg="gray.50"
-      >
+      <div className="ck-chat-body">
         {messages.length === 0 && (
-          <Text fontSize="sm" color="gray.500" textAlign="center" mt={6}>
-            Ask about this {pageContext?.entityType || "pipeline"} — deals, signals, next best actions.
-          </Text>
+          <div className="ck-chat-msg ai">
+            Grounded in your live HubSpot data + Clarwiz intelligence
+            {contextLabel ? ` for ${contextLabel}` : ""}. What do you need?
+          </div>
         )}
         {messages.map((m) => {
           const isUser = m.role === "user";
           const isError = m.status === "error";
           return (
-            <Box key={m.id} alignSelf={isUser ? "flex-end" : "flex-start"} maxW="85%">
-              <Box
-                px={3}
-                py={2}
-                borderRadius="lg"
-                bg={isUser ? (isError ? "red.50" : "orange.500") : "white"}
-                color={isUser && !isError ? "white" : "gray.800"}
-                borderWidth={isUser && !isError ? 0 : "1px"}
-                borderColor={isError ? "red.300" : "gray.200"}
-                fontSize="sm"
-                whiteSpace="pre-wrap"
-              >
-                {m.status === "pending" ? (
-                  <HStack spacing={2} color="gray.500">
-                    <Spinner size="xs" />
-                    <Text>Thinking…</Text>
-                  </HStack>
-                ) : (
-                  m.content
-                )}
-              </Box>
+            <div key={m.id} style={{ display: "contents" }}>
+              <div className={`ck-chat-msg ${isUser ? "user" : "ai"}${isError ? " err" : ""}`}>
+                {m.status === "pending" ? "Thinking…" : m.content}
+              </div>
               {isError && (
-                <HStack spacing={1} mt={1} justify="flex-end">
-                  <Text fontSize="xs" color="red.500">
-                    Failed to send
-                  </Text>
-                  <Button
-                    size="xs"
-                    variant="link"
-                    colorScheme="orange"
-                    leftIcon={<FiRefreshCw />}
-                    onClick={() => retry(m)}
-                  >
+                <div className="ck-chat-error">
+                  Failed to send
+                  <button type="button" onClick={() => retry(m)}>
                     Retry
-                  </Button>
-                </HStack>
+                  </button>
+                </div>
               )}
-            </Box>
+            </div>
           );
         })}
         <div ref={listEndRef} />
-      </VStack>
+      </div>
 
-      <Box as="form" onSubmit={onSubmit} px={3} py={3} borderTopWidth="1px" borderColor="gray.200" flexShrink={0}>
-        <HStack spacing={2}>
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask AE Assist…"
-            size="sm"
-            borderRadius="md"
-            isDisabled={sending}
-            autoComplete="off"
-          />
-          <IconButton
-            type="submit"
-            aria-label="Send message"
-            icon={<FiSend />}
-            colorScheme="orange"
-            size="sm"
-            isLoading={sending}
-            isDisabled={!input.trim()}
-          />
-        </HStack>
-      </Box>
-    </Flex>
+      <form className="ck-chat-input-row" onSubmit={onSubmit}>
+        <input
+          className="ck-chat-input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask anything about your pipeline…"
+          disabled={sending}
+          autoComplete="off"
+        />
+        <button type="submit" className="ck-chat-send" disabled={!input.trim() || sending}>
+          ↵
+        </button>
+      </form>
+    </div>
   );
 }

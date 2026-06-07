@@ -3,6 +3,7 @@ import React from 'react'
 import { FaUserCircle } from 'react-icons/fa';
 import { IoPricetagOutline, IoSettingsOutline } from "react-icons/io5";
 import { MdDashboard, MdOutlineCampaign } from 'react-icons/md';
+import { HiOutlineSparkles } from "react-icons/hi2";
 import { IoIosLogOut } from "react-icons/io";
 import { HiOutlineChevronDoubleLeft, HiOutlineChevronDoubleRight } from "react-icons/hi2";
 import { useDisclosure } from '@chakra-ui/react';
@@ -55,6 +56,7 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 {user?.canAccessCampaignOutreach !== false && (
                 <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={params === 'campaigns'} />
                 )}
+                <LinkButton collapsed={collapsed} url='/assist' title='AE Assist' icon={<HiOutlineSparkles size={20}/>} active={params === 'assist'} />
                 <LinkButton collapsed={collapsed} url='/settings' title='Settings' icon={<IoSettingsOutline size={20}/>} active={params === 'settings'} />
                 <LinkButton collapsed={collapsed} url='/pricing' title='Pricing' icon={<IoPricetagOutline size={20}/>} active={params === 'pricing'} />
             </div>

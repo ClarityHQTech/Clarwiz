@@ -1,111 +1,61 @@
 "use client";
 
-import {
-  Badge,
-  Box,
-  Circle,
-  Flex,
-  Heading,
-  HStack,
-  Stat,
-  StatLabel,
-  StatNumber,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
+import { ScoreRing, CkBadge } from "../cockpit/primitives";
+import { fmtAmount, fmtDate, fmtStaleness } from "../cockpit/format";
 
-function fmtAmount(amount) {
-  if (amount === null || amount === undefined) return "—";
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
-  } catch {
-    return `$${amount}`;
-  }
-}
+/**
+ * Deal hero (cockpit): company eyebrow, serif deal name, stage pill, Deal +
+ * Account circular score gauges, amount, and a 4-up hero stat strip.
+ */
+export default function DealHeader({ deal, accountName, accountScore, stakeholders = 0, lastActivityLabel }) {
+  const score = typeof deal?.score === "number" ? deal.score : null;
 
-function fmtDate(d) {
-  if (!d) return "—";
-  const date = d instanceof Date ? d : new Date(d);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function scoreColor(score) {
-  if (score === null || score === undefined) return "gray";
-  if (score >= 70) return "green";
-  if (score >= 40) return "yellow";
-  return "red";
-}
-
-function ScoreGauge({ score, label }) {
-  const color = scoreColor(score);
   return (
-    <VStack spacing={1}>
-      <Circle
-        size="64px"
-        borderWidth="4px"
-        borderColor={`${color}.400`}
-        color={`${color}.600`}
-        fontWeight="bold"
-        fontSize="lg"
-      >
-        {score ?? "—"}
-      </Circle>
-      <Text fontSize="xs" color="gray.500">
-        {label}
-      </Text>
-    </VStack>
-  );
-}
-
-export default function DealHeader({ deal, accountName, accountScore }) {
-  return (
-    <Box borderWidth="1px" borderRadius="lg" bg="white" p={5} mb={5}>
-      <Flex justify="space-between" align="flex-start" wrap="wrap" gap={4}>
-        <Box>
-          {accountName && (
-            <Text fontSize="sm" color="gray.500" mb={1}>
-              {accountName}
-            </Text>
-          )}
-          <Heading size="lg" letterSpacing="tight">
-            {deal?.name ?? "Untitled deal"}
-          </Heading>
-          <HStack mt={3} spacing={4} wrap="wrap">
-            <Stat flex="0 0 auto">
-              <StatLabel color="gray.500">Amount</StatLabel>
-              <StatNumber fontSize="xl">{fmtAmount(deal?.amount)}</StatNumber>
-            </Stat>
-            {deal?.stageLabel && (
-              <Box>
-                <Text fontSize="xs" color="gray.500" mb={1}>
-                  Stage
-                </Text>
-                <Badge colorScheme="orange" fontSize="sm" px={2} py={1} borderRadius="md">
-                  {deal.stageLabel}
-                </Badge>
-              </Box>
+    <div className="ck-deal-hero">
+      <div className="ck-deal-hero-top">
+        <div className="ck-deal-hero-meta" style={{ flex: 1, minWidth: 240 }}>
+          {accountName && <div className="ck-deal-company">{accountName}</div>}
+          <div className="ck-deal-name">{deal?.name ?? "Untitled deal"}</div>
+          <div className="ck-deal-stage-row">
+            {deal?.stageLabel && <span className="ck-stage-pill">{deal.stageLabel}</span>}
+            {deal?.status && (
+              <CkBadge variant={deal.status === "OPEN" ? "ok" : "ghost"}>{deal.status}</CkBadge>
             )}
-            <Box>
-              <Text fontSize="xs" color="gray.500" mb={1}>
-                Status
-              </Text>
-              <Badge colorScheme={deal?.status === "OPEN" ? "green" : "gray"}>{deal?.status ?? "—"}</Badge>
-            </Box>
-            <Box>
-              <Text fontSize="xs" color="gray.500" mb={1}>
-                Last activity
-              </Text>
-              <Text fontSize="sm">{fmtDate(deal?.lastActivityAt)}</Text>
-            </Box>
-          </HStack>
-        </Box>
+          </div>
+        </div>
 
-        <HStack spacing={5}>
-          {deal?.score !== null && deal?.score !== undefined && <ScoreGauge score={deal.score} label="Deal score" />}
-          <ScoreGauge score={accountScore} label="Account score" />
-        </HStack>
-      </Flex>
-    </Box>
+        <div className="ck-deal-score-block">
+          <ScoreRing score={score} label="Deal" />
+          <ScoreRing score={accountScore} label="Account" />
+          <div className="ck-deal-amount-box">
+            <div className="ck-deal-amount-label">Contract value</div>
+            <div className="ck-deal-amount-value">{fmtAmount(deal?.amount)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="ck-deal-hero-stats">
+        <div className="ck-hero-stat">
+          <div className="ck-hero-stat-label">Last activity</div>
+          <div className="ck-hero-stat-value">
+            {lastActivityLabel || fmtStaleness(deal?.lastActivityAt)}
+          </div>
+        </div>
+        <div className="ck-hero-stat">
+          <div className="ck-hero-stat-label">Stakeholders</div>
+          <div className="ck-hero-stat-value">
+            {stakeholders} {stakeholders === 1 ? "contact" : "contacts"}
+          </div>
+        </div>
+        <div className="ck-hero-stat">
+          <div className="ck-hero-stat-label">Status</div>
+          <div className="ck-hero-stat-value">{deal?.status ?? "—"}</div>
+        </div>
+        <div className="ck-hero-stat">
+          <div className="ck-hero-stat-label">Last touch date</div>
+          <div className="ck-hero-stat-value">{fmtDate(deal?.lastActivityAt)}</div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,86 +1,84 @@
 "use client";
 
-import { Box, Grid, GridItem, HStack, Spacer, Text } from "@chakra-ui/react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AssistShell from "@/components/assist/AssistShell";
+import { CkCard, CkBadge } from "@/components/assist/cockpit/primitives";
 import ContactCard from "@/components/assist/lead/ContactCard";
 import CompanyInsightPanel from "@/components/assist/lead/CompanyInsightPanel";
 import TofuTimeline from "@/components/assist/lead/TofuTimeline";
 import PromoteButton from "@/components/assist/lead/PromoteButton";
+import { tierDot, signalLabel } from "@/components/assist/deal/SignalsStrip";
 
 function SignalsPanel({ signals = [] }) {
   if (!signals.length) return null;
   return (
-    <Box borderWidth="1px" borderColor="gray.200" rounded="lg" bg="white" p={5}>
-      <Text fontWeight="semibold" fontSize="sm" mb={3} letterSpacing="tight">
-        Signals
-      </Text>
-      <Box display="flex" flexDirection="column" gap={2}>
+    <CkCard title="Signals" count={signals.length}>
+      <div className="ck-signals-strip">
         {signals.map((s) => (
-          <HStack key={s.id} fontSize="sm">
-            <Text color="gray.700" noOfLines={1}>
-              {s.headline || s.type || "Signal"}
-            </Text>
-            <Spacer />
-            {typeof s.score === "number" && (
-              <Text color="orange.600" fontWeight="medium">
-                {s.score}
-              </Text>
-            )}
-          </HStack>
+          <span className="ck-signal-chip" key={s.id} title={s.evidence || s.suggestedAngle || ""}>
+            <span className={`dot ${tierDot(s)}`} />
+            {signalLabel(s)}
+            {typeof s.score === "number" ? ` · ${s.score}` : ""}
+          </span>
         ))}
-      </Box>
-    </Box>
+      </div>
+    </CkCard>
   );
 }
 
 function NbaStrip({ nbas = [] }) {
   if (!nbas.length) return null;
   return (
-    <Box borderWidth="1px" borderColor="gray.200" rounded="lg" bg="white" p={5}>
-      <Text fontWeight="semibold" fontSize="sm" mb={3} letterSpacing="tight">
-        Next Best Actions
-      </Text>
-      <Box display="flex" flexDirection="column" gap={2}>
-        {nbas.map((n) => (
-          <Box key={n.id} bg="orange.50" rounded="md" p={3}>
-            <Text fontSize="sm" color="gray.800">
-              {n.title || n.actionType || "Recommended action"}
-            </Text>
-            {n.rationale && (
-              <Text fontSize="xs" color="gray.500" mt={1} noOfLines={2}>
-                {n.rationale}
-              </Text>
-            )}
-          </Box>
-        ))}
-      </Box>
-    </Box>
+    <CkCard title="Next Best Actions" count={nbas.length}>
+      {nbas.map((n) => (
+        <div className="ck-nba-item" key={n.id}>
+          <div className="ck-nba-row">
+            <div style={{ minWidth: 0 }}>
+              <div className="ck-nba-title">{n.title || n.actionType || "Recommended action"}</div>
+              {n.rationale && <div className="ck-nba-rationale">{n.rationale}</div>}
+            </div>
+            <div className="ck-nba-side">
+              {typeof n.score === "number" && <div className="ck-nba-score">+{n.score}</div>}
+              <CkBadge variant="accent">Top</CkBadge>
+            </div>
+          </div>
+        </div>
+      ))}
+    </CkCard>
   );
 }
 
 function LeadWorkroomClient({ view, timeline, companyName, leadName }) {
   const { contact, businessUser, account, company, insight, signals, nbas } = view;
+  const chatContext = { entityType: "lead", contactId: contact?.id, label: leadName };
+
   return (
-    <AssistShell
-      active="dashboard"
-      title={leadName}
-      subtitle={companyName ? `${companyName} · MQL` : "MQL"}
-      actions={<PromoteButton contactId={contact.id} companyName={companyName} />}
-    >
-      <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={5} alignItems="start">
-        <GridItem>
-          <Box display="flex" flexDirection="column" gap={5}>
-            <ContactCard contact={contact} businessUser={businessUser} company={company} />
-            <CompanyInsightPanel insight={insight} company={company} account={account} />
-            <SignalsPanel signals={signals} />
-            <NbaStrip nbas={nbas} />
-          </Box>
-        </GridItem>
-        <GridItem>
+    <AssistShell active="dashboard" crumbs={[companyName || "Lead", leadName]} chatContext={chatContext}>
+      <div className="ck-page-header">
+        <div className="ck-page-title-block">
+          <div className="ck-eyebrow">MQL{companyName ? ` · ${companyName}` : ""}</div>
+          <h1 className="ck-page-title">{leadName}</h1>
+          <p className="ck-page-subtitle">
+            {businessUser?.jobTitle ? `${businessUser.jobTitle} · ` : ""}
+            Marketing-qualified lead — promote to a deal when a demo is booked.
+          </p>
+        </div>
+        <div className="ck-page-actions">
+          <PromoteButton contactId={contact.id} companyName={companyName} />
+        </div>
+      </div>
+
+      <div className="ck-col-deal">
+        <div className="ck-stack">
+          <ContactCard contact={contact} businessUser={businessUser} company={company} />
+          <CompanyInsightPanel insight={insight} company={company} account={account} />
+          <SignalsPanel signals={signals} />
+          <NbaStrip nbas={nbas} />
+        </div>
+        <div>
           <TofuTimeline entries={timeline} />
-        </GridItem>
-      </Grid>
+        </div>
+      </div>
     </AssistShell>
   );
 }

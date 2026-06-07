@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@chakra-ui/react";
-import { FiRefreshCw } from "react-icons/fi";
 import { toast } from "sonner";
 
 const ERROR_COPY = {
@@ -13,10 +11,11 @@ const ERROR_COPY = {
 };
 
 /**
- * Triggers POST /api/assist/sync, toasts the resulting counts, then refreshes
- * the server component so the freshly-hydrated graph renders.
+ * Cockpit-styled HubSpot sync button. POSTs /api/assist/sync, toasts counts,
+ * then refreshes the server component. Exposes `onDone` so the topbar icon can
+ * share the spinner state. `variant`: primary | ghost.
  */
-export default function SyncButton({ children = "Sync from HubSpot", variant = "solid", size = "sm" }) {
+export default function SyncButton({ children = "Sync HubSpot", variant = "primary" }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -43,16 +42,19 @@ export default function SyncButton({ children = "Sync from HubSpot", variant = "
   };
 
   return (
-    <Button
+    <button
+      type="button"
+      className={`ck-btn ${variant === "primary" ? "ck-btn-primary" : "ck-btn-ghost"}`}
       onClick={onSync}
-      isLoading={loading}
-      loadingText="Syncing…"
-      colorScheme="orange"
-      variant={variant}
-      size={size}
-      leftIcon={<FiRefreshCw />}
+      disabled={loading}
     >
-      {children}
-    </Button>
+      <span className={loading ? "ck-spin" : undefined} style={{ display: "grid" }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M21 12a9 9 0 0 0-15-6.7L3 8" />
+          <path d="M3 3v5h5" />
+        </svg>
+      </span>
+      {loading ? "Syncing…" : children}
+    </button>
   );
 }

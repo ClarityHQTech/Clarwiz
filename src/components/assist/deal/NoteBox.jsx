@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Box, Button, Heading, HStack, Textarea } from "@chakra-ui/react";
 import { toast } from "sonner";
+import { CkCard } from "../cockpit/primitives";
 
-/** Free-text note → written back to the deal in HubSpot. */
+/** Free-text note → written back to the deal in HubSpot (cockpit). */
 export default function NoteBox({ dealId }) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,22 +42,27 @@ export default function NoteBox({ dealId }) {
   };
 
   return (
-    <Box borderWidth="1px" borderRadius="lg" bg="white" p={5}>
-      <Heading size="sm" mb={3}>
-        Add a note
-      </Heading>
-      <Textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder="Log a quick update on this deal…"
-        rows={4}
-        mb={3}
-      />
-      <HStack justify="flex-end">
-        <Button colorScheme="orange" onClick={onSave} isLoading={saving} isDisabled={!body.trim()}>
-          Save to HubSpot
-        </Button>
-      </HStack>
-    </Box>
+    <CkCard title="Add a note">
+      <div style={{ padding: 18 }}>
+        <textarea
+          className="ck-textarea"
+          style={{ minHeight: 96 }}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Log a quick update on this deal…"
+          rows={4}
+        />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+          <button
+            type="button"
+            className="ck-btn ck-btn-primary"
+            onClick={onSave}
+            disabled={saving || !body.trim()}
+          >
+            {saving ? "Saving…" : "Save to HubSpot"}
+          </button>
+        </div>
+      </div>
+    </CkCard>
   );
 }
