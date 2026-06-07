@@ -510,18 +510,23 @@ model CommunicationTemplate {
 
 /// Per-tenant MOFU config: HubSpot creds + LLM/prompt config (mirrors LinkedInIntegration).
 model MofuIntegration {
-  id                    String    @id @default(cuid())
-  tenantId              String    @unique
-  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  encryptedHubspotToken String
-  hubspotPortalId       String?
-  defaultOwnerId        String?
-  insightModel          String?
-  promptVersion         String?
-  status                String    @default("pending")
-  connectedAt           DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                           String    @id @default(cuid())
+  tenantId                     String    @unique
+  tenant                       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  encryptedHubspotToken        String? // PAT (private-app token) path
+  connectionMode               String    @default("pat") // "pat" | "oauth"
+  encryptedHubspotAccessToken  String? // OAuth access token (short-lived)
+  encryptedHubspotRefreshToken String? // OAuth refresh token (long-lived)
+  hubspotTokenExpiresAt        DateTime?
+  hubspotScopes                String[]  @default([])
+  hubspotPortalId              String?
+  defaultOwnerId               String?
+  insightModel                 String?
+  promptVersion                String?
+  status                       String    @default("pending")
+  connectedAt                  DateTime?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
 }
 
 /// Tenant ↔ Company bridge (company-side mirror of Contact) + HubSpot linkage.

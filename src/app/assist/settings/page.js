@@ -49,6 +49,7 @@ function MofuSettingsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [brand, setBrand] = useState(EMPTY_BRAND);
   const [savingBrand, setSavingBrand] = useState(false);
+  const [showPatForm, setShowPatForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +83,23 @@ function MofuSettingsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Surface the result of the HubSpot OAuth round-trip (?hubspot=… on return).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("hubspot");
+    if (!status) return;
+    if (status === "connected") toast.success("HubSpot connected via OAuth");
+    else if (status === "denied") toast.error("HubSpot connection was denied");
+    else if (status === "badstate") toast.error("HubSpot connection expired — please try again");
+    else if (status === "error") toast.error("HubSpot connection failed — please try again");
+    // Clean the query so a refresh doesn't re-toast.
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  const connectHubspot = () => {
+    window.location.href = "/api/assist/hubspot/oauth/start";
+  };
 
   const onChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -167,41 +185,74 @@ function MofuSettingsPage() {
 
       <div style={{ maxWidth: 640 }}>
         <CkCard title="HubSpot" action={statusBadge(integration, loading)}>
-          {integration.configured && (
+          {integration.connectionMode === "oauth" && integration.configured ? (
             <div className="ck-kv-label" style={{ marginBottom: 16 }}>
-              Token {integration.hubspotTokenMasked} · Portal {integration.hubspotPortalId || "—"}
+              Connected via OAuth · Portal {integration.hubspotPortalId || "—"} ·{" "}
+              {integration.scopeCount ?? 0} scopes
             </div>
+          ) : (
+            <p className="ck-kv-label" style={{ marginBottom: 16 }}>
+              Install the Clarwiz app into your HubSpot portal to grant access — no token to
+              paste.
+            </p>
           )}
 
-          <form onSubmit={onSave}>
-            <Field label="HubSpot private-app token" required>
-              <input
-                className="ck-input"
-                type="password"
-                placeholder="pat-naX-…"
-                autoComplete="off"
-                value={form.hubspotToken}
-                onChange={onChange("hubspotToken")}
-              />
-            </Field>
-            <Field label="Portal ID (optional)">
-              <input className="ck-input" value={form.hubspotPortalId} onChange={onChange("hubspotPortalId")} />
-            </Field>
-            <Field label="Default owner ID (optional)">
-              <input className="ck-input" value={form.defaultOwnerId} onChange={onChange("defaultOwnerId")} />
-            </Field>
-            <Field label="Insight model (optional)">
-              <input
-                className="ck-input"
-                placeholder="gpt-4o"
-                value={form.insightModel}
-                onChange={onChange("insightModel")}
-              />
-            </Field>
-            <button type="submit" className="ck-btn ck-btn-primary" disabled={saving}>
-              {saving ? "Saving…" : integration.configured ? "Update" : "Save & verify"}
+          <button type="button" className="ck-btn ck-btn-primary" onClick={connectHubspot}>
+            {integration.connectionMode === "oauth" && integration.configured
+              ? "Reconnect HubSpot"
+              : "Connect HubSpot"}
+          </button>
+
+          <div style={{ marginTop: 20, borderTop: "1px solid var(--border, #333)", paddingTop: 12 }}>
+            <button
+              type="button"
+              className="ck-btn"
+              onClick={() => setShowPatForm((v) => !v)}
+              style={{ marginBottom: showPatForm ? 16 : 0 }}
+            >
+              {showPatForm ? "Hide" : "Advanced: use a private-app token instead"}
             </button>
-          </form>
+
+            {showPatForm && (
+              <>
+                {integration.configured && integration.connectionMode !== "oauth" && (
+                  <div className="ck-kv-label" style={{ marginBottom: 16 }}>
+                    Token {integration.hubspotTokenMasked} · Portal{" "}
+                    {integration.hubspotPortalId || "—"}
+                  </div>
+                )}
+                <form onSubmit={onSave}>
+                  <Field label="HubSpot private-app token" required>
+                    <input
+                      className="ck-input"
+                      type="password"
+                      placeholder="pat-naX-…"
+                      autoComplete="off"
+                      value={form.hubspotToken}
+                      onChange={onChange("hubspotToken")}
+                    />
+                  </Field>
+                  <Field label="Portal ID (optional)">
+                    <input className="ck-input" value={form.hubspotPortalId} onChange={onChange("hubspotPortalId")} />
+                  </Field>
+                  <Field label="Default owner ID (optional)">
+                    <input className="ck-input" value={form.defaultOwnerId} onChange={onChange("defaultOwnerId")} />
+                  </Field>
+                  <Field label="Insight model (optional)">
+                    <input
+                      className="ck-input"
+                      placeholder="gpt-4o"
+                      value={form.insightModel}
+                      onChange={onChange("insightModel")}
+                    />
+                  </Field>
+                  <button type="submit" className="ck-btn ck-btn-primary" disabled={saving}>
+                    {saving ? "Saving…" : integration.configured ? "Update" : "Save & verify"}
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
         </CkCard>
 
         <CkCard title="Brand" style={{ marginTop: 20 }}>
