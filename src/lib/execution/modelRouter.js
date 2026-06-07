@@ -8,7 +8,8 @@ const MODEL_COMPLEX =
  */
 export function selectModel({ commHistory, hasRecentReply, signalCount = 0 }) {
   const logCount = commHistory.length;
-  const hasReply = hasRecentReply || commHistory.some((l) => l.responseType);
+  const hasReply =
+    hasRecentReply || commHistory.some((l) => l.responseType === "reply");
 
   if (hasReply || logCount >= 4 || signalCount > 0) {
     return { model: MODEL_COMPLEX, tier: "complex" };

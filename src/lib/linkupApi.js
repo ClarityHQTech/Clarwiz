@@ -194,3 +194,19 @@ export async function linkupCreateWebhook({
   const result = await linkupRequest("/webhooks", body);
   return assertLinkupSuccess(result, "Failed to create Linkup webhook");
 }
+
+/** POST /v2/webhooks/{webhook_id}/stop — pause SSE monitoring (stops credit billing). */
+export async function linkupStopWebhook(webhookId) {
+  const id = String(webhookId ?? "").trim();
+  if (!id) throw new Error("Webhook id is required");
+  const result = await linkupRequest(`/webhooks/${id}/stop`, {});
+  return assertLinkupSuccess(result, "Failed to stop LinkedIn webhook monitoring");
+}
+
+/** POST /v2/webhooks/{webhook_id}/start — resume monitoring after /stop. */
+export async function linkupStartWebhook(webhookId) {
+  const id = String(webhookId ?? "").trim();
+  if (!id) throw new Error("Webhook id is required");
+  const result = await linkupRequest(`/webhooks/${id}/start`, {});
+  return assertLinkupSuccess(result, "Failed to start LinkedIn webhook monitoring");
+}

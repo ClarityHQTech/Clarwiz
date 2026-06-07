@@ -28,11 +28,12 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
     }
 
     const params = pathname.split('/')[1];
+    const campaignsActive = pathname.startsWith('/campaigns');
 
   return (
-    <div className='h-[100vh] flex flex-col justify-between p-3'>
-        <div className='w-full'>
-            <div className='flex items-center justify-between h-[5vh] w-full p-2 pb-4'>
+    <div className='h-full flex flex-col justify-between p-3 overflow-y-auto no-scrollbar'>
+        <div className='w-full shrink-0'>
+            <div className='flex items-center justify-between w-full p-2 pb-4'>
                 <Link href={'/'} className={`flex items-center ${collapsed ? 'justify-center w-full' : 'justify-start gap-2'}`}>
                     <img className='h-8' src="/logo.svg" alt={BRAND.lockup} />
                     {!collapsed && <BrandLockup />}
@@ -47,13 +48,13 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 </button>
             </div>
         </div>
-        <div className={`h-[90vh] flex flex-col justify-between w-full text-white ${collapsed ? 'items-center' : 'items-start'}`}>
+        <div className={`flex-1 min-h-0 flex flex-col justify-between w-full text-white ${collapsed ? 'items-center' : 'items-start'}`}>
             <div className='flex flex-col gap-4 w-full'>
                 {(user?.canAccessDashboard !== false) && (
                 <LinkButton collapsed={collapsed} url='/dashboard' title='Dashboard' icon={<MdDashboard size={20}/>} active={params === 'dashboard'} />
                 )}
                 {user?.canAccessCampaignOutreach !== false && (
-                <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={params === 'campaigns'} />
+                <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={campaignsActive} />
                 )}
                 <LinkButton collapsed={collapsed} url='/integrations' title='Integrations' icon={<HiOutlineLink size={20}/>} active={params === 'integrations'} />
                 <LinkButton collapsed={collapsed} url='/context' title='Context' icon={<HiOutlineSparkles size={20}/>} active={params === 'context'} />

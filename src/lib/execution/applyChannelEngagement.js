@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 
 function mergeDeliveryMeta(log, patch) {
   return {
@@ -14,7 +15,9 @@ function mergeDeliveryMeta(log, patch) {
  * Apply LinkedIn connection accepted engagement to a comm log.
  */
 export async function applyLinkedInConnectedEngagement(log, { invitationState, message }) {
-  if (log.responseType) return { updated: false, log, activity: null };
+  if (log.responseType === "reply" || log.responseType === "connected") {
+    return { updated: false, log, activity: null };
+  }
 
   const updated = await prisma.communicationLog.update({
     where: { id: log.id },
@@ -31,6 +34,8 @@ export async function applyLinkedInConnectedEngagement(log, { invitationState, m
     },
   });
 
+  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
+
   return { updated: true, log: updated, activity: "connected" };
 }
 
@@ -38,7 +43,9 @@ export async function applyLinkedInConnectedEngagement(log, { invitationState, m
  * Apply LinkedIn DM reply engagement to a comm log.
  */
 export async function applyLinkedInReplyEngagement(log, { responseContent, repliedAt }) {
-  if (log.responseType) return { updated: false, log, activity: null };
+  if (log.responseType === "reply") {
+    return { updated: false, log, activity: null };
+  }
 
   const updated = await prisma.communicationLog.update({
     where: { id: log.id },
@@ -52,6 +59,8 @@ export async function applyLinkedInReplyEngagement(log, { responseContent, repli
       deliveryMeta: mergeDeliveryMeta(log, {}),
     },
   });
+
+  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
 
   return { updated: true, log: updated, activity: "reply" };
 }
@@ -111,6 +120,8 @@ export async function applyWhatsAppEngagement(log, engagement) {
     where: { id: log.id },
     data,
   });
+
+  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
 
   return { updated: true, log: updated, activity: engagement.activity };
 }

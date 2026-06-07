@@ -5,5 +5,6 @@ export { pushLinkedInMessage } from "@/lib/push/linkedinMessage";
 export {
   pushWhatsAppTemplate,
   pushWhatsAppTemplateForDecision,
-  resolveWhatsAppTemplateParameters,
 } from "@/lib/push/whatsappTemplate";
+export { resolveWhatsAppTemplateParameters } from "@/lib/whatsappTemplateVariables";
+export { pushWhatsAppText } from "@/lib/push/whatsappText";

@@ -267,9 +267,28 @@ export async function bootstrapWebhookSecretsFromEnv(tenantId) {
   }
 }
 
+export function getLinkupWebhookMonitoring(row) {
+  if (row?.provider !== WEBHOOK_PROVIDERS.LINKUP || !row?.providerWebhookId) {
+    return null;
+  }
+  const meta = row.providerMeta;
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+    if (meta.monitoring === false) return false;
+  }
+  return true;
+}
+
 function computeWebhookDisplayStatus(row, { channelConnected, calendlyWebhooksActive } = {}) {
   if (!channelConnected) return "not_configured";
   if (calendlyWebhooksActive) return "connected";
+
+  if (
+    row.provider === WEBHOOK_PROVIDERS.LINKUP &&
+    row.providerWebhookId &&
+    getLinkupWebhookMonitoring(row) === false
+  ) {
+    return "paused";
+  }
 
   const verifiedAt =
     row.providerMeta &&
@@ -317,6 +336,8 @@ function serializeWebhookRow(row, { channelConnected = true, calendlyWebhooksAct
       ? row.providerMeta.verifiedAt
       : null;
 
+  const linkupMonitoring = getLinkupWebhookMonitoring(row);
+
   return {
     id: row.id,
     provider: row.provider,
@@ -327,6 +348,9 @@ function serializeWebhookRow(row, { channelConnected = true, calendlyWebhooksAct
     webhookUrl: setup.showWebhookUrl === false ? null : webhookUrl,
     lastEventAt: row.lastEventAt?.toISOString() ?? null,
     verifiedAt: verifiedAt ? String(verifiedAt) : null,
+    monitoringActive: linkupMonitoring,
+    canControlMonitoring:
+      row.provider === WEBHOOK_PROVIDERS.LINKUP && Boolean(row.providerWebhookId),
     lastError: sanitizeWebhookError(row.provider, row.lastError),
     eventsSubscribed:
       row.eventsSubscribed ?? WEBHOOK_CAPABILITIES[row.provider] ?? [],

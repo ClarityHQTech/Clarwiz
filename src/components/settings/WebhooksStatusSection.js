@@ -19,12 +19,21 @@ function getStatusDescription(wh, statusKey) {
     if (wh.lastEventAt) {
       return `Receiving events · Last event ${formatWhen(wh.lastEventAt)}`;
     }
+    if (wh.provider === "linkup") {
+      return "Monitoring active (~10 credits/day) · Turn off when not needed";
+    }
     if (wh.showUserSetup === false) return "Active";
     if (wh.providerWebhookId) return "Registered";
     if (wh.verifiedAt) {
       return `Verified in Meta · Waiting for first event (${formatWhen(wh.verifiedAt)})`;
     }
     return "Configured — waiting for first event";
+  }
+  if (statusKey === "paused") {
+    if (wh.provider === "linkup") {
+      return "Monitoring paused — no credit billing · Resume when running autopilot campaigns";
+    }
+    return "Paused";
   }
   if (statusKey === "error") {
     return wh.showUserSetup
@@ -35,6 +44,9 @@ function getStatusDescription(wh, statusKey) {
     if (wh.provider === "smartlead") {
       if (statusKey === "pending") return "Not connected — use Connect webhook";
       return "Tracks sent, opens, link clicks, and replies";
+    }
+    if (wh.provider === "linkup" && statusKey === "pending") {
+      return "Not connected — use Connect webhook";
     }
     return "Set up automatically when you connect this channel";
   }
@@ -51,6 +63,7 @@ export default function WebhooksStatusSection({ refreshSignal = 0 }) {
   const [webhooks, setWebhooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registeringProvider, setRegisteringProvider] = useState(null);
+  const [monitoringAction, setMonitoringAction] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,6 +125,32 @@ export default function WebhooksStatusSection({ refreshSignal = 0 }) {
       toast.error(err.message);
     } finally {
       setRegisteringProvider(null);
+    }
+  };
+
+  const setMonitoring = async (provider, action) => {
+    setMonitoringAction(`${provider}:${action}`);
+    try {
+      const res = await fetch("/api/settings/webhooks/monitoring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not update monitoring");
+
+      setWebhooks(data.webhooks ?? []);
+
+      const result = data.result;
+      if (result?.ok) {
+        toast.success(result.message || "Monitoring updated");
+      } else {
+        toast.error(result?.error || "Could not update monitoring");
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setMonitoringAction(null);
     }
   };
 
@@ -217,6 +256,12 @@ export default function WebhooksStatusSection({ refreshSignal = 0 }) {
             (wh.autoRegisterSupported || statusKey === "error");
           const isRegistering = registeringProvider === wh.provider;
           const showUrlActions = wh.showWebhookUrl !== false && wh.webhookUrl;
+          const monitoringBusy = monitoringAction === `${wh.provider}:stop` ||
+            monitoringAction === `${wh.provider}:start`;
+          const showStopMonitoring =
+            wh.canControlMonitoring && wh.monitoringActive === true;
+          const showResumeMonitoring =
+            wh.canControlMonitoring && wh.monitoringActive === false;
 
           return (
             <li key={wh.id} className={`${ui.cardSurface} p-4 space-y-3`}>
@@ -243,7 +288,7 @@ export default function WebhooksStatusSection({ refreshSignal = 0 }) {
                       onClick={() =>
                         registerWebhook(wh.provider, { force: statusKey === "error" })
                       }
-                      disabled={isRegistering}
+                      disabled={isRegistering || monitoringBusy}
                       className="rounded-md bg-brand-dark px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-ink disabled:opacity-50"
                     >
                       {isRegistering
@@ -251,6 +296,30 @@ export default function WebhooksStatusSection({ refreshSignal = 0 }) {
                         : wh.autoRegisterSupported
                           ? "Connect webhook"
                           : "Retry setup"}
+                    </button>
+                  ) : null}
+                  {showStopMonitoring ? (
+                    <button
+                      type="button"
+                      onClick={() => setMonitoring(wh.provider, "stop")}
+                      disabled={monitoringBusy || isRegistering}
+                      className={`${ui.btnSecondarySurface} text-xs`}
+                    >
+                      {monitoringAction === `${wh.provider}:stop`
+                        ? "Stopping…"
+                        : "Stop monitoring"}
+                    </button>
+                  ) : null}
+                  {showResumeMonitoring && !showConnect ? (
+                    <button
+                      type="button"
+                      onClick={() => setMonitoring(wh.provider, "start")}
+                      disabled={monitoringBusy || isRegistering}
+                      className="rounded-md bg-brand-dark px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-ink disabled:opacity-50"
+                    >
+                      {monitoringAction === `${wh.provider}:start`
+                        ? "Resuming…"
+                        : "Resume monitoring"}
                     </button>
                   ) : null}
                   {showUrlActions ? (

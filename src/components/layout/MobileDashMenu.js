@@ -28,6 +28,7 @@ const MobileDashMenu = () => {
   const user = useUser();
   const pathname = usePathname();
   const params = pathname.split("/")[1];
+  const campaignsActive = pathname.startsWith("/campaigns");
   const { isOpen, onClose, onOpen } = useDisclosure();
   const logout = useDisclosure();
 
@@ -83,7 +84,7 @@ const MobileDashMenu = () => {
               {user?.canAccessCampaignOutreach !== false && (
                 <LinkButton
                   icon={<MdOutlineCampaign size={20} />}
-                  active={params === "campaigns"}
+                  active={campaignsActive}
                   onClose={onClose}
                   url="/campaigns"
                   title="Campaigns"

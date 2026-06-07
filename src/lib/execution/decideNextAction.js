@@ -10,11 +10,17 @@ import {
   isLinkedInConnectionRequest,
   truncateLinkedInConnectionNote,
 } from "@/lib/execution/executionRules";
+import { resolveCampaignEnabledChannels } from "@/lib/campaignChannels";
 import {
   appendBookingLinkIfAllowed,
   getNextOutboundStage,
 } from "@/lib/execution/appendBookingLink";
 import { applyTemplateVariables } from "@/lib/execution/renderMessage";
+import {
+  TEMPLATE_VARIABLES,
+  canUseTemplateForProspect,
+  getMissingProspectVariablesForTemplate,
+} from "@/lib/templateVariables";
 import { selectModel } from "@/lib/execution/modelRouter";
 import { buildProviderMetadata } from "@/lib/execution/openaiUsage";
 import { serializeBusinessUserSignals } from "@/lib/execution/signals";
@@ -24,6 +30,13 @@ import {
   isReplyFollowUp,
 } from "@/lib/execution/humanizeOutboundMessage";
 import { buildExecutionTenantContext } from "@/lib/tenantIcpContext";
+import { renderWhatsAppCommLogMessage } from "@/lib/execution/renderCommLogContent";
+import {
+  hasWhatsAppProspectReply,
+  isWhatsAppSessionWindowOpen,
+  resolveWhatsAppSendMode,
+  resolveWhatsAppWindowExpiresAt,
+} from "@/lib/whatsappSessionWindow";
 
 const DECISION_SCHEMA = {
   type: "object",
@@ -102,8 +115,11 @@ function serializeTemplates(templates) {
 }
 
 /** @see EXECUTION_RULES_DOC */
-function availableChannels(prospect) {
-  return availableProspectChannels(prospect);
+function availableChannels(prospect, campaign) {
+  return availableProspectChannels(
+    prospect,
+    resolveCampaignEnabledChannels(campaign)
+  );
 }
 
 export async function decideNextActionForProspect({
@@ -114,14 +130,21 @@ export async function decideNextActionForProspect({
   liveSignals = [],
   tenantIcp = null,
 }) {
-  const channels = availableChannels(prospect);
+  const enabledChannels = resolveCampaignEnabledChannels(campaign);
+  const channels = availableChannels(prospect, campaign);
   if (channels.length === 0) {
     return {
       skip: true,
-      skipReason: "No contact channels available for this prospect",
+      skipReason: enabledChannels.length
+        ? "No contact channels available for this prospect on enabled campaign channels"
+        : "No outreach channels enabled for this campaign",
       modelUsed: null,
     };
   }
+
+  const allowedTemplates = templates.filter((t) =>
+    enabledChannels.includes(t.channel)
+  );
 
   const serializedSignals = serializeBusinessUserSignals(liveSignals);
 
@@ -130,7 +153,7 @@ export async function decideNextActionForProspect({
     signalCount: serializedSignals.length,
     hasRecentReply: commHistory.some(
       (l) =>
-        l.responseType &&
+        l.responseType === "reply" &&
         l.responseAt &&
         Date.now() - new Date(l.responseAt).getTime() < 7 * 24 * 60 * 60 * 1000
     ),
@@ -138,6 +161,11 @@ export async function decideNextActionForProspect({
 
   const latestReply = getLatestProspectReply(commHistory);
   const replyFollowUp = isReplyFollowUp(commHistory);
+  const whatsappWindowExpiresAt = resolveWhatsAppWindowExpiresAt(
+    { whatsapp24hWindowExpiresAt: prospect.whatsapp24hWindowExpiresAt },
+    commHistory
+  );
+  const whatsappWindowOpen = isWhatsAppSessionWindowOpen(whatsappWindowExpiresAt);
 
   const signalRules =
     serializedSignals.length > 0
@@ -176,12 +204,15 @@ BOOKING / QUALIFICATION CTA:
 Given tenant context, campaign templates, communication history, and prospect profile, decide the single best next outbound message.
 
 Rules (full spec: ${EXECUTION_RULES_DOC}):
-- Active channels only: ${ACTIVE_EXECUTION_CHANNELS.join(", ")}. Never use "call" (deferred).
+- Active channels only: ${enabledChannels.join(", ")}. Never use "call" (deferred). Do not use any channel outside this list.
 - Prefer channels the prospect has contact info for: ${channels.join(", ")}.
-- Allowed campaign template channels: ${CAMPAIGN_CHANNELS.join(", ")}.
+- Allowed campaign template channels: ${enabledChannels.join(", ")}.
 - LinkedIn: send connection request (cta connect_linkedin) before any DM; DMs only after the request is accepted (see history responseType connected).
 - LinkedIn connection note (connect_linkedin message): max ${LINKEDIN_CONNECTION_NOTE_MAX_CHARS} characters including spaces — LinkedIn rejects longer notes (Linkup CUSTOM_MESSAGE_TOO_LONG). Keep it short and punchy.
-- For whatsapp: you MUST set templateId to one of the campaign whatsapp template ids from templates (channel=whatsapp). Never invent template ids. If no whatsapp templates exist, set skip=true with skipReason explaining missing templates.
+- For whatsapp when customerServiceWindowOpen is true: you MAY set templateId to null and compose a free-form service message (recommended for replies and conversational follow-ups). You may also use a campaign template if appropriate.
+- For whatsapp when customerServiceWindowOpen is false: you MUST set templateId to one of the campaign whatsapp template ids from templates (channel=whatsapp). Never invent template ids. Free-form whatsapp messages are not allowed outside the customer service window. If no whatsapp templates exist, set skip=true with skipReason explaining missing templates.
+- Email/LinkedIn template variables: ${TEMPLATE_VARIABLES}. Do not use {{pain_point}}.
+- Use templateId for email/LinkedIn only when every variable referenced in that template body (and email subject, if any) is populated on the prospect profile in the user payload. If any field is null or empty, set templateId to null and write fully custom copy in message (no unfilled {{tokens}}).
 - Do not repeat the same channel+stage combination already sent unless a reply warrants a follow-up.
 - If the prospect replied positively (demo interest, meeting), you may set skip=true only when no outbound is needed; otherwise send a concise human reply advancing the conversation.
 - If history shows exhaustion of sequence with no reply, set skip=true.
@@ -203,16 +234,16 @@ ${bookingRules}
       id: prospect.id,
       name: prospect.name,
       firstName: prospect.firstName,
+      lastName: prospect.lastName,
       company: prospect.company,
       jobTitle: prospect.jobTitle,
-      painPoint: prospect.painPoint,
       email: prospect.email,
       phone: prospect.phone,
       whatsapp: prospect.whatsapp,
       linkedinUrl: prospect.linkedinUrl,
       availableChannels: channels,
     },
-    templates: serializeTemplates(templates),
+    templates: serializeTemplates(allowedTemplates),
     communicationHistory: serializeCommHistory(commHistory),
     liveSignals: serializedSignals,
     latestProspectReply: latestReply
@@ -223,11 +254,18 @@ ${bookingRules}
           receivedAt: latestReply.responseAt?.toISOString?.() ?? latestReply.responseAt,
         }
       : null,
+    whatsappCustomerServiceWindow: {
+      open: whatsappWindowOpen,
+      expiresAt:
+        whatsappWindowExpiresAt instanceof Date
+          ? whatsappWindowExpiresAt.toISOString()
+          : whatsappWindowExpiresAt ?? null,
+    },
     instruction: replyFollowUp
       ? "The prospect replied. Your message field must be a natural human reply to latestProspectReply — not a cold template. Set templateId to null."
       : serializedSignals.length > 0
         ? "A live signal was detected. Return the next best action that incorporates the signal; custom copy is encouraged. Set templateId null if templates would feel generic."
-        : "Return the next best outbound action. Use templateId when using a campaign template, else null for fully custom.",
+        : "Return the next best outbound action. Use templateId only when the chosen email/LinkedIn template's variables are all present on the prospect; otherwise null with custom message.",
   };
 
   const openai = getOpenAIClient();
@@ -270,14 +308,14 @@ ${bookingRules}
     };
   }
 
-  const whatsappTemplates = templates.filter((t) => t.channel === "whatsapp");
+  const whatsappTemplates = allowedTemplates.filter((t) => t.channel === "whatsapp");
 
   let matchedTemplate = decision.templateId
-    ? templates.find((t) => t.id === decision.templateId)
+    ? allowedTemplates.find((t) => t.id === decision.templateId)
     : null;
 
   if (decision.channel === "whatsapp") {
-    if (whatsappTemplates.length === 0) {
+    if (whatsappTemplates.length === 0 && !whatsappWindowOpen) {
       return {
         skip: true,
         skipReason: "No WhatsApp templates configured for this campaign",
@@ -298,11 +336,19 @@ ${bookingRules}
       matchedTemplate =
         whatsappTemplates.find((t) => t.id === decision.templateId) ?? null;
     }
-    if (!matchedTemplate && !replyFollowUp) {
+    if (!matchedTemplate && !replyFollowUp && !whatsappWindowOpen) {
       const byStage = whatsappTemplates.find(
         (t) => t.stage === (decision.stage ?? 1)
       );
-      matchedTemplate = byStage ?? whatsappTemplates[0];
+      matchedTemplate = byStage ?? whatsappTemplates[0] ?? null;
+    }
+    if (
+      !matchedTemplate &&
+      !replyFollowUp &&
+      !whatsappWindowOpen &&
+      !decision.message?.trim()
+    ) {
+      matchedTemplate = whatsappTemplates[0] ?? null;
     }
   }
 
@@ -311,14 +357,40 @@ ${bookingRules}
   let ctaType = decision.ctaType || matchedTemplate?.cta;
   let stage = decision.stage ?? matchedTemplate?.stage ?? 1;
   let channel = decision.channel;
+  let decisionReason = decision.decisionReason;
+
+  if (
+    matchedTemplate &&
+    !replyFollowUp &&
+    matchedTemplate.channel !== "whatsapp" &&
+    !canUseTemplateForProspect(matchedTemplate, prospect)
+  ) {
+    const missing = getMissingProspectVariablesForTemplate(
+      matchedTemplate,
+      prospect
+    );
+    decisionReason = `${decisionReason} (Template ${matchedTemplate.id} skipped — missing prospect fields: ${missing.map((k) => `{{${k}}}`).join(", ")})`;
+    matchedTemplate = null;
+  }
 
   if (matchedTemplate && !replyFollowUp) {
-    message = applyTemplateVariables(matchedTemplate.body, { prospect, campaign });
-    if (matchedTemplate.channel === "email" && matchedTemplate.subject) {
-      subject = applyTemplateVariables(matchedTemplate.subject, {
-        prospect,
-        campaign,
-      });
+    if (matchedTemplate.channel === "whatsapp") {
+      message =
+        renderWhatsAppCommLogMessage({
+          storedRow: matchedTemplate,
+          prospect,
+          campaign,
+        }) ??
+        matchedTemplate.whatsappTemplateId ??
+        message;
+    } else {
+      message = applyTemplateVariables(matchedTemplate.body, { prospect, campaign });
+      if (matchedTemplate.channel === "email" && matchedTemplate.subject) {
+        subject = applyTemplateVariables(matchedTemplate.subject, {
+          prospect,
+          campaign,
+        });
+      }
     }
     channel = matchedTemplate.channel;
     stage = matchedTemplate.stage;
@@ -359,11 +431,11 @@ ${bookingRules}
     skip: false,
     channel,
     stage,
-    templateId: replyFollowUp ? null : matchedTemplate?.id ?? decision.templateId,
+    templateId: replyFollowUp || !matchedTemplate ? null : matchedTemplate.id,
     subject,
     message,
     ctaType,
-    decisionReason: decision.decisionReason,
+    decisionReason,
     modelUsed: model,
     modelTier: tier,
     ...providerMeta,
@@ -387,11 +459,62 @@ ${bookingRules}
   const enforced = enforceChannelRules(
     decisionPayload,
     channels,
-    commHistory
+    commHistory,
+    enabledChannels
   );
 
   if (enforced.skip) {
     return enforced;
+  }
+
+  if (enforced.channel === "whatsapp") {
+    if (hasWhatsAppProspectReply(commHistory) && enforced.message?.trim()) {
+      return {
+        ...enforced,
+        skip: false,
+        templateId: null,
+        whatsappSendMode: "freeform",
+      };
+    }
+
+    if (replyFollowUp && whatsappWindowOpen) {
+      return {
+        ...enforced,
+        skip: false,
+        templateId: null,
+        whatsappSendMode: "freeform",
+      };
+    }
+
+    const sendMode = resolveWhatsAppSendMode({
+      decision: enforced,
+      prospect,
+      commHistory,
+    });
+
+    if (sendMode === "freeform") {
+      return {
+        ...enforced,
+        skip: false,
+        templateId: null,
+        whatsappSendMode: "freeform",
+      };
+    }
+
+    if (sendMode === "template") {
+      return {
+        ...enforced,
+        skip: false,
+        whatsappSendMode: "template",
+      };
+    }
+
+    return {
+      ...enforced,
+      skip: true,
+      skipReason:
+        "WhatsApp customer service window is closed and no approved template is configured for this message.",
+    };
   }
 
   return { ...enforced, skip: false };

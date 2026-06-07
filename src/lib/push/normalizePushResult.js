@@ -15,6 +15,7 @@ export function buildPushResult({
   deliveryProvider = null,
   deliveryMeta = null,
   deliveryMessage,
+  renderedMessage,
   error,
   skippedSend,
   reason,
@@ -24,6 +25,7 @@ export function buildPushResult({
     deliveryProvider,
     deliveryMeta,
     ...(deliveryMessage ? { deliveryMessage } : {}),
+    ...(renderedMessage ? { renderedMessage } : {}),
     ...(error ? { error } : {}),
     ...(skippedSend ? { skippedSend: true, reason } : {}),
   };

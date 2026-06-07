@@ -12,12 +12,17 @@ import {
   getWhatsAppIntegration,
 } from "@/lib/whatsappIntegration";
 import {
-  buildWhatsAppTemplateParameters,
-  countWhatsAppNumberedVariables,
-  defaultWhatsAppVariableMapping,
-  normalizeWhatsAppVariableMapping,
-  parseWhatsAppTemplateVariableSlots,
-} from "@/lib/whatsappTemplateVariables";
+  renderWhatsAppTemplatePreview,
+} from "@/lib/whatsappTemplateParameters";
+import { resolveWhatsAppTemplateParameters } from "@/lib/whatsappTemplateParameters";
+import { agentDebugLog } from "@/lib/debugAgentLog";
+import { pushWhatsAppText } from "@/lib/push/whatsappText";
+import {
+  hasWhatsAppProspectReply,
+  isWhatsAppSessionWindowOpen,
+  resolveWhatsAppWindowExpiresAt,
+} from "@/lib/whatsappSessionWindow";
+import { parseWhatsAppTemplateVariableSlots } from "@/lib/whatsappTemplateVariables";
 import { buildPushResult, buildSkippedPush } from "@/lib/push/normalizePushResult";
 
 function templatesFromIntegration(integration) {
@@ -50,59 +55,60 @@ function shouldUseMarketingMessagesApi(template) {
   return category === "MARKETING";
 }
 
-function resolveVariableCounts(cached, storedRow) {
-  const fromCache = cached ? parseWhatsAppTemplateVariableSlots(cached) : null;
-  const bodyCount =
-    fromCache?.bodyCount ?? countWhatsAppNumberedVariables(storedRow?.body);
-  const headerCount = fromCache?.headerCount ?? 0;
-  return { bodyCount, headerCount };
+function parseCommLogIdFromCallback(callbackData) {
+  if (!callbackData) return null;
+  try {
+    const parsed =
+      typeof callbackData === "string" ? JSON.parse(callbackData) : callbackData;
+    return parsed?.commLogId ?? null;
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Build body/header parameter arrays for Meta or Interakt.
- * Uses campaign mapping when present; never sends spurious params for static templates.
- */
-export function resolveWhatsAppTemplateParameters({
-  cached,
-  storedRow,
-  mapping,
-  prospect,
-  campaign,
-  renderedMessage,
-}) {
-  const { bodyCount, headerCount } = resolveVariableCounts(cached, storedRow);
-  let normalizedMapping = normalizeWhatsAppVariableMapping(
-    mapping ?? storedRow?.whatsappVariableMapping
-  );
+/** Last-resort: old template path with no template name but a planned comm log message. */
+async function tryWhatsAppFreeformFromCommLog({ commLogId, tenantId, prospect }) {
+  if (!commLogId) return null;
 
-  if (
-    (bodyCount > 0 || headerCount > 0) &&
-    normalizedMapping.body.length < bodyCount &&
-    cached
-  ) {
-    normalizedMapping = defaultWhatsAppVariableMapping(cached);
-  }
+  const row = await prisma.communicationLog.findUnique({
+    where: { id: commLogId },
+    select: { message: true, campaignId: true, contactCampaignId: true },
+  });
+  const messageText = row?.message?.trim();
+  if (!messageText) return null;
 
-  if (bodyCount > 0 || headerCount > 0) {
-    if (
-      normalizedMapping.body.length < bodyCount ||
-      normalizedMapping.header.length < headerCount
-    ) {
-      return {
-        error: `Template "${storedRow?.whatsappTemplateId ?? cached?.name}" requires ${bodyCount} body and ${headerCount} header variable(s). Configure mapping on the campaign.`,
-      };
-    }
-
-    return buildWhatsAppTemplateParameters({
-      mapping: normalizedMapping,
-      prospect,
-      campaign,
-      bodyVariableCount: bodyCount,
-      headerVariableCount: headerCount,
+  let commHistory = [];
+  if (row?.campaignId && row?.contactCampaignId) {
+    commHistory = await prisma.communicationLog.findMany({
+      where: {
+        campaignId: row.campaignId,
+        contactCampaignId: row.contactCampaignId,
+      },
+      orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],
     });
   }
 
-  return { bodyValues: [], headerValues: [] };
+  const hasInbound = hasWhatsAppProspectReply(commHistory);
+  const windowOpen = isWhatsAppSessionWindowOpen(
+    resolveWhatsAppWindowExpiresAt(prospect, commHistory)
+  );
+  if (!hasInbound && !windowOpen) return null;
+
+  // #region agent log
+  agentDebugLog({
+    hypothesisId: "H7",
+    location: "whatsappTemplate.js:freeformRescue",
+    message: "pushWhatsAppTemplate rescued to freeform via commLogId",
+    data: { commLogId, hasInbound, windowOpen, messageLen: messageText.length },
+  });
+  // #endregion
+
+  return pushWhatsAppText({
+    tenantId,
+    prospect,
+    message: messageText,
+    commLogId,
+  });
 }
 
 /**
@@ -119,6 +125,7 @@ export async function pushWhatsAppTemplate({
   callbackData,
   useMarketingApi,
   cachedTemplate = null,
+  previewBodyText = null,
 }) {
   const integration = await getWhatsAppIntegration(tenantId);
   if (!integration || integration.status !== "connected") {
@@ -136,6 +143,14 @@ export async function pushWhatsAppTemplate({
 
   const resolvedName = templateName?.trim();
   if (!resolvedName) {
+    const commLogId = parseCommLogIdFromCallback(callbackData);
+    const rescued = await tryWhatsAppFreeformFromCommLog({
+      commLogId,
+      tenantId,
+      prospect,
+    });
+    if (rescued) return rescued;
+
     return buildPushResult({
       status: "failed",
       deliveryMeta: { error: "missing_template_name" },
@@ -148,7 +163,17 @@ export async function pushWhatsAppTemplate({
   const body = bodyValues ?? [];
   const header = headerValues ?? [];
 
-  const { bodyCount, headerCount } = resolveVariableCounts(cached, null);
+  const renderedMessage =
+    renderWhatsAppTemplatePreview({
+      bodyText: cached?.body ?? previewBodyText ?? "",
+      headerText: typeof cached?.header === "string" ? cached.header : "",
+      bodyValues: body,
+      headerValues: header,
+    }) || resolvedName;
+
+  const { bodyCount, headerCount } = cached
+    ? parseWhatsAppTemplateVariableSlots(cached)
+    : { bodyCount: 0, headerCount: 0 };
 
   if (body.length !== bodyCount) {
     return buildPushResult({
@@ -193,6 +218,7 @@ export async function pushWhatsAppTemplate({
       return buildPushResult({
         status: "sent",
         deliveryProvider: "interakt",
+        renderedMessage,
         deliveryMeta: {
           templateName: resolvedName,
           languageCode: lang,
@@ -201,6 +227,7 @@ export async function pushWhatsAppTemplate({
           phone,
           bodyValues: body,
           headerValues: header,
+          renderedMessage,
           callbackData: callbackData ?? null,
         },
         deliveryMessage: result.message ?? "WhatsApp template sent via Interakt.",
@@ -247,6 +274,7 @@ export async function pushWhatsAppTemplate({
     return buildPushResult({
       status: "sent",
       deliveryProvider: "meta",
+      renderedMessage,
       deliveryMeta: {
         templateName: resolvedName,
         languageCode: lang,
@@ -255,6 +283,7 @@ export async function pushWhatsAppTemplate({
         phone,
         bodyValues: body,
         headerValues: header,
+        renderedMessage,
         api: sendMarketing ? "marketing_messages" : "messages",
         wabaId: integration.wabaId ?? null,
         callbackData: callbackData ?? null,
@@ -284,8 +313,67 @@ export async function pushWhatsAppTemplateForDecision({
   campaign,
   templateId,
   languageCode,
+  renderedMessage,
   commLogId,
 }) {
+  // #region agent log
+  agentDebugLog({ hypothesisId: "H4-H5", location: "whatsappTemplate.js:pushForDecision", message: "pushWhatsAppTemplateForDecision CALLED", data: { commLogId, templateId: templateId ?? null, campaignId: campaign?.id ?? null, renderedMsgLen: (renderedMessage ?? "").length, stackHint: "template-path" } });
+  // #endregion
+
+  let messageText = renderedMessage?.trim() || null;
+  if (!messageText && commLogId) {
+    const plannedRow = await prisma.communicationLog.findUnique({
+      where: { id: commLogId },
+      select: { message: true },
+    });
+    messageText = plannedRow?.message?.trim() || null;
+  }
+
+  if (!templateId?.trim() && messageText) {
+    let commHistory = [];
+    if (commLogId && campaign?.id) {
+      const anchor = await prisma.communicationLog.findUnique({
+        where: { id: commLogId },
+        select: { contactCampaignId: true },
+      });
+      if (anchor?.contactCampaignId) {
+        commHistory = await prisma.communicationLog.findMany({
+          where: {
+            campaignId: campaign.id,
+            contactCampaignId: anchor.contactCampaignId,
+          },
+          orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],
+        });
+      }
+    }
+
+    const hasInbound = hasWhatsAppProspectReply(commHistory);
+    const windowOpen = isWhatsAppSessionWindowOpen(
+      resolveWhatsAppWindowExpiresAt(prospect, commHistory)
+    );
+
+    if (hasInbound || windowOpen) {
+      // #region agent log
+      agentDebugLog({ hypothesisId: "H6", location: "whatsappTemplate.js:freeformFallback", message: "ForDecision redirecting to freeform text", data: { commLogId, hasInbound, windowOpen, messageLen: messageText.length } });
+      // #endregion
+      return pushWhatsAppText({
+        tenantId,
+        prospect,
+        message: messageText,
+        commLogId,
+      });
+    }
+  }
+
+  if (!templateId?.trim()) {
+    return buildPushResult({
+      status: "failed",
+      deliveryMeta: { error: "missing_template_id" },
+      error:
+        "WhatsApp template id is required for template sends. Use free-form text during the customer service window.",
+    });
+  }
+
   let templateName = null;
   let storedRow = null;
 
@@ -311,6 +399,15 @@ export async function pushWhatsAppTemplateForDecision({
           "WhatsApp template is not configured for this campaign. Select templates in campaign settings.",
       });
     }
+  }
+
+  if (!templateName?.trim()) {
+    return buildPushResult({
+      status: "failed",
+      deliveryMeta: { error: "missing_template_name" },
+      error:
+        "WhatsApp template name is required. Use free-form text during the customer service window.",
+    });
   }
 
   const integration = await getWhatsAppIntegration(tenantId);
@@ -346,5 +443,6 @@ export async function pushWhatsAppTemplateForDecision({
     headerValues: params.headerValues,
     callbackData,
     cachedTemplate: cached,
+    previewBodyText: storedRow?.body ?? null,
   });
 }

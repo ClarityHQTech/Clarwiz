@@ -2,10 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { getLinkedInIntegrationWithAccountId } from "@/lib/linkedinIntegration";
 import { getEmailIntegration } from "@/lib/emailIntegration";
 import { getWhatsAppIntegration } from "@/lib/whatsappIntegration";
-import { linkupCreateWebhook } from "@/lib/linkupApi";
+import { linkupCreateWebhook, linkupStartWebhook, linkupStopWebhook } from "@/lib/linkupApi";
 import {
   ensureWebhooksForConnectedChannels,
   fullWebhookUrl,
+  getLinkupWebhookMonitoring,
   getOrCreateIntegrationWebhook,
   hasMetaVerifyToken,
   upsertWebhookSecrets,
@@ -18,6 +19,123 @@ function needsRefreshMessage(wh, force) {
     return "Email event tracking updated";
   }
   return "Email event tracking connected";
+}
+
+function linkupProviderMeta(row) {
+  return row?.providerMeta &&
+    typeof row.providerMeta === "object" &&
+    !Array.isArray(row.providerMeta)
+    ? row.providerMeta
+    : {};
+}
+
+export async function setWebhookMonitoring(tenantId, provider, action) {
+  if (provider !== WEBHOOK_PROVIDERS.LINKUP) {
+    return {
+      provider,
+      ok: false,
+      error: "Monitoring controls are only available for LinkedIn webhooks",
+    };
+  }
+
+  if (action !== "stop" && action !== "start") {
+    return { provider, ok: false, error: "Invalid monitoring action" };
+  }
+
+  const linkedin = await getLinkedInIntegrationWithAccountId(tenantId);
+  if (linkedin?.status !== "connected" || !linkedin?.linkupAccountIdPlain) {
+    return { provider, ok: false, error: "Connect LinkedIn first" };
+  }
+
+  const wh = await prisma.integrationWebhook.findUnique({
+    where: {
+      tenantId_provider: { tenantId, provider: WEBHOOK_PROVIDERS.LINKUP },
+    },
+  });
+
+  if (!wh?.providerWebhookId) {
+    return {
+      provider,
+      ok: false,
+      error: "Connect the LinkedIn webhook first",
+    };
+  }
+
+  const monitoringActive = getLinkupWebhookMonitoring(wh) !== false;
+
+  if (action === "stop") {
+    if (!monitoringActive) {
+      return {
+        provider,
+        ok: true,
+        message: "LinkedIn event monitoring is already paused",
+      };
+    }
+
+    try {
+      await linkupStopWebhook(wh.providerWebhookId);
+      const priorMeta = linkupProviderMeta(wh);
+      await prisma.integrationWebhook.update({
+        where: { id: wh.id },
+        data: {
+          status: "paused",
+          lastError: null,
+          providerMeta: {
+            ...priorMeta,
+            monitoring: false,
+            monitoringStoppedAt: new Date().toISOString(),
+          },
+        },
+      });
+      return {
+        provider,
+        ok: true,
+        message: "LinkedIn event monitoring stopped — credit billing paused",
+      };
+    } catch (err) {
+      await prisma.integrationWebhook.update({
+        where: { id: wh.id },
+        data: { lastError: err.message },
+      });
+      return { provider, ok: false, error: err.message };
+    }
+  }
+
+  if (monitoringActive) {
+    return {
+      provider,
+      ok: true,
+      message: "LinkedIn event monitoring is already active",
+    };
+  }
+
+  try {
+    await linkupStartWebhook(wh.providerWebhookId);
+    const priorMeta = linkupProviderMeta(wh);
+    await prisma.integrationWebhook.update({
+      where: { id: wh.id },
+      data: {
+        status: "connected",
+        lastError: null,
+        providerMeta: {
+          ...priorMeta,
+          monitoring: true,
+          monitoringStartedAt: new Date().toISOString(),
+        },
+      },
+    });
+    return {
+      provider,
+      ok: true,
+      message: "LinkedIn event monitoring resumed",
+    };
+  } catch (err) {
+    await prisma.integrationWebhook.update({
+      where: { id: wh.id },
+      data: { lastError: err.message },
+    });
+    return { provider, ok: false, error: err.message };
+  }
 }
 
 export async function registerWebhookForProvider(
@@ -122,7 +240,43 @@ export async function registerWebhookForProvider(
     const webhookUrl = fullWebhookUrl(WEBHOOK_PROVIDERS.LINKUP, wh.webhookToken);
 
     if (wh.providerWebhookId && !force) {
-      return { provider, ok: true, message: "Webhook already registered" };
+      const monitoringActive = getLinkupWebhookMonitoring(wh) !== false;
+      if (monitoringActive) {
+        return {
+          provider,
+          ok: true,
+          message: "LinkedIn event tracking already active",
+        };
+      }
+
+      try {
+        await linkupStartWebhook(wh.providerWebhookId);
+        const priorMeta = linkupProviderMeta(wh);
+        await prisma.integrationWebhook.update({
+          where: { id: wh.id },
+          data: {
+            status: "connected",
+            webhookUrl,
+            lastError: null,
+            providerMeta: {
+              ...priorMeta,
+              monitoring: true,
+              monitoringStartedAt: new Date().toISOString(),
+            },
+          },
+        });
+        return {
+          provider,
+          ok: true,
+          message: "LinkedIn event monitoring resumed",
+        };
+      } catch (err) {
+        await prisma.integrationWebhook.update({
+          where: { id: wh.id },
+          data: { lastError: err.message },
+        });
+        return { provider, ok: false, error: err.message };
+      }
     }
 
     try {
@@ -146,9 +300,18 @@ export async function registerWebhookForProvider(
           webhookUrl,
           lastError: null,
           eventsSubscribed: ["message_received", "accepted_invitation"],
+          providerMeta: {
+            ...linkupProviderMeta(wh),
+            monitoring: true,
+            monitoringStartedAt: new Date().toISOString(),
+          },
         },
       });
-      return { provider, ok: true };
+      return {
+        provider,
+        ok: true,
+        message: "LinkedIn event tracking connected (~10 credits/day while monitoring is on)",
+      };
     } catch (err) {
       await prisma.integrationWebhook.update({
         where: { id: wh.id },

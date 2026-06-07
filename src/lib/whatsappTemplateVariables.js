@@ -1,5 +1,3 @@
-import { applyTemplateVariables } from "@/lib/execution/renderMessage";
-
 /** Prospect/campaign fields mappable to WhatsApp {{1}}, {{2}}, … slots. */
 export const WHATSAPP_CAMPAIGN_VARIABLES = [
   { key: "first_name", label: "First name", token: "{{first_name}}" },
@@ -97,53 +95,12 @@ export function normalizeWhatsAppVariableMapping(mapping) {
   };
 }
 
-export function resolveMappingText(text, { prospect, campaign }) {
-  if (!text?.trim()) return " ";
-  let resolved = applyTemplateVariables(text, { prospect, campaign });
-  resolved = resolved.replace(/\{\{campaign_id\}\}/gi, campaign?.id ?? "");
-  const trimmed = String(resolved ?? "").trim();
-  return trimmed || " ";
-}
-
-export function resolveCampaignVariable(variableKey, { prospect, campaign }) {
-  if (!variableKey?.trim()) return " ";
-  if (isCustomMappingValue(variableKey)) {
-    return resolveMappingText(getCustomMappingText(variableKey), {
-      prospect,
-      campaign,
-    });
-  }
-  const key = variableKey.replace(/[{}]/g, "").trim();
-  const token = `{{${key}}}`;
-  return resolveMappingText(token, { prospect, campaign });
-}
-
-/**
- * Build Meta/Interakt parameter arrays from stored mapping + prospect context.
- */
-export function buildWhatsAppTemplateParameters({
-  mapping,
-  prospect,
-  campaign,
-  bodyVariableCount = 0,
-  headerVariableCount = 0,
-}) {
-  const normalized = normalizeWhatsAppVariableMapping(mapping);
-  const bodyValues = [];
-  const headerValues = [];
-
-  for (let i = 0; i < bodyVariableCount; i++) {
-    const key = normalized.body[i];
-    bodyValues.push(resolveCampaignVariable(key, { prospect, campaign }));
-  }
-
-  for (let i = 0; i < headerVariableCount; i++) {
-    const key = normalized.header[i];
-    headerValues.push(resolveCampaignVariable(key, { prospect, campaign }));
-  }
-
-  return { bodyValues, headerValues };
-}
+export {
+  buildWhatsAppTemplateParameters,
+  resolveCampaignVariable,
+  resolveMappingText,
+  resolveWhatsAppTemplateParameters,
+} from "@/lib/whatsappTemplateParameters";
 
 export function validateWhatsAppVariableMapping(
   mapping,

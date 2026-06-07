@@ -1,6 +1,10 @@
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { contactCampaignInclude } from "@/lib/campaignDetail";
+import {
+  normalizeOutreachTimezone,
+  utcHHmmToLocal,
+} from "@/lib/outreachTimezones";
 
 const DEFAULT_OUTREACH_TIME = "11:00";
 const DEFAULT_TIMEZONE = "UTC";
@@ -15,9 +19,7 @@ export function resolveDeliveryTime(contactCampaign, campaign) {
 }
 
 export function resolveTimezone(campaign) {
-  const tz = campaign.outreachTimezone?.trim() || DEFAULT_TIMEZONE;
-  if (!DateTime.now().setZone(tz).isValid) return DEFAULT_TIMEZONE;
-  return tz;
+  return normalizeOutreachTimezone(campaign.outreachTimezone);
 }
 
 function parseTimeParts(timeStr) {
@@ -29,6 +31,7 @@ function parseTimeParts(timeStr) {
   };
 }
 
+/** Stored delivery times are UTC HH:mm; nextScheduledOutreachAt is UTC. */
 export function computeNextOutreachAt({
   campaign,
   contactCampaign,
@@ -36,9 +39,8 @@ export function computeNextOutreachAt({
   fromDate = new Date(),
 }) {
   const row = contactCampaign ?? prospect;
-  const tz = resolveTimezone(campaign);
   const { hour, minute } = parseTimeParts(resolveRow(row, campaign));
-  const base = DateTime.fromJSDate(fromDate, { zone: tz });
+  const base = DateTime.fromJSDate(fromDate, { zone: "utc" });
   let candidate = base.set({ hour, minute, second: 0, millisecond: 0 });
   if (candidate <= base) {
     candidate = candidate.plus({ days: 1 });
@@ -46,9 +48,13 @@ export function computeNextOutreachAt({
   return candidate.toUTC().toJSDate();
 }
 
+export function resolveDeliveryTimeLocal(contactCampaign, campaign) {
+  const utc = resolveDeliveryTime(contactCampaign, campaign);
+  return utcHHmmToLocal(utc, resolveTimezone(campaign));
+}
+
 export function todayInCampaignTz(campaign, ref = new Date()) {
-  const tz = resolveTimezone(campaign);
-  return DateTime.fromJSDate(ref, { zone: tz }).toISODate();
+  return DateTime.fromJSDate(ref, { zone: "utc" }).toISODate();
 }
 
 export function hasOutreachToday({ campaign, contactCampaign, prospect, commLogs = [] }) {
@@ -59,7 +65,6 @@ export function hasOutreachToday({ campaign, contactCampaign, prospect, commLogs
     if (last === today) return true;
   }
 
-  const tz = resolveTimezone(campaign);
   const rowId = row.id;
   for (const log of commLogs) {
     const logCcId = log.contactCampaignId ?? log.prospectId;
@@ -67,7 +72,7 @@ export function hasOutreachToday({ campaign, contactCampaign, prospect, commLogs
     if (!["sent", "delivered", "queued"].includes(log.status)) continue;
     const at = log.deliveredAt ?? log.sentAt;
     if (!at) continue;
-    const logDay = DateTime.fromJSDate(at, { zone: tz }).toISODate();
+    const logDay = DateTime.fromJSDate(at, { zone: "utc" }).toISODate();
     if (logDay === today) return true;
   }
   return false;
@@ -98,16 +103,22 @@ export async function planNextScheduledOutreach(contactCampaignId, campaign) {
   });
   if (!cc) return;
 
-  const tz = resolveTimezone(campaign);
-  const today = DateTime.now().setZone(tz).toISODate();
+  const today = DateTime.now().setZone("utc").toISODate();
 
   const nextAt = computeNextOutreachAt({
     campaign,
     contactCampaign: cc,
-    fromDate: DateTime.now().setZone(tz).plus({ days: 1 }).startOf("day").toJSDate(),
+    fromDate: DateTime.now()
+      .setZone("utc")
+      .plus({ days: 1 })
+      .startOf("day")
+      .toJSDate(),
   });
 
-  const lastDate = DateTime.fromISO(today, { zone: tz }).startOf("day").toUTC().toJSDate();
+  const lastDate = DateTime.fromISO(today, { zone: "utc" })
+    .startOf("day")
+    .toUTC()
+    .toJSDate();
 
   await prisma.contactCampaign.update({
     where: { id: contactCampaignId },

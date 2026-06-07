@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 import {
   getDecryptedSmartleadAccountId,
   getEmailIntegration,
 } from "@/lib/emailIntegration";
 import {
   buildProspectSmartleadSchedule,
-  resolveDeliveryTime,
+  resolveDeliveryTimeLocal,
   resolveTimezone,
 } from "@/lib/execution/outreachSchedule";
 import {
@@ -444,7 +445,7 @@ export async function sendPlannedEmailViaSmartlead({
       smartleadCampaignId,
       buildProspectSmartleadSchedule({
         timezone: resolveTimezone(campaign),
-        deliveryTime: resolveDeliveryTime(prospect, campaign),
+        deliveryTime: resolveDeliveryTimeLocal(prospect, campaign),
       })
     );
   } else {
@@ -670,6 +671,8 @@ export async function applyEngagementToCommLog(log, engagement) {
     where: { id: log.id },
     data,
   });
+
+  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
 
   return { updated: true, log: updated, activity: engagement.activity };
 }

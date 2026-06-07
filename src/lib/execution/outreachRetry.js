@@ -40,6 +40,7 @@ export function storePlannedDecisionInMeta(decision) {
     plannedDecision: {
       channel: decision.channel,
       templateId: decision.templateId,
+      whatsappSendMode: decision.whatsappSendMode ?? null,
       stage: decision.stage,
       subject: decision.subject,
       message: decision.message,

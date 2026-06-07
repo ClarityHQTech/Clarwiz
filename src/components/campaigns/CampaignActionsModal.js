@@ -16,6 +16,7 @@ import {
   HiOutlineBolt,
 } from "react-icons/hi2";
 import { toast } from "sonner";
+import { modalShell, modalUi } from "@/lib/brandUi";
 import { CHANNEL_LABELS } from "@/lib/campaignConstants";
 import { ResultCard } from "@/components/campaigns/executionResultCard";
 
@@ -128,13 +129,20 @@ export default function CampaignActionsModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="3xl" scrollBehavior="inside">
-      <ModalOverlay />
-      <ModalContent maxH="90vh" className="!bg-brand-surface">
-        <ModalHeader className="text-base font-semibold text-brand-ink pr-10 !bg-brand-surface">
+      <ModalOverlay backdropFilter="blur(4px)" className={modalUi.overlayClass} />
+      <ModalContent
+        {...modalShell.content}
+        maxH="90vh"
+        className={modalUi.contentClass}
+      >
+        <ModalHeader
+          {...modalShell.header}
+          className={`text-base font-semibold text-brand-ink ${modalUi.headerClass}`}
+        >
           Campaign actions — {campaignName}
         </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody className="space-y-5 !bg-brand-surface">
+        <ModalCloseButton className={modalUi.closeButtonClass} />
+        <ModalBody className={`space-y-5 ${modalUi.bodyClass}`}>
           <p className="text-sm text-brand-stone">
             Run the next-best-action engine using comm history, live signals, and
             tenant ICP context. Outbound messages are sent via your connected
@@ -272,7 +280,7 @@ export default function CampaignActionsModal({
             </div>
           )}
         </ModalBody>
-        <ModalFooter className="!bg-brand-surface">
+        <ModalFooter {...modalShell.footer} className={modalUi.footerClass}>
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>

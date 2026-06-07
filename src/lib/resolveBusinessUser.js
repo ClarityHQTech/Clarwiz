@@ -198,6 +198,7 @@ export function flattenContactCampaign(cc) {
     outreachDeliveryTime: cc.outreachDeliveryTime,
     nextScheduledOutreachAt: cc.nextScheduledOutreachAt,
     lastOutreachDate: cc.lastOutreachDate,
+    whatsapp24hWindowExpiresAt: cc.whatsapp24hWindowExpiresAt ?? null,
     signals: bu?.signals ?? [],
     contact: cc.contact,
     businessUser: bu,

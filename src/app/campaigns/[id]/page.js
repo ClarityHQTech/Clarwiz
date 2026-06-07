@@ -1,10 +1,7 @@
 "use client";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import CampaignActionsModal from "@/components/campaigns/CampaignActionsModal";
-import CampaignCopilotRunner from "@/components/campaigns/CampaignCopilotRunner";
 import ContactCommThread from "@/components/campaigns/ContactCommThread";
-import CampaignTemplatesModal from "@/components/campaigns/CampaignTemplatesModal";
 import CampaignCommLogsDrawer from "@/components/campaigns/CampaignCommLogsDrawer";
 import AddContactModal from "@/components/campaigns/AddContactModal";
 import ConfirmBox from "@/components/dialog/ConfirmBox";
@@ -29,9 +26,41 @@ import {
   HiOutlineArrowPath,
   HiOutlineClipboardDocumentList,
   HiOutlineTrash,
+  HiOutlineCog6Tooth,
 } from "react-icons/hi2";
 import { STATUS_STYLES, ui } from "@/lib/brandUi";
+import {
+  localTimeToUtcHHmm,
+  outreachTimezoneLabel,
+} from "@/lib/outreachTimezones";
+import { DEFAULT_ENABLED_CHANNELS } from "@/lib/campaignChannels";
+import { CAMPAIGN_CHANNELS, CHANNEL_LABELS } from "@/lib/campaignConstants";
 import { toast } from "sonner";
+
+function ChannelBadges({ enabledChannels }) {
+  const enabled = enabledChannels ?? DEFAULT_ENABLED_CHANNELS;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+      <span className="text-xs text-brand-stone mr-0.5">Channels:</span>
+      {CAMPAIGN_CHANNELS.map((ch) => {
+        const active = enabled.includes(ch);
+        return (
+          <span
+            key={ch}
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              active
+                ? "bg-brand-sage/25 text-brand-ink ring-1 ring-inset ring-brand-sage/40"
+                : "bg-brand-bg text-brand-steel line-through"
+            }`}
+          >
+            {CHANNEL_LABELS[ch]}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 function formatDate(iso) {
   if (!iso) return "—";
@@ -100,12 +129,6 @@ const Page = () => {
   const [runLoading, setRunLoading] = useState(false);
   const [trackLoading, setTrackLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [executionModalOpen, setExecutionModalOpen] = useState(false);
-  const {
-    isOpen: templatesModalOpen,
-    onOpen: openTemplatesModal,
-    onClose: closeTemplatesModal,
-  } = useDisclosure();
   const {
     isOpen: prospectDrawerOpen,
     onOpen: openProspectDrawer,
@@ -128,11 +151,6 @@ const Page = () => {
   } = useDisclosure();
   const [selectedProspect, setSelectedProspect] = useState(null);
   const [deleteProspectLoading, setDeleteProspectLoading] = useState(false);
-  const [calendlyUrlEdit, setCalendlyUrlEdit] = useState("");
-  const [savingCalendlyUrl, setSavingCalendlyUrl] = useState(false);
-  const [outreachTzEdit, setOutreachTzEdit] = useState("UTC");
-  const [defaultOutreachTimeEdit, setDefaultOutreachTimeEdit] = useState("11:00");
-  const [savingOutreachSchedule, setSavingOutreachSchedule] = useState(false);
   const [prospectDeliveryTime, setProspectDeliveryTime] = useState("");
   const [savingProspectTime, setSavingProspectTime] = useState(false);
 
@@ -146,9 +164,6 @@ const Page = () => {
       }
       const data = await res.json();
       setCampaign(data);
-      setCalendlyUrlEdit(data.calendlyBookingUrl ?? "");
-      setOutreachTzEdit(data.outreachTimezone ?? "UTC");
-      setDefaultOutreachTimeEdit(data.defaultOutreachTime ?? "11:00");
     } catch (err) {
       toast.error(err.message);
       setCampaign(null);
@@ -184,7 +199,9 @@ const Page = () => {
       if (!res.ok) throw new Error(data.error || "Action failed");
       setCampaign(data);
       toast.success(
-        action === "start" ? "Drip campaign started." : "Campaign paused."
+        action === "start"
+          ? "Campaign launched — autopilot outreach and webhook tracking enabled."
+          : "Campaign paused."
       );
     } catch (err) {
       toast.error(err.message);
@@ -213,26 +230,6 @@ const Page = () => {
       toast.error(err.message);
     } finally {
       setRunLoading(false);
-    }
-  };
-
-  const saveCalendlyUrl = async () => {
-    setSavingCalendlyUrl(true);
-    try {
-      const res = await fetch(`/api/campaigns/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ calendlyBookingUrl: calendlyUrlEdit }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
-      setCampaign(data);
-      setCalendlyUrlEdit(data.calendlyBookingUrl ?? "");
-      toast.success("Calendly URL saved");
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setSavingCalendlyUrl(false);
     }
   };
 
@@ -320,8 +317,9 @@ const Page = () => {
     campaign.status === "draft" || campaign.status === "paused";
   const canPause = campaign.status === "active";
   const isAutopilot = campaign.status === "active";
-  const isCopilot =
-    campaign.status === "draft" || campaign.status === "paused";
+  const enabledChannels =
+    campaign.enabledChannels ?? DEFAULT_ENABLED_CHANNELS;
+  const outreachTimezoneName = outreachTimezoneLabel(campaign.outreachTimezone);
 
   return (
     <div className={`${ui.page} ${ui.container} space-y-6`}>
@@ -347,9 +345,17 @@ const Page = () => {
             <span>Start: {formatDate(campaign.startDate)}</span>
             <span>Created: {formatDate(campaign.createdAt)}</span>
           </div>
+          <ChannelBadges enabledChannels={enabledChannels} />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <Link
+            href={`/campaigns/${id}/settings`}
+            className={ui.btnSecondarySurface}
+          >
+            <HiOutlineCog6Tooth className="h-4 w-4" />
+            Settings
+          </Link>
           {canPause && (
             <button
               type="button"
@@ -358,20 +364,20 @@ const Page = () => {
               className={`${ui.btnSecondarySurface} disabled:opacity-50`}
             >
               <HiOutlinePause className="h-4 w-4" />
-              Pause drip
+              Pause campaign
             </button>
           )}
           {canStart && (
             <button
               type="button"
-              disabled={metrics.prospectCount === 0}
-              onClick={() => setExecutionModalOpen(true)}
+              disabled={actionLoading || metrics.prospectCount === 0}
+              onClick={() => runAction("start")}
               className={`${ui.btnPrimary} disabled:opacity-50`}
             >
               <HiOutlinePlay className="h-4 w-4" />
               {campaign.status === "paused"
-                ? "Resume drip"
-                : "Launch drip campaign"}
+                ? "Resume campaign"
+                : "Launch campaign"}
             </button>
           )}
           <button
@@ -382,7 +388,7 @@ const Page = () => {
             <HiOutlineClipboardDocumentList className="h-4 w-4" />
             Activity log
           </button>
-          {isCopilot && metrics.prospectCount > 0 && (
+          {canStart && metrics.prospectCount > 0 && (
             <>
               <button
                 type="button"
@@ -391,7 +397,7 @@ const Page = () => {
                 className={`${ui.btnSecondarySurface} disabled:opacity-50`}
               >
                 <HiOutlineBolt className="h-4 w-4" />
-                {runLoading ? "Running…" : "Run outreach (all)"}
+                {runLoading ? "Running…" : "Run outreach"}
               </button>
               <button
                 type="button"
@@ -400,7 +406,7 @@ const Page = () => {
                 className={`${ui.btnSecondarySurface} disabled:opacity-50`}
               >
                 <HiOutlineArrowPath className="h-4 w-4" />
-                {trackLoading ? "Tracking…" : "Track (all)"}
+                {trackLoading ? "Tracking…" : "Track"}
               </button>
             </>
           )}
@@ -410,110 +416,17 @@ const Page = () => {
         </div>
       </div>
 
-      {campaign.calendlyConnected === false && (
-        <div className={ui.alertWarn}>
-          Connect Calendly in{" "}
-          <Link href="/integrations" className="font-medium underline text-brand-ink">
-            Integrations
-          </Link>{" "}
-          to auto-qualify prospects when meetings are booked.
-        </div>
-      )}
-
-      {isCopilot && (
-        <CampaignCopilotRunner
-          campaignId={id}
-          prospects={contactList}
-          onComplete={fetchCampaign}
-        />
-      )}
-
-      <div className={`${ui.cardSurface} px-4 py-3 grid sm:grid-cols-2 lg:grid-cols-4 gap-3`}>
-        <div>
-          <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
-            Outreach timezone
-          </label>
-          <input
-            type="text"
-            value={outreachTzEdit}
-            onChange={(e) => setOutreachTzEdit(e.target.value)}
-            placeholder="America/New_York"
-            className={ui.inputSurface}
-          />
-        </div>
-        <div>
-          <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
-            Default send time
-          </label>
-          <input
-            type="time"
-            value={defaultOutreachTimeEdit}
-            onChange={(e) => setDefaultOutreachTimeEdit(e.target.value)}
-            className={ui.inputSurface}
-          />
-        </div>
-        <div className="sm:col-span-2 flex items-end">
-          <button
-            type="button"
-            disabled={savingOutreachSchedule}
-            onClick={async () => {
-              setSavingOutreachSchedule(true);
-              try {
-                const res = await fetch(`/api/campaigns/${id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    outreachTimezone: outreachTzEdit,
-                    defaultOutreachTime: defaultOutreachTimeEdit,
-                  }),
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Save failed");
-                setCampaign(data);
-                toast.success("Outreach schedule saved");
-              } catch (err) {
-                toast.error(err.message);
-              } finally {
-                setSavingOutreachSchedule(false);
-              }
-            }}
-            className={`${ui.btnPrimary} disabled:opacity-50`}
-          >
-            {savingOutreachSchedule ? "Saving…" : "Save schedule"}
-          </button>
-        </div>
-      </div>
-
-      <div className={`${ui.cardSurface} px-4 py-3 flex flex-col sm:flex-row sm:items-end gap-3`}>
-        <div className="flex-1 min-w-0">
-          <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
-            Calendly booking URL
-          </label>
-          <input
-            type="url"
-            value={calendlyUrlEdit}
-            onChange={(e) => setCalendlyUrlEdit(e.target.value)}
-            placeholder="https://calendly.com/…"
-            className={ui.inputSurface}
-          />
-        </div>
-        <button
-          type="button"
-          disabled={savingCalendlyUrl}
-          onClick={saveCalendlyUrl}
-          className={`shrink-0 ${ui.btnPrimary} disabled:opacity-50`}
-        >
-          {savingCalendlyUrl ? "Saving…" : "Save URL"}
-        </button>
-      </div>
-
       {isAutopilot && (
         <div className={`${ui.alertInfo} space-y-1`}>
           <p>
-            Autopilot is on. Outreach runs once per prospect per day at the scheduled
-            time (default {campaign.defaultOutreachTime ?? "11:00"}{" "}
-            {campaign.outreachTimezone ?? "UTC"}). Tracking is via webhooks — configure
-            them in{" "}
+            Autopilot is on. Outreach runs once per prospect per day at{" "}
+            {campaign.defaultOutreachTime ?? "11:00"}{" "}
+            {outreachTimezoneLabel(campaign.outreachTimezone)} (
+            {localTimeToUtcHHmm(
+              campaign.defaultOutreachTime ?? "11:00",
+              campaign.outreachTimezone
+            )}{" "}
+            UTC). Tracking is via webhooks — configure them in{" "}
             <Link href="/integrations" className="font-medium underline text-brand-ink">
               Integrations
             </Link>
@@ -527,7 +440,13 @@ const Page = () => {
             </p>
           ) : (
             <p className="text-xs text-brand-ink/80">
-              No WhatsApp templates selected — add them via Manage under Comm templates
+              No WhatsApp templates selected — add them in{" "}
+              <Link
+                href={`/campaigns/${id}/settings`}
+                className="font-medium underline text-brand-ink"
+              >
+                Settings
+              </Link>{" "}
               before running WhatsApp outreach.
             </p>
           )}
@@ -564,8 +483,7 @@ const Page = () => {
         <MetricCard label="Qualified" value={metrics.qualifiedLeads} />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className={`lg:col-span-2 ${ui.cardSurface} p-4 space-y-4`}>
+      <div className={`${ui.cardSurface} p-4 space-y-4`}>
           <h2 className={`${ui.titleSm} text-base`}>Progress</h2>
           <ProgressBar label="Outreach sent" percent={progress.sentPercent} />
           <div className="grid sm:grid-cols-3 gap-3 pt-1">
@@ -582,10 +500,12 @@ const Page = () => {
               </p>
             </div>
             <div className={ui.miniStat}>
-              <p className="text-xs text-brand-stone">Channels</p>
+              <p className="text-xs text-brand-stone">Outreach channels</p>
               <p className="text-sm font-semibold text-brand-dark truncate">
-                {progress.channelsConfigured.length
-                  ? progress.channelsConfigured.join(", ")
+                {enabledChannels.length
+                  ? enabledChannels
+                      .map((ch) => CHANNEL_LABELS[ch] ?? ch)
+                      .join(", ")
                   : "None"}
               </p>
             </div>
@@ -604,48 +524,6 @@ const Page = () => {
               </span>
             ))}
           </div>
-        </div>
-
-        <div className={`${ui.cardSurface} p-4`}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className={`${ui.titleSm} text-base`}>Comm templates</h2>
-            <button
-              type="button"
-              onClick={openTemplatesModal}
-              className={`${ui.btnSecondarySurface} px-2 py-1 text-xs`}
-            >
-              <HiOutlinePlus className="h-3.5 w-3.5" />
-              Manage
-            </button>
-          </div>
-          {campaign.templates.length === 0 ? (
-            <p className="text-xs text-brand-stone">No templates configured yet.</p>
-          ) : (
-            <ul className="space-y-2 max-h-48 overflow-y-auto">
-              {campaign.templates.map((t) => (
-                <li
-                  key={t.id}
-                  className="text-xs border-b border-brand-secondary/15 pb-2 last:border-0 last:pb-0"
-                >
-                  <span className="font-medium text-brand-ink">
-                    {t.channelLabel} · S{t.stage}
-                  </span>
-                  {t.channel === "whatsapp" && t.whatsappTemplateId && (
-                    <p className="text-brand-stone truncate mt-0.5">
-                      {t.whatsappTemplateId}
-                    </p>
-                  )}
-                  {t.subject && (
-                    <p className="text-brand-stone truncate">{t.subject}</p>
-                  )}
-                  {t.channel !== "whatsapp" && (
-                    <p className="text-brand-steel">{t.ctaLabel}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </div>
 
       <div className={ui.tableWrap}>
@@ -767,7 +645,7 @@ const Page = () => {
 
       <Drawer
         placement="right"
-        size="md"
+        size="lg"
         isOpen={prospectDrawerOpen}
         onClose={() => {
           closeProspectDrawer();
@@ -775,7 +653,7 @@ const Page = () => {
         }}
       >
         <DrawerOverlay />
-        <DrawerContent className="!max-w-[520px] !bg-brand-surface">
+        <DrawerContent className="!max-w-[600px] !bg-brand-surface">
           <DrawerCloseButton />
           <DrawerHeader className={`${ui.titleSm} text-base !bg-brand-surface`}>
             {selectedProspect?.name ?? "Contact"}
@@ -861,7 +739,7 @@ const Page = () => {
 
                   <div className="mt-4 pt-4 border-t border-brand-sand/50">
                     <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
-                      Delivery time (override)
+                      Delivery time override ({outreachTimezoneName})
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -909,20 +787,40 @@ const Page = () => {
                     </div>
                     {selectedProspect.nextScheduledOutreachAt && (
                       <p className="text-xs text-brand-stone mt-1">
-                        Next scheduled:{" "}
+                        Next scheduled (UTC):{" "}
                         {new Date(
                           selectedProspect.nextScheduledOutreachAt
-                        ).toLocaleString()}
+                        ).toLocaleString("en-US", { timeZone: "UTC" })}{" "}
+                        UTC
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 flex flex-col min-h-[420px]">
                   <p className={ui.label}>Conversations</p>
-                  <ContactCommThread
+                  <div className="flex-1 min-h-0">
+                    <ContactCommThread
                     communications={selectedProspect.communications}
+                    copilotMode={canStart}
+                    campaign={campaign}
+                    prospect={selectedProspect}
+                    campaignId={id}
+                    contactCampaignId={selectedProspect.id}
+                    templates={campaign.templates}
+                    enabledChannels={
+                      campaign.enabledChannels ?? DEFAULT_ENABLED_CHANNELS
+                    }
+                    onSent={(data) => {
+                      setCampaign(data);
+                      const rows = data.contacts ?? data.prospects ?? [];
+                      const updated = rows.find(
+                        (p) => p.id === selectedProspect.id
+                      );
+                      if (updated) setSelectedProspect(updated);
+                    }}
                   />
+                  </div>
                 </div>
 
                 <div className="pt-2 border-t border-brand-secondary/25">
@@ -956,32 +854,10 @@ const Page = () => {
         handler={deleteProspect}
       />
 
-      <CampaignTemplatesModal
-        isOpen={templatesModalOpen}
-        onClose={closeTemplatesModal}
-        campaignId={campaign.id}
-        templates={campaign.templates}
-        onUpdated={setCampaign}
-      />
-
       <CampaignCommLogsDrawer
         isOpen={activityDrawerOpen}
         onClose={closeActivityDrawer}
         commLogs={campaign.commLogs ?? []}
-      />
-
-      <CampaignActionsModal
-        isOpen={executionModalOpen}
-        onClose={() => setExecutionModalOpen(false)}
-        campaignId={campaign.id}
-        campaignName={campaign.name}
-        campaignStatus={campaign.status}
-          prospects={contactList}
-        templates={campaign.templates}
-        onCampaignUpdate={(data) => {
-          setCampaign(data);
-          fetchCampaign();
-        }}
       />
     </div>
   );

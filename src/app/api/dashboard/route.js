@@ -4,9 +4,11 @@ import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { CHANNEL_LABELS } from "@/lib/campaignConstants";
 import { computeCampaignMetrics } from "@/lib/campaignMetrics";
+import { isProspectReply } from "@/lib/commLogEngagement";
 
 function formatActionLabel(log) {
-  if (log.responseType) return "Reply received";
+  if (isProspectReply(log)) return "Reply received";
+  if (log.openedAt) return "Message opened";
   if (log.status === "skipped") return "Skipped";
   return "Message planned";
 }
@@ -52,7 +54,8 @@ export async function GET() {
     prisma.communicationLog.findMany({
       where: {
         tenantId: ctx.tenantId,
-        responseType: { not: null },
+        responseType: "reply",
+        responseContent: { not: null },
       },
       orderBy: { responseAt: "desc" },
       take: 15,
@@ -91,7 +94,13 @@ export async function GET() {
     const contact = contactFromLog(log);
     return {
       id: log.id,
-      type: log.responseType ? "reply" : log.status === "skipped" ? "skipped" : "outbound",
+      type: isProspectReply(log)
+        ? "reply"
+        : log.openedAt
+          ? "open"
+          : log.status === "skipped"
+            ? "skipped"
+            : "outbound",
       label: formatActionLabel(log),
       campaignId: log.campaignId,
       campaignName: log.campaign.name,

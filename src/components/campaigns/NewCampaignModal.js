@@ -20,19 +20,18 @@ import {
 } from "react-icons/hi2";
 import { toast } from "sonner";
 import AddContactModal from "@/components/campaigns/AddContactModal";
-import TemplateEditorCard from "@/components/campaigns/TemplateEditorCard";
+import ChannelTemplatesSection from "@/components/campaigns/ChannelTemplatesSection";
 import WhatsAppCampaignTemplatesSection from "@/components/campaigns/WhatsAppCampaignTemplatesSection";
 import { commTemplatesFromWhatsAppSelection } from "@/lib/whatsappCampaignTemplates";
 import {
   CAMPAIGN_CHANNELS,
   CHANNEL_LABELS,
   CTA_OPTIONS,
-  MAX_TEMPLATE_STAGE,
   PROSPECT_IMPORT_COLUMNS,
-  createTemplate,
   validateTemplate,
 } from "@/lib/campaignConstants";
 import { parseProspectExcel } from "@/lib/parseProspectExcel";
+import { TEMPLATE_VARIABLES } from "@/lib/templateVariables";
 import { ui } from "@/lib/brandUi";
 
 const STEPS = ["Campaign", "Prospects", "Templates", "Review"];
@@ -89,52 +88,6 @@ function Field({ label, required, children, hint }) {
   );
 }
 
-function ChannelTemplatesSection({ channel, templates, onAdd, onUpdate, onRemove }) {
-  const channelTemplates = templates
-    .filter((t) => t.channel === channel)
-    .sort((a, b) => a.stage - b.stage);
-
-  return (
-    <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-bg border-b border-brand-secondary/30">
-        <div>
-          <h4 className="text-sm font-semibold text-brand-ink">
-            {CHANNEL_LABELS[channel]}
-          </h4>
-          <p className="text-xs text-brand-stone mt-0.5">
-            Add stage templates for this channel (optional).
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onAdd(channel)}
-          className={`inline-flex items-center gap-1 ${ui.btnSecondarySurface} text-xs shrink-0`}
-        >
-          <HiOutlinePlus className="h-3.5 w-3.5" />
-          Add template
-        </button>
-      </div>
-
-      <div className="p-4 space-y-3 bg-brand-bg/30">
-        {channelTemplates.length === 0 ? (
-          <p className="text-xs text-brand-steel text-center py-2">
-            No templates for {CHANNEL_LABELS[channel]} — skip or add when ready.
-          </p>
-        ) : (
-          channelTemplates.map((t) => (
-            <TemplateEditorCard
-              key={t.id}
-              template={t}
-              onChange={(patch) => onUpdate(t.id, patch)}
-              onRemove={() => onRemove(t.id)}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
   const {
     isOpen: addProspectOpen,
@@ -168,25 +121,20 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
   const updateCampaign = (patch) =>
     setCampaign((prev) => ({ ...prev, ...patch }));
 
-  const addTemplate = (channel) => {
-    const existingStages = templates
-      .filter((t) => t.channel === channel)
-      .map((t) => t.stage);
-    const nextStage =
-      existingStages.length > 0 ? Math.max(...existingStages) + 1 : 1;
-    setTemplates((prev) => [
-      ...prev,
-      createTemplate(channel, Math.min(nextStage, MAX_TEMPLATE_STAGE)),
-    ]);
+  const saveChannelTemplate = async (template, mode) => {
+    setTemplates((prev) => {
+      if (mode === "edit") {
+        return prev.map((t) => (t.id === template.id ? template : t));
+      }
+      return [...prev, template];
+    });
   };
 
-  const updateTemplate = (id, patch) => {
+  const updateWhatsAppTemplate = (id, patch) => {
     setTemplates((prev) =>
       prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
     );
   };
-
-  const updateWhatsAppTemplate = (id, patch) => updateTemplate(id, patch);
 
   const removeTemplate = (id) => {
     setTemplates((prev) => prev.filter((t) => t.id !== id));
@@ -530,9 +478,8 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
           {step === 2 && (
             <div className="space-y-4">
               <p className="text-xs text-brand-stone">
-                Templates are optional. For WhatsApp, select from your approved provider
-                templates. For email and LinkedIn, add stage templates manually. AI calling
-                is not available yet.
+                Templates are optional. WhatsApp: select approved provider templates.
+                Email and LinkedIn: add stage templates with variables {TEMPLATE_VARIABLES}.
               </p>
               <WhatsAppCampaignTemplatesSection
                 templates={templates}
@@ -545,8 +492,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                   key={channel}
                   channel={channel}
                   templates={templates}
-                  onAdd={addTemplate}
-                  onUpdate={updateTemplate}
+                  onSaveTemplate={saveChannelTemplate}
                   onRemove={removeTemplate}
                 />
               ))}

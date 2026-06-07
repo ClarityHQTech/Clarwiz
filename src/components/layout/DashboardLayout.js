@@ -70,7 +70,7 @@ function DashboardShell({ children }) {
   return (
     <div className="h-screen flex overflow-hidden">
       <div
-        className={`bg-brand-dark sticky top-0 h-screen overflow-y-auto border hidden lg:block no-scrollbar transition-all duration-300 ${
+        className={`bg-brand-dark sticky top-0 h-screen overflow-hidden border hidden lg:block transition-all duration-300 ${
           sidebarCollapsed ? "lg:w-20" : "lg:w-64"
         }`}
       >

@@ -7,6 +7,7 @@ import {
   applyLinkedInReplyEngagement,
 } from "@/lib/execution/applyChannelEngagement";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
+import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 import {
   getDecryptedSigningSecret,
   markWebhookEvent,
@@ -103,13 +104,11 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
     if (!log) continue;
 
     if (eventType === "EMAIL_OPEN") {
-      await prisma.communicationLog.update({
-        where: { id: log.id },
-        data: {
-          openedAt: event.time_opened ? new Date(event.time_opened) : new Date(),
-          responseType: log.responseType ?? "open",
-        },
+      await applyEngagementToCommLog(log, {
+        activity: "open",
+        openedAt: event.time_opened ? new Date(event.time_opened) : new Date(),
       });
+      await syncContactCampaignStatus(prisma, cc.id);
       processed = true;
     }
 
@@ -132,10 +131,7 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
           event.preview_text || event.reply_body || event.subject || "",
         repliedAt: event.time_replied ? new Date(event.time_replied) : new Date(),
       });
-      await prisma.contactCampaign.update({
-        where: { id: cc.id },
-        data: { status: "REPLIED" },
-      });
+      await syncContactCampaignStatus(prisma, cc.id);
       await triggerReplyExecution(campaign.id, cc.id);
       processed = true;
     }
@@ -216,6 +212,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
         await applyLinkedInConnectedEngagement(connLog, {
           message: data?.message ?? "Connection accepted",
         });
+        await syncContactCampaignStatus(prisma, cc.id);
         processed = true;
         await syncCampaignMetrics(prisma, campaign.id);
       }
@@ -246,10 +243,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
         await applyLinkedInReplyEngagement(dmLog, {
           responseContent: messageText,
         });
-        await prisma.contactCampaign.update({
-          where: { id: cc.id },
-          data: { status: "REPLIED" },
-        });
+        await syncContactCampaignStatus(prisma, cc.id);
         await triggerReplyExecution(campaign.id, cc.id);
         processed = true;
         await syncCampaignMetrics(prisma, campaign.id);
