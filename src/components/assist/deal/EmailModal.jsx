@@ -139,11 +139,12 @@ export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose
         toast.error(data.reason || data.error || "Send failed");
         return;
       }
-      toast.success(
-        data.recipientCount > 1
-          ? `Sent via HubSpot to ${data.recipientCount} recipients`
-          : "Sent via HubSpot"
-      );
+      if (data.delivered) {
+        const n = data.sent ?? data.recipientCount ?? 1;
+        toast.success(`Sent to ${n} via HubSpot`);
+      } else {
+        toast.success("Logged to HubSpot timeline (configure Single Send to deliver)");
+      }
       onExecuted?.();
       onClose?.();
     } catch {

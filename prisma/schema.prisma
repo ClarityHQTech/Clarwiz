@@ -520,6 +520,7 @@ model MofuIntegration {
   hubspotTokenExpiresAt        DateTime?
   hubspotScopes                String[]  @default([])
   hubspotPortalId              String?
+  hubspotSingleSendEmailId     String? // saved transactional email id for real Single Send delivery
   defaultOwnerId               String?
   insightModel                 String?
   promptVersion                String?

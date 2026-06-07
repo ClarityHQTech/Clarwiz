@@ -11,6 +11,7 @@ const EMPTY_FORM = {
   hubspotPortalId: "",
   defaultOwnerId: "",
   insightModel: "",
+  singleSendEmailId: "",
 };
 
 const EMPTY_BRAND = {
@@ -50,6 +51,7 @@ function MofuSettingsPage() {
   const [brand, setBrand] = useState(EMPTY_BRAND);
   const [savingBrand, setSavingBrand] = useState(false);
   const [showPatForm, setShowPatForm] = useState(false);
+  const [savingSingleSend, setSavingSingleSend] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,7 +61,12 @@ function MofuSettingsPage() {
         fetch("/api/assist/brand"),
       ]);
       const sData = await sRes.json();
-      setIntegration(sData.integration ?? { configured: false });
+      const integ = sData.integration ?? { configured: false };
+      setIntegration(integ);
+      // Seed the Single Send email ID so it survives a re-save (it is not a secret).
+      if (integ.singleSendEmailId) {
+        setForm((f) => ({ ...f, singleSendEmailId: String(integ.singleSendEmailId) }));
+      }
       if (bRes.ok) {
         const bData = await bRes.json();
         if (bData.brand) {
@@ -132,6 +139,33 @@ function MofuSettingsPage() {
       toast.error("Save failed");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onSaveSingleSend = async (e) => {
+    e.preventDefault();
+    setSavingSingleSend(true);
+    try {
+      const res = await fetch("/api/assist/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ singleSendEmailId: form.singleSendEmailId.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Could not save email sending settings");
+        return;
+      }
+      setIntegration(data.integration);
+      toast.success(
+        data.integration?.canDeliverEmail
+          ? "Single Send email ID saved — emails will now be delivered"
+          : "Single Send cleared — emails will be logged to the timeline only"
+      );
+    } catch {
+      toast.error("Could not save email sending settings");
+    } finally {
+      setSavingSingleSend(false);
     }
   };
 
@@ -246,6 +280,15 @@ function MofuSettingsPage() {
                       onChange={onChange("insightModel")}
                     />
                   </Field>
+                  <Field label="Single Send email ID (optional)">
+                    <input
+                      className="ck-input"
+                      inputMode="numeric"
+                      placeholder="e.g. 12345678"
+                      value={form.singleSendEmailId}
+                      onChange={onChange("singleSendEmailId")}
+                    />
+                  </Field>
                   <button type="submit" className="ck-btn ck-btn-primary" disabled={saving}>
                     {saving ? "Saving…" : integration.configured ? "Update" : "Save & verify"}
                   </button>
@@ -253,6 +296,39 @@ function MofuSettingsPage() {
               </>
             )}
           </div>
+        </CkCard>
+
+        <CkCard
+          title="Email sending"
+          style={{ marginTop: 20 }}
+          action={
+            integration.canDeliverEmail ? (
+              <CkBadge variant="ok">Delivers</CkBadge>
+            ) : (
+              <CkBadge variant="ghost">Timeline only</CkBadge>
+            )
+          }
+        >
+          <p className="ck-kv-label" style={{ marginBottom: 16 }}>
+            Create a transactional email in HubSpot (Save for Single Send API) with{" "}
+            <code>{"{{ custom.subject }}"}</code> and <code>{"{{ custom.body }}"}</code> tokens,
+            paste its email ID here. With no ID, NBA emails are logged to the deal/contact timeline
+            instead of being delivered.
+          </p>
+          <form onSubmit={onSaveSingleSend}>
+            <Field label="Single Send email ID">
+              <input
+                className="ck-input"
+                inputMode="numeric"
+                placeholder="e.g. 12345678"
+                value={form.singleSendEmailId}
+                onChange={onChange("singleSendEmailId")}
+              />
+            </Field>
+            <button type="submit" className="ck-btn ck-btn-primary" disabled={savingSingleSend}>
+              {savingSingleSend ? "Saving…" : "Save"}
+            </button>
+          </form>
         </CkCard>
 
         <CkCard title="Brand" style={{ marginTop: 20 }}>

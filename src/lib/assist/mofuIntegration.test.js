@@ -47,6 +47,12 @@ describe("buildMofuIntegrationData", () => {
   it("throws when hubspotToken is missing", () => {
     expect(() => buildMofuIntegrationData({})).toThrow();
   });
+  it("passes singleSendEmailId through, defaulting to null", () => {
+    expect(buildMofuIntegrationData({ hubspotToken: "t", singleSendEmailId: "123" }).hubspotSingleSendEmailId).toBe("123");
+    expect(buildMofuIntegrationData({ hubspotToken: "t" }).hubspotSingleSendEmailId).toBeNull();
+    // blank string normalizes to null
+    expect(buildMofuIntegrationData({ hubspotToken: "t", singleSendEmailId: "" }).hubspotSingleSendEmailId).toBeNull();
+  });
 });
 
 describe("upsertMofuIntegration", () => {
@@ -88,6 +94,20 @@ describe("toDisplayConfig", () => {
     const serialized = JSON.stringify(out);
     expect(serialized).not.toContain("pat-na2-secretWXYZ");
     expect(serialized).not.toContain(row.encryptedHubspotToken);
+  });
+  it("exposes singleSendEmailId and canDeliverEmail=true when an id is set", () => {
+    const out = toDisplayConfig({
+      encryptedHubspotToken: null,
+      hubspotSingleSendEmailId: "987",
+      status: "connected",
+    });
+    expect(out.singleSendEmailId).toBe("987");
+    expect(out.canDeliverEmail).toBe(true);
+  });
+  it("canDeliverEmail=false and singleSendEmailId=null when no id is set", () => {
+    const out = toDisplayConfig({ encryptedHubspotToken: null, status: "connected" });
+    expect(out.singleSendEmailId).toBeNull();
+    expect(out.canDeliverEmail).toBe(false);
   });
 });
 

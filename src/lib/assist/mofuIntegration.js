@@ -31,6 +31,7 @@ export function buildMofuIntegrationData({
   hubspotPortalId = null,
   defaultOwnerId = null,
   insightModel = null,
+  singleSendEmailId = null,
 } = {}) {
   if (!hubspotToken) {
     throw new Error("hubspotToken is required");
@@ -40,6 +41,7 @@ export function buildMofuIntegrationData({
     hubspotPortalId: hubspotPortalId || null,
     defaultOwnerId: defaultOwnerId || null,
     insightModel: insightModel || null,
+    hubspotSingleSendEmailId: singleSendEmailId ? String(singleSendEmailId) : null,
   };
 }
 
@@ -206,6 +208,7 @@ export function toDisplayConfig(row) {
       hubspotTokenMasked = null;
     }
   }
+  const singleSendEmailId = row.hubspotSingleSendEmailId ?? null;
   return {
     configured: true,
     connectionMode: row.connectionMode ?? "pat",
@@ -216,5 +219,7 @@ export function toDisplayConfig(row) {
     connectedAt: row.connectedAt ?? null,
     scopeCount: Array.isArray(row.hubspotScopes) ? row.hubspotScopes.length : 0,
     hubspotTokenMasked,
+    singleSendEmailId,
+    canDeliverEmail: !!singleSendEmailId,
   };
 }

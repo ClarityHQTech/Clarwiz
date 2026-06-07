@@ -103,6 +103,59 @@ export function buildEmailEngagementBody({ subject, html, timestamp }) {
   };
 }
 
+/**
+ * Build the JSON body for the HubSpot Single Send API
+ * (`POST /marketing/v3/transactional/single-email/send`). Pure & testable.
+ *
+ * `emailId` is the integer id of a saved transactional email; the template
+ * references `{{ custom.subject }}` and `{{ custom.body }}`, so subject/html are
+ * passed through `customProperties`. Single Send delivers to ONE `to` per call.
+ * `replyTo` may be a single address or an array — HubSpot expects an array.
+ */
+export function buildSingleSendBody({ emailId, to, subject, html, replyTo } = {}) {
+  const message = { to };
+  if (replyTo != null && replyTo !== "") {
+    message.replyTo = Array.isArray(replyTo) ? replyTo : [replyTo];
+  }
+  return {
+    emailId: Number(emailId),
+    message,
+    customProperties: { subject: subject ?? "", body: html ?? "" },
+  };
+}
+
+/**
+ * Actually DELIVER an email via the HubSpot Single Send (transactional) API.
+ * Never throws — degrades gracefully so the caller can fall back to timeline
+ * logging:
+ *   - success            → { ok:true, status, statusId }
+ *   - 403 (no scope/add-on) → { ok:false, reason:"write_scope" }
+ *   - any other non-2xx / network error → { ok:false, reason:"send_failed", status, message }
+ *
+ * Delivers to a SINGLE `to` per call; loop per recipient at the call site.
+ */
+export async function sendSingleSendEmail(
+  token,
+  { emailId, to, subject, html, replyTo },
+  { fetchImpl = fetch } = {}
+) {
+  const res = await hsWrite(token, "/marketing/v3/transactional/single-email/send", {
+    body: buildSingleSendBody({ emailId, to, subject, html, replyTo }),
+    fetchImpl,
+  });
+
+  if (!res.ok) {
+    if (res.status === 403) return { ok: false, reason: "write_scope" };
+    return {
+      ok: false,
+      reason: "send_failed",
+      status: res.status,
+      message: res.json?.message ?? res.error ?? null,
+    };
+  }
+  return { ok: true, status: res.json?.status ?? null, statusId: res.json?.statusId ?? null };
+}
+
 // ── calls ──────────────────────────────────────────────────────────────────
 export async function createDeal(token, input, { fetchImpl = fetch } = {}) {
   const res = await hsWrite(token, "/crm/v3/objects/deals", { body: buildDealCreateBody(input), fetchImpl });

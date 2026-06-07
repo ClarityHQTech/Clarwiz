@@ -37,6 +37,25 @@ export async function POST(request) {
 
   const hubspotToken = body?.hubspotToken?.trim();
   if (!hubspotToken) {
+    // Allow updating ONLY the Single Send email ID without re-pasting a token
+    // (e.g. OAuth-connected tenants, who never paste a PAT). Requires an
+    // existing integration row; the OAuth token logic is untouched.
+    if (body?.singleSendEmailId !== undefined) {
+      const existing = await getMofuIntegration(prisma, ctx.tenantId);
+      if (!existing) {
+        return NextResponse.json({ error: "not_configured" }, { status: 400 });
+      }
+      const raw = body.singleSendEmailId;
+      const row = await prisma.mofuIntegration.update({
+        where: { tenantId: ctx.tenantId },
+        data: { hubspotSingleSendEmailId: raw ? String(raw).trim() || null : null },
+      });
+      return NextResponse.json({
+        success: true,
+        verified: { hubspot: existing.status === "connected" },
+        integration: toDisplayConfig(row),
+      });
+    }
     return NextResponse.json(
       { error: "hubspot_token_required" },
       { status: 400 }
@@ -52,6 +71,7 @@ export async function POST(request) {
     hubspotPortalId: body?.hubspotPortalId,
     defaultOwnerId: body?.defaultOwnerId,
     insightModel: body?.insightModel,
+    singleSendEmailId: body?.singleSendEmailId,
   });
 
   const row = await prisma.mofuIntegration.update({

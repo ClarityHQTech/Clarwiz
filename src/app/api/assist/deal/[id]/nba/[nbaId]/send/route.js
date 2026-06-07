@@ -3,7 +3,8 @@ import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getDecryptedHubspotToken } from "@/lib/assist/mofuIntegration";
-import { logEmailEngagement, associateEmailTo } from "@/lib/assist/hubspotWrite";
+import { logEmailEngagement, associateEmailTo, sendSingleSendEmail } from "@/lib/assist/hubspotWrite";
+import { getMofuIntegration } from "@/lib/assist/mofuIntegration";
 import { logAssistAction } from "@/lib/assist/logAction";
 
 /**
@@ -15,13 +16,17 @@ import { logAssistAction } from "@/lib/assist/logAction";
  * resolved tenant-scoped and must belong to this deal. When omitted/empty the
  * route falls back to the deal's primary contact (the original behavior).
  *
- * This pushes the email through HubSpot by logging it as an email engagement on
- * the deal/contact timeline (`/crm/v3/objects/emails` + associations). Note:
- * this records the email on the HubSpot timeline — it is NOT an outbound mailbox
- * send. True outbound delivery requires a connected inbox / marketing-send
- * integration, which the MOFU layer does not configure.
+ * Delivery has two modes, decided by the tenant's
+ * `MofuIntegration.hubspotSingleSendEmailId`:
+ *  - CONFIGURED → real delivery via the HubSpot Single Send (transactional) API,
+ *    one call per selected recipient who has an email address. The route ALSO
+ *    logs the email engagement on the deal/contact timeline so it is recorded in
+ *    the CRM. Response includes `delivered:true` + sent/failed counts.
+ *  - NOT CONFIGURED → timeline-log only (the original behavior). Response carries
+ *    `delivered:false, reason:'single_send_not_configured'`.
  *
- * On a missing HubSpot write scope (403) the route returns a 200-level body
+ * On a missing HubSpot write scope (403 on the engagement log, or 403 across all
+ * recipients on Single Send) the route returns a 200-level body
  * `{ ok:false, reason:'write_scope' }` rather than crashing.
  */
 export async function POST(request, { params }) {
@@ -106,8 +111,49 @@ export async function POST(request, { params }) {
     return NextResponse.json({ ok: false, error: "hubspot_not_configured" }, { status: 412 });
   }
 
-  // Log ONE email engagement, associated to the deal. We associate it to every
-  // selected contact separately below so each recipient gets it on their timeline.
+  // Single Send (real delivery) is enabled only when the tenant has a saved
+  // transactional-email id. Otherwise we degrade to timeline-log only.
+  const integration = await getMofuIntegration(prisma, ctx.tenantId);
+  const singleSendEmailId = integration?.hubspotSingleSendEmailId || null;
+
+  // ── 1) REAL DELIVERY via Single Send (when configured) ────────────────────
+  // One call per selected recipient who has an email address.
+  let delivered = false;
+  let sentCount = 0;
+  let failedCount = 0;
+  let deliverReason = singleSendEmailId ? null : "single_send_not_configured";
+  let allForbidden = false;
+
+  if (singleSendEmailId) {
+    const deliverable = recipientEmails; // already synced + has email
+    let forbiddenCount = 0;
+    for (const to of deliverable) {
+      const r = await sendSingleSendEmail(token, {
+        emailId: singleSendEmailId,
+        to,
+        subject,
+        html,
+      });
+      if (r.ok) sentCount += 1;
+      else {
+        failedCount += 1;
+        if (r.reason === "write_scope") forbiddenCount += 1;
+      }
+    }
+    delivered = sentCount > 0;
+    if (deliverable.length > 0 && forbiddenCount === deliverable.length) {
+      // Every recipient came back 403 → missing transactional-email scope.
+      allForbidden = true;
+    }
+  }
+
+  // If Single Send was configured but EVERY recipient was forbidden, surface the
+  // scope problem rather than silently logging.
+  if (allForbidden) {
+    return NextResponse.json({ ok: false, reason: "write_scope" });
+  }
+
+  // ── 2) ALWAYS log ONE email engagement on the timeline (CRM record) ────────
   const result = await logEmailEngagement(token, {
     dealId: hubspotDealId,
     contactId: null,
@@ -135,7 +181,16 @@ export async function POST(request, { params }) {
   await prisma.nbaRecommendation.update({
     where: { id: nba.id },
     // Keep status EXECUTED; annotate the draft with send metadata.
-    data: { draftPayload: { ...prev, subject, emailHtml: html, sentAt, hubspotEmailId: result.id } },
+    data: {
+      draftPayload: {
+        ...prev,
+        subject,
+        emailHtml: html,
+        sentAt,
+        hubspotEmailId: result.id,
+        delivered,
+      },
+    },
   });
 
   await logAssistAction(prisma, {
@@ -147,16 +202,28 @@ export async function POST(request, { params }) {
     payload: {
       nbaId: nba.id,
       sent: true,
+      delivered,
+      sentCount,
+      failedCount,
       hubspotEmailId: result.id,
+      singleSendEmailId,
       recipientCount: recipientContactIds.length,
       recipientEmails,
-      note: "Logged on the HubSpot timeline (not an outbound mailbox send).",
+      note: delivered
+        ? "Delivered via HubSpot Single Send and logged on the timeline."
+        : "Logged on the HubSpot timeline (Single Send not configured / no delivery).",
     },
   });
 
   return NextResponse.json({
     ok: true,
-    emailId: result.id,
+    delivered,
+    sent: sentCount,
+    failed: failedCount,
+    ...(deliverReason ? { reason: deliverReason } : {}),
+    ...(singleSendEmailId ? { emailId: Number(singleSendEmailId) } : {}),
+    // Backward-compatible fields kept for existing consumers.
+    hubspotEmailId: result.id,
     recipientCount: recipientContactIds.length,
     recipientEmails,
   });
