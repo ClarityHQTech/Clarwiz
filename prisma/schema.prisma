@@ -388,6 +388,7 @@ model Contact {
   persona          ContactPersona      @default(OTHER)
   hubspotContactId String?
   lifecycleStage   String?
+  ownerId          String? // HubSpot hubspot_owner_id — for "my book" owner filtering
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   contactCampaigns ContactCampaign[]
@@ -398,6 +399,7 @@ model Contact {
   @@unique([tenantId, hubspotContactId])
   @@index([tenantId])
   @@index([businessUserId])
+  @@index([tenantId, ownerId])
 }
 
 model ContactCampaign {

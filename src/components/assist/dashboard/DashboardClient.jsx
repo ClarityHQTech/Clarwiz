@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AssistShell from "@/components/assist/AssistShell";
@@ -48,7 +49,29 @@ function EmptyGraph() {
  * page and renders the stat strip + three lists (leads · deals · companies) +
  * activity feed. Wrapped in DashboardLayout (app chrome/auth gating).
  */
-function DashboardClient({ data, actions = [] }) {
+function OwnerToggle({ active }) {
+  // Flips ?owner=mine|all; the server re-resolves the AE's owner id and re-scopes.
+  return (
+    <div className="ck-seg" role="group" aria-label="Book filter">
+      <Link
+        href="/assist?owner=mine"
+        className={`ck-seg-btn${active === "mine" ? " is-active" : ""}`}
+        aria-pressed={active === "mine"}
+      >
+        My book
+      </Link>
+      <Link
+        href="/assist?owner=all"
+        className={`ck-seg-btn${active === "all" ? " is-active" : ""}`}
+        aria-pressed={active === "all"}
+      >
+        All
+      </Link>
+    </div>
+  );
+}
+
+function DashboardClient({ data, actions = [], view: ownerView = "all", ownerNote = null }) {
   const router = useRouter();
   const view = buildDashboardView(data);
   const [syncing, setSyncing] = useState(false);
@@ -85,11 +108,13 @@ function DashboardClient({ data, actions = [] }) {
             Good <em>day.</em>
           </h1>
           <p className="ck-page-subtitle">
-            Open leads, working deals and companies from your hydrated CRM graph
+            {ownerView === "mine" ? "Your" : "All"} open leads, working deals and companies from your hydrated CRM graph
             {view.latestSyncedAt ? ` · synced ${fmtStaleness(view.latestSyncedAt)}` : ""}.
           </p>
+          {ownerNote ? <p className="ck-page-note">{ownerNote}</p> : null}
         </div>
         <div className="ck-page-actions">
+          <OwnerToggle active={ownerView} />
           <SyncButton />
         </div>
       </div>

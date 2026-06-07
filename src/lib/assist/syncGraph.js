@@ -78,10 +78,13 @@ async function resolveBusinessUserId(prisma, m) {
 export async function upsertContact(prisma, tenantId, hsContact) {
   const m = mapHsContact(hsContact);
   const businessUserId = await resolveBusinessUserId(prisma, m);
+  // ownerId (hubspot_owner_id) powers the dashboard's "My book" lead filter.
+  // NOTE: existing Contact rows stay null until the tenant re-syncs after
+  // (re)connecting with the crm.objects.owners.read scope — no backfill needed.
   return prisma.contact.upsert({
     where: { tenantId_businessUserId: { tenantId, businessUserId } },
-    create: { tenantId, businessUserId, hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage },
-    update: { hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage },
+    create: { tenantId, businessUserId, hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage, ownerId: m.ownerId },
+    update: { hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage, ownerId: m.ownerId },
   });
 }
 

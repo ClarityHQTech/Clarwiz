@@ -96,6 +96,39 @@ async function batchRead(token, objectType, ids, properties, fetchImpl) {
   return out;
 }
 
+/** Pure: the owners-by-email lookup URL (requires the `crm.objects.owners.read` scope). */
+export function buildOwnersByEmailUrl(email) {
+  return `${HUBSPOT_BASE}/crm/v3/owners/?email=${encodeURIComponent(email)}`;
+}
+
+/**
+ * Resolve the hubspot_owner_id for a user's email, or null. Used to scope the
+ * dashboard to "my book". Never throws: a 403 (owners scope not granted), an
+ * empty result, or a network error all resolve to null with a console.warn.
+ */
+export async function resolveOwnerIdByEmail(token, email, { fetchImpl = fetch } = {}) {
+  if (!email) return null;
+  try {
+    const res = await fetchImpl(buildOwnersByEmailUrl(email), {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      console.warn(`[MOFU] owners lookup failed for ${email} with status ${res.status}`);
+      return null;
+    }
+    const json = await res.json().catch(() => null);
+    const first = json?.results?.[0];
+    if (!first?.id) {
+      console.warn(`[MOFU] owners lookup found no owner for ${email}`);
+      return null;
+    }
+    return String(first.id);
+  } catch (err) {
+    console.warn(`[MOFU] owners lookup error for ${email}:`, err.message);
+    return null;
+  }
+}
+
 export function getContactsByIds(token, ids, { fetchImpl = fetch } = {}) {
   return batchRead(token, "contacts", ids, CONTACT_PROPERTIES, fetchImpl);
 }

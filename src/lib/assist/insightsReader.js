@@ -26,6 +26,9 @@ export async function getDashboardData(prisma, tenantId, { ownerId = null } = {}
         lifecycleStage: { in: MQL_STAGES },
         hubspotContactId: { not: null },
         dealContacts: { none: { deal: { status: "OPEN" } } },
+        // "My book": leads without a populated ownerId (e.g. synced before the
+        // owners scope was granted) simply won't appear — that's intended.
+        ...(ownerId ? { ownerId } : {}),
       },
       include: { businessUser: { include: { company: true } } },
       take: 100,
