@@ -1,11 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
 import { decideNextActionForProspect } from "@/lib/execution/decideNextAction";
-import {
-  EXECUTION_RULES_DOC,
-  canPushLinkedInMessage,
-  isLinkedInConnectionRequest,
-} from "@/lib/execution/executionRules";
+import { EXECUTION_RULES_DOC } from "@/lib/execution/executionRules";
 import {
   hasOutreachToday,
   planNextScheduledOutreach,
@@ -21,8 +17,7 @@ import {
 } from "@/lib/execution/outreachRetry";
 import {
   pushEmailIfConnected,
-  pushLinkedInConnectionRequest,
-  pushLinkedInMessage,
+  pushLinkedInConnectOrMessage,
   pushWhatsAppTemplateForDecision,
   pushWhatsAppText,
 } from "@/lib/push";
@@ -190,25 +185,13 @@ async function maybePushOutboundMessage({
   }
 
   if (decision.channel === "linkedin") {
-    const isConnection = isLinkedInConnectionRequest(decision);
-    if (!isConnection && !canPushLinkedInMessage(commHistory)) {
-      return {
-        skippedSend: true,
-        reason: "linkedin_connection_not_accepted",
-        rulesDoc: EXECUTION_RULES_DOC,
-      };
-    }
-    const pushResult = isConnection
-      ? await pushLinkedInConnectionRequest({
-          tenantId: campaign.tenantId,
-          prospect,
-          message: decision.message,
-        })
-      : await pushLinkedInMessage({
-          tenantId: campaign.tenantId,
-          prospect,
-          message: decision.message,
-        });
+    const pushResult = await pushLinkedInConnectOrMessage({
+      tenantId: campaign.tenantId,
+      prospect,
+      connectionMessage: decision.message,
+      dmMessage: decision.message,
+      commHistory,
+    });
     return applyPushResultToCommLog(logId, pushResult);
   }
 

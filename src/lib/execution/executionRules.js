@@ -34,13 +34,18 @@ export function availableProspectChannels(prospect, enabledChannels = null) {
  * @see docs/execution-layer-rules.md §2
  */
 export function isLinkedInConnectionAccepted(commHistory) {
-  return (commHistory ?? []).some(
-    (log) =>
-      log.channel === "linkedin" &&
-      log.ctaType === "connect_linkedin" &&
-      (log.responseType === "connected" ||
-        log.deliveryMeta?.invitationState === "ACCEPTED")
-  );
+  return (commHistory ?? []).some((log) => {
+    if (log.channel !== "linkedin") return false;
+    if (log.responseType === "connected") return true;
+    if (log.deliveryMeta?.invitationState === "ACCEPTED") return true;
+    if (
+      log.deliveryMeta?.action === "send" &&
+      ["sent", "queued", "delivered"].includes(log.status)
+    ) {
+      return true;
+    }
+    return false;
+  });
 }
 
 /** LinkedIn DMs require an accepted connection (§2). */
@@ -61,8 +66,9 @@ export function hasLinkedInConnectionPending(commHistory) {
   return (commHistory ?? []).some(
     (log) =>
       log.channel === "linkedin" &&
-      log.ctaType === "connect_linkedin" &&
-      ["sent", "queued", "delivered"].includes(log.status)
+      ["sent", "queued", "delivered"].includes(log.status) &&
+      (log.ctaType === "connect_linkedin" ||
+        log.deliveryMeta?.invitationState === "PENDING")
   );
 }
 
@@ -163,20 +169,6 @@ export function enforceChannelRules(
         allowedProspectChannels.length === 0
           ? "No enabled contact channels available for this prospect"
           : "No supported contact channel available (email, linkedin, whatsapp only)",
-    };
-  }
-
-  if (
-    channel === "linkedin" &&
-    !isLinkedInConnectionRequest(decision) &&
-    !canPushLinkedInMessage(commHistory)
-  ) {
-    return {
-      ...decision,
-      skip: true,
-      skipReason:
-        "LinkedIn message blocked: send a connection request and wait for acceptance before DM (see docs/execution-layer-rules.md §2)",
-      channel: "linkedin",
     };
   }
 

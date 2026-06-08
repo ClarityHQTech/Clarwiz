@@ -13,7 +13,7 @@ import { CHANNEL_LABELS } from "@/lib/campaignConstants";
 import { resolveCommLogOutboundContent } from "@/lib/execution/renderCommLogContent";
 import {
   pushEmailIfConnected,
-  pushLinkedInConnectionRequest,
+  pushLinkedInConnectOrMessage,
   pushLinkedInMessage,
   pushWhatsAppTemplateForDecision,
   pushWhatsAppText,
@@ -348,10 +348,12 @@ export async function manualCopilotSend({
   } else if (channel === "linkedin") {
     pushResult =
       payload.action === "connection_request"
-        ? await pushLinkedInConnectionRequest({
+        ? await pushLinkedInConnectOrMessage({
             tenantId: campaign.tenantId,
             prospect,
-            message: outbound.message,
+            connectionMessage: outbound.message,
+            dmMessage: outbound.message,
+            commHistory,
           })
         : await pushLinkedInMessage({
             tenantId: campaign.tenantId,
