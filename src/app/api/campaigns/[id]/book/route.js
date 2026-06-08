@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
+import { isLinkPreviewBotRequest } from "@/lib/execution/bookingLinkClick";
 import {
   markContactCampaignQualified,
   QUALIFICATION_REASONS,
 } from "@/lib/execution/qualifyContact";
+
+async function buildCalendlyRedirect(campaignId, prospectId, calendlyBookingUrl) {
+  const dest = new URL(calendlyBookingUrl.trim());
+  dest.searchParams.set("utm_source", "clarwiz");
+  dest.searchParams.set("utm_campaign", campaignId);
+  dest.searchParams.set("utm_content", prospectId);
+  return dest.toString();
+}
 
 export async function GET(request, { params }) {
   const campaignId = params.id;
@@ -35,31 +44,38 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
+  const redirectUrl = await buildCalendlyRedirect(
+    campaignId,
+    prospectId,
+    campaign.calendlyBookingUrl
+  );
+
+  if (isLinkPreviewBotRequest(request)) {
+    return NextResponse.redirect(redirectUrl, 302);
+  }
+
   const latestLog = await prisma.communicationLog.findFirst({
     where: { campaignId, contactCampaignId: prospectId },
     orderBy: { sentAt: "desc" },
   });
 
-  if (latestLog) {
+  if (latestLog && !latestLog.ctaClickedAt) {
     await prisma.communicationLog.update({
       where: { id: latestLog.id },
       data: { ctaClickedAt: new Date() },
     });
   }
 
-  await markContactCampaignQualified(prisma, {
+  const qualifyResult = await markContactCampaignQualified(prisma, {
     contactCampaignId: prospectId,
     campaignId,
     reason: QUALIFICATION_REASONS.CALENDLY_LINK_CLICKED,
     sourceMeta: { trackedLink: true },
   });
 
-  await syncCampaignMetrics(prisma, campaignId);
+  if (qualifyResult.updated) {
+    await syncCampaignMetrics(prisma, campaignId);
+  }
 
-  const dest = new URL(campaign.calendlyBookingUrl.trim());
-  dest.searchParams.set("utm_source", "clarwiz");
-  dest.searchParams.set("utm_campaign", campaignId);
-  dest.searchParams.set("utm_content", prospectId);
-
-  return NextResponse.redirect(dest.toString(), 302);
+  return NextResponse.redirect(redirectUrl, 302);
 }
