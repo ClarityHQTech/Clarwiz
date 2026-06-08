@@ -49,7 +49,7 @@ model Company {
   updatedAt     DateTime       @updatedAt
   businessUsers BusinessUser[]
 
-  @@unique([name])
+  @@unique([domain])
 }
 
 model BusinessUser {
