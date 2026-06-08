@@ -204,3 +204,109 @@ export async function fetchDealMeetingNotes(token, hubspotDealId, { fetchImpl = 
     return EMPTY;
   }
 }
+
+// ── deal engagements (signals/NBA/insight input) ─────────────────────────────
+
+const ENGAGEMENT_CAP = 25;
+
+const EMAIL_PROPS = ["hs_email_subject", "hs_email_text", "hs_email_html", "hs_timestamp"];
+const CALL_PROPS = ["hs_call_title", "hs_call_body", "hs_timestamp"];
+
+/**
+ * One object-type → normalized engagement items. Self-contained and 403/empty
+ * safe: any failure (associations or batch-read) contributes nothing and never
+ * throws, so a missing scope on one type can't sink the others.
+ */
+async function fetchEngagementsForType(token, hubspotDealId, objectType, props, toItem, fetchImpl) {
+  try {
+    const assoc = await hsGet(token, buildDealAssociationsUrl(hubspotDealId, objectType), fetchImpl);
+    if (!assoc.ok) {
+      console.warn(`[MOFU] engagements associations failed (${objectType} ${assoc.status})`);
+      return [];
+    }
+    const ids = associationIds(assoc.json);
+    if (!ids.length) return [];
+    const batch = await hsBatchRead(token, objectType, ids, props, fetchImpl);
+    if (!batch.ok) return [];
+    const items = [];
+    for (const r of batch.json?.results ?? []) {
+      const item = toItem(r?.properties ?? {});
+      if (item && item.text) items.push(item);
+    }
+    return items;
+  } catch (err) {
+    console.warn(`[MOFU] engagements fetch error (${objectType}): ${err.message}`);
+    return [];
+  }
+}
+
+/** Build a normalized engagement item. Mirrors the CommunicationLog row shape
+ *  (channel/subject/message/sentAt) so fillTemplate JSON.stringifies HubSpot and
+ *  communicationLog engagements into a consistent, model-readable structure. */
+function makeEngagement(type, { subject, text, at }) {
+  const ms = toMillis(at);
+  const iso = ms ? new Date(ms).toISOString() : null;
+  return {
+    type,
+    channel: type,
+    subject: subject || null,
+    text,
+    // communicationLog parity fields so both kinds render the same way
+    content: text,
+    message: text,
+    at: ms || null,
+    sentAt: iso,
+    createdAt: iso,
+    source: "hubspot",
+  };
+}
+
+/**
+ * Fetch a deal's associated emails + meetings + notes + calls from HubSpot and
+ * return a normalized, newest-first array (capped) for the signal/NBA/insight
+ * prompts. Each object-type fetch is independently 403/empty safe and the whole
+ * function NEVER throws (degrades to []).
+ *
+ * NOTE: HubSpot can auto-associate unrelated emails to a deal, so this may
+ * surface a low-value signal; HubSpot association hygiene is handled separately.
+ *
+ * @returns {Promise<Array<{type:"email"|"meeting"|"note"|"call", at:number|null, subject:string|null, text:string, content:string, channel:string, sentAt:string|null}>>}
+ */
+export async function fetchDealEngagements(token, hubspotDealId, { fetchImpl = fetch } = {}) {
+  if (!token || !hubspotDealId) return [];
+
+  try {
+    const [emails, meetings, notes, calls] = await Promise.all([
+      fetchEngagementsForType(token, hubspotDealId, "emails", EMAIL_PROPS, (p) =>
+        makeEngagement("email", {
+          subject: p.hs_email_subject,
+          text: stripHtml(p.hs_email_text || p.hs_email_html),
+          at: p.hs_timestamp,
+        })
+      , fetchImpl),
+      fetchEngagementsForType(token, hubspotDealId, "meetings", MEETING_PROPS, (p) => {
+        const body = [stripHtml(p.hs_meeting_body), stripHtml(p.hs_internal_meeting_notes)]
+          .filter(Boolean)
+          .join("\n\n");
+        return makeEngagement("meeting", { subject: p.hs_meeting_title, text: body, at: p.hs_timestamp });
+      }, fetchImpl),
+      fetchEngagementsForType(token, hubspotDealId, "notes", NOTE_PROPS, (p) =>
+        makeEngagement("note", { subject: null, text: stripHtml(p.hs_note_body), at: p.hs_timestamp })
+      , fetchImpl),
+      fetchEngagementsForType(token, hubspotDealId, "calls", CALL_PROPS, (p) =>
+        makeEngagement("call", {
+          subject: p.hs_call_title,
+          text: stripHtml(p.hs_call_body),
+          at: p.hs_timestamp,
+        })
+      , fetchImpl),
+    ]);
+
+    return [...emails, ...meetings, ...notes, ...calls]
+      .sort((a, b) => (b.at ?? 0) - (a.at ?? 0))
+      .slice(0, ENGAGEMENT_CAP);
+  } catch (err) {
+    console.warn(`[MOFU] engagements fetch error: ${err.message}`);
+    return [];
+  }
+}

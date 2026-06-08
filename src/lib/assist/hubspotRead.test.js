@@ -3,6 +3,7 @@ import {
   buildDealAssociationsUrl,
   stripHtml,
   fetchDealMeetingNotes,
+  fetchDealEngagements,
 } from "./hubspotRead.js";
 
 describe("buildDealAssociationsUrl", () => {
@@ -153,5 +154,178 @@ describe("fetchDealMeetingNotes", () => {
     const res = await fetchDealMeetingNotes("tok", null, { fetchImpl });
     expect(res).toEqual({ ok: false, text: "", sources: [] });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchDealEngagements", () => {
+  it("merges emails + meetings + notes + calls, sorted newest-first, HTML stripped", async () => {
+    const fetchImpl = makeFetch([
+      ["/associations/emails", { body: { results: [{ toObjectId: "E1" }] } }],
+      ["/associations/meetings", { body: { results: [{ toObjectId: "M1" }] } }],
+      ["/associations/notes", { body: { results: [{ toObjectId: "N1" }] } }],
+      ["/associations/calls", { body: { results: [{ toObjectId: "C1" }] } }],
+      [
+        "/emails/batch/read",
+        {
+          body: {
+            results: [
+              {
+                id: "E1",
+                properties: {
+                  hs_email_subject: "Pricing follow-up",
+                  hs_email_text: "What is the price?",
+                  hs_timestamp: "2026-02-10T00:00:00Z",
+                },
+              },
+            ],
+          },
+        },
+      ],
+      [
+        "/meetings/batch/read",
+        {
+          body: {
+            results: [
+              {
+                id: "M1",
+                properties: {
+                  hs_meeting_title: "Demo",
+                  hs_meeting_body: "<p>Showed product</p>",
+                  hs_timestamp: "2026-02-08T00:00:00Z",
+                },
+              },
+            ],
+          },
+        },
+      ],
+      [
+        "/notes/batch/read",
+        {
+          body: {
+            results: [
+              {
+                id: "N1",
+                properties: {
+                  hs_note_body: "<div>Champion engaged</div>",
+                  hs_timestamp: "2026-02-12T00:00:00Z",
+                },
+              },
+            ],
+          },
+        },
+      ],
+      [
+        "/calls/batch/read",
+        {
+          body: {
+            results: [
+              {
+                id: "C1",
+                properties: {
+                  hs_call_title: "Intro call",
+                  hs_call_body: "<b>Talked timeline</b>",
+                  hs_timestamp: "2026-02-09T00:00:00Z",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    ]);
+
+    const items = await fetchDealEngagements("tok", "D1", { fetchImpl });
+    expect(Array.isArray(items)).toBe(true);
+    expect(items).toHaveLength(4);
+    // newest-first: note(02-12) > email(02-10) > call(02-09) > meeting(02-08)
+    expect(items.map((i) => i.type)).toEqual(["note", "email", "call", "meeting"]);
+    // shape mirrors communicationLog rows + spec fields
+    const email = items.find((i) => i.type === "email");
+    expect(email).toMatchObject({
+      type: "email",
+      subject: "Pricing follow-up",
+      text: "What is the price?",
+      content: "What is the price?",
+      channel: "email",
+    });
+    expect(email.at).toBeTruthy();
+    expect(email.sentAt).toBeTruthy();
+    // HTML stripped from meeting / note / call bodies
+    const note = items.find((i) => i.type === "note");
+    expect(note.text).toBe("Champion engaged");
+    expect(note.text).not.toContain("<div>");
+    const meeting = items.find((i) => i.type === "meeting");
+    expect(meeting.text).toContain("Showed product");
+    expect(meeting.text).not.toContain("<p>");
+  });
+
+  it("a 403 on one object type still returns the others (never throws)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = makeFetch([
+      ["/associations/emails", { status: 403, body: {} }],
+      ["/associations/meetings", { body: { results: [{ toObjectId: "M1" }] } }],
+      ["/associations/notes", { body: { results: [] } }],
+      ["/associations/calls", { status: 403, body: {} }],
+      [
+        "/meetings/batch/read",
+        {
+          body: {
+            results: [
+              {
+                id: "M1",
+                properties: {
+                  hs_meeting_title: "Demo",
+                  hs_meeting_body: "Showed product",
+                  hs_timestamp: "2026-02-08T00:00:00Z",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    ]);
+    const items = await fetchDealEngagements("tok", "D1", { fetchImpl });
+    expect(items).toHaveLength(1);
+    expect(items[0].type).toBe("meeting");
+    warn.mockRestore();
+  });
+
+  it("never throws on a total network error and returns []", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const items = await fetchDealEngagements("tok", "D1", { fetchImpl });
+    expect(items).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it("returns [] when token or dealId is missing", async () => {
+    const fetchImpl = vi.fn();
+    expect(await fetchDealEngagements(null, "D1", { fetchImpl })).toEqual([]);
+    expect(await fetchDealEngagements("tok", null, { fetchImpl })).toEqual([]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("caps the merged list (newest-first) at 25 items", async () => {
+    const ids = Array.from({ length: 40 }, (_, i) => ({ toObjectId: `N${i}` }));
+    const results = ids.map((x, i) => ({
+      id: x.toObjectId,
+      properties: {
+        hs_note_body: `note ${i}`,
+        // increasing timestamp so newest is highest index
+        hs_timestamp: String(1_700_000_000_000 + i * 1000),
+      },
+    }));
+    const fetchImpl = makeFetch([
+      ["/associations/emails", { body: { results: [] } }],
+      ["/associations/meetings", { body: { results: [] } }],
+      ["/associations/notes", { body: { results: ids } }],
+      ["/associations/calls", { body: { results: [] } }],
+      ["/notes/batch/read", { body: { results } }],
+    ]);
+    const items = await fetchDealEngagements("tok", "D1", { fetchImpl });
+    expect(items).toHaveLength(25);
+    // newest-first: first item is the highest timestamp (note 39)
+    expect(items[0].text).toBe("note 39");
   });
 });

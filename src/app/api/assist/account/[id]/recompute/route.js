@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { recomputeCompany } from "@/lib/assist/intelligence/compute.js";
+import { getDecryptedHubspotToken } from "@/lib/assist/mofuIntegration";
 
 /** POST: recompute the account/company briefing for one account. */
 export async function POST(_request, { params }) {
@@ -13,7 +14,9 @@ export async function POST(_request, { params }) {
   const { id } = params;
 
   try {
-    const insight = await recomputeCompany(prisma, ctx.tenantId, id);
+    // Token-less still works (degrades to no HubSpot engagements).
+    const token = await getDecryptedHubspotToken(prisma, ctx.tenantId).catch(() => null);
+    const insight = await recomputeCompany(prisma, ctx.tenantId, id, { token });
     return NextResponse.json({ ok: true, computed: !!insight });
   } catch (err) {
     console.error(`[MOFU] account recompute failed (${id}): ${err.message}`);

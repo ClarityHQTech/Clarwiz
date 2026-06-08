@@ -11,6 +11,41 @@ import { assembleDealContext, assembleCompanyContext } from "./assembleContext.j
 import { getDealView, getCompanyView, getLatestCompanyInsight } from "@/lib/assist/insightsReader";
 import { ONTOLOGY } from "@/lib/assist/prompts/ontology.js";
 
+// HubSpot fetch stub keyed by deal id → associations + batch-read for emails.
+function makeHsFetch(byDeal) {
+  return vi.fn(async (url, opts) => {
+    const json = (body) => ({ ok: true, status: 200, json: async () => body });
+    // associations: /deals/<id>/associations/<type>
+    const assocMatch = url.match(/\/deals\/([^/]+)\/associations\/(\w+)/);
+    if (assocMatch) {
+      const [, dealId, type] = assocMatch;
+      const cfg = byDeal[dealId] ?? {};
+      return json({ results: cfg[type] ?? [] });
+    }
+    // batch read: /objects/<type>/batch/read
+    const batchMatch = url.match(/\/objects\/(\w+)\/batch\/read/);
+    if (batchMatch) {
+      const [, type] = batchMatch;
+      // find which deal these ids belong to via the request body inputs
+      let inputs = [];
+      try {
+        inputs = JSON.parse(opts?.body ?? "{}").inputs ?? [];
+      } catch {
+        inputs = [];
+      }
+      const ids = inputs.map((i) => i.id);
+      for (const cfg of Object.values(byDeal)) {
+        if (type === "emails" && cfg.emailProps) {
+          const results = cfg.emailProps.filter((r) => ids.includes(r.id));
+          if (results.length) return json({ results });
+        }
+      }
+      return json({ results: [] });
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+}
+
 function makePrisma(tenant, commLogs = []) {
   return {
     tenant: { findUnique: vi.fn(async () => tenant) },
@@ -50,6 +85,60 @@ describe("assembleDealContext", () => {
     expect(vars._dealId).toBe("d1");
     expect(vars._accountId).toBe("a1");
     expect(vars._hsObjectId).toBe("555");
+  });
+
+  it("merges injected HubSpot engagements (token+fetch) ahead of commlog rows", async () => {
+    getDealView.mockResolvedValue({
+      deal: { id: "d1", name: "Acme Deal", hubspotDealId: "HD1", payload: { hs_object_id: "555" } },
+      account: { id: "a1" },
+      company: null,
+      contacts: [],
+      insight: null,
+      signals: [],
+    });
+    const prisma = makePrisma({ id: "t1", name: "SellerCo" }, [
+      { id: "e1", channel: "email", message: "commlog row" },
+    ]);
+
+    const fetchImpl = makeHsFetch({
+      HD1: {
+        emails: [{ toObjectId: "E1" }],
+        meetings: [],
+        notes: [],
+        calls: [],
+        emailProps: [{ id: "E1", properties: { hs_email_subject: "HS email", hs_email_text: "from hubspot", hs_timestamp: "2026-02-01T00:00:00Z" } }],
+      },
+    });
+
+    const vars = await assembleDealContext(prisma, "t1", "d1", { token: "tok", fetchImpl });
+    expect(vars.engagements.length).toBe(2);
+    // HubSpot items first, then commlog rows
+    expect(vars.engagements[0]).toMatchObject({ type: "email", source: "hubspot", text: "from hubspot" });
+    expect(vars.engagements[1]).toMatchObject({ id: "e1" });
+  });
+
+  it("aggregates HubSpot engagements across the account's deals (company context)", async () => {
+    getCompanyView.mockResolvedValue({
+      account: { id: "a9", ownerId: "own9" },
+      company: { name: "Globex" },
+      insight: null,
+      signals: [],
+      deals: [
+        { id: "d9", hubspotDealId: "HD9" },
+        { id: "d10", hubspotDealId: "HD10" },
+      ],
+      contacts: [],
+    });
+    const prisma = makePrisma({ id: "t1", name: "SellerCo" }, []);
+    const fetchImpl = makeHsFetch({
+      HD9: { emails: [{ toObjectId: "E9" }], meetings: [], notes: [], calls: [], emailProps: [{ id: "E9", properties: { hs_email_text: "deal9 email", hs_timestamp: "2026-02-02T00:00:00Z" } }] },
+      HD10: { emails: [{ toObjectId: "E10" }], meetings: [], notes: [], calls: [], emailProps: [{ id: "E10", properties: { hs_email_text: "deal10 email", hs_timestamp: "2026-02-03T00:00:00Z" } }] },
+    });
+
+    const vars = await assembleCompanyContext(prisma, "t1", "a9", { token: "tok", fetchImpl });
+    const texts = vars.engagements.map((e) => e.text);
+    expect(texts).toContain("deal9 email");
+    expect(texts).toContain("deal10 email");
   });
 
   it("is null-safe when the deal view is missing", async () => {

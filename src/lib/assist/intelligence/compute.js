@@ -131,10 +131,10 @@ function arr(v) {
  * Run the COMPANY (account) briefing prompt over deal context and store a
  * DealInsight; denormalize deal.score. Returns the created DealInsight (or null).
  */
-export async function recomputeDealInsight(prisma, tenantId, dealId, { llm } = {}) {
+export async function recomputeDealInsight(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
   const client = llm ?? getOpenAIClient();
   const model = await resolveModel(prisma, tenantId);
-  const vars = await assembleDealContext(prisma, tenantId, dealId);
+  const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return null;
 
   const user = fillTemplate(COMPANY_USER, { ...vars, ontology: ONTOLOGY });
@@ -160,10 +160,10 @@ export async function recomputeDealInsight(prisma, tenantId, dealId, { llm } = {
  * Run the SIGNAL prompt over the deal's engagements and upsert Signal rows.
  * Skips entirely when there are no engagements. Returns the created Signals.
  */
-export async function recomputeSignals(prisma, tenantId, dealId, { llm } = {}) {
+export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
   const client = llm ?? getOpenAIClient();
   const model = await resolveModel(prisma, tenantId);
-  const vars = await assembleDealContext(prisma, tenantId, dealId);
+  const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return [];
   if (!arr(vars.engagements).length) return [];
 
@@ -191,10 +191,10 @@ export async function recomputeSignals(prisma, tenantId, dealId, { llm } = {}) {
  * Run the NBA prompt over the deal's top signals and create NbaRecommendation
  * rows (the spec produces exactly 2). Returns the created NBAs.
  */
-export async function recomputeNbas(prisma, tenantId, dealId, { llm } = {}) {
+export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
   const client = llm ?? getOpenAIClient();
   const model = await resolveModel(prisma, tenantId);
-  const vars = await assembleDealContext(prisma, tenantId, dealId);
+  const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return [];
 
   const topSignals = arr(vars.signals)
@@ -225,27 +225,27 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm } = {}) {
  * Orchestrate a full deal recompute: signals → nbas → dealInsight, each
  * independently fault-isolated. Logs INSIGHT_COMPUTED. Returns a summary.
  */
-export async function recomputeDeal(prisma, tenantId, dealId, { llm } = {}) {
+export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
   const summary = { dealId, signals: 0, nbas: 0, insight: false, errors: [] };
 
   // Resolve the deal's HubSpot object id once (best-effort) for the action log.
   let hsObjectId = null;
   try {
-    const ctx = await assembleDealContext(prisma, tenantId, dealId);
+    const ctx = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
     hsObjectId = ctx?._hsObjectId ?? null;
   } catch {
     /* ignore */
   }
 
   try {
-    const sigs = await recomputeSignals(prisma, tenantId, dealId, { llm });
+    const sigs = await recomputeSignals(prisma, tenantId, dealId, { llm, token, fetchImpl });
     summary.signals = sigs.length;
   } catch (err) {
     summary.errors.push(`signals: ${err.message}`);
   }
 
   try {
-    const nbas = await recomputeNbas(prisma, tenantId, dealId, { llm });
+    const nbas = await recomputeNbas(prisma, tenantId, dealId, { llm, token, fetchImpl });
     summary.nbas = nbas.length;
   } catch (err) {
     summary.errors.push(`nbas: ${err.message}`);
@@ -253,7 +253,7 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm } = {}) {
 
   let insight = null;
   try {
-    insight = await recomputeDealInsight(prisma, tenantId, dealId, { llm });
+    insight = await recomputeDealInsight(prisma, tenantId, dealId, { llm, token, fetchImpl });
     summary.insight = !!insight;
   } catch (err) {
     summary.errors.push(`insight: ${err.message}`);
@@ -274,10 +274,10 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm } = {}) {
  * Company-level recompute: assemble account context → COMPANY prompt → store a
  * CompanyInsight row. Logs INSIGHT_COMPUTED. Returns the CompanyInsight (or null).
  */
-export async function recomputeCompany(prisma, tenantId, accountId, { llm } = {}) {
+export async function recomputeCompany(prisma, tenantId, accountId, { llm, token, fetchImpl } = {}) {
   const client = llm ?? getOpenAIClient();
   const model = await resolveModel(prisma, tenantId);
-  const vars = await assembleCompanyContext(prisma, tenantId, accountId);
+  const vars = await assembleCompanyContext(prisma, tenantId, accountId, { token, fetchImpl });
   if (!vars) return null;
 
   const user = fillTemplate(COMPANY_USER, { ...vars, ontology: ONTOLOGY });
