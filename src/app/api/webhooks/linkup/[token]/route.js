@@ -18,11 +18,20 @@ export async function POST(request, { params }) {
   }
 
   const signingSecret = getDecryptedSigningSecret(record);
-  const signature =
-    request.headers.get("x-linkup-signature") ||
-    request.headers.get("x-signature");
-  if (signingSecret && signature) {
-    if (!verifyLinkupSignature(rawBody, signature, signingSecret)) {
+  const signature = request.headers.get("x-linkup-signature");
+  const timestamp = request.headers.get("x-linkup-timestamp");
+
+  if (signingSecret) {
+    if (!signature || !timestamp) {
+      return NextResponse.json(
+        { error: "Missing Linkup signature headers" },
+        { status: 401 }
+      );
+    }
+    if (!verifyLinkupSignature(rawBody, signature, signingSecret, timestamp)) {
+      console.warn("[linkup webhook] signature verification failed", {
+        tenantId: record.tenantId,
+      });
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
   }

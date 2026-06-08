@@ -261,6 +261,7 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 
 - Provider signing/verify tokens are stored encrypted on `IntegrationWebhook` (not `.env` long-term). Env vars are bootstrapped once if DB row is missing.
 - Public URLs: `/api/webhooks/smartlead/[token]`, `/api/webhooks/linkup/[token]`; WhatsApp uses existing Meta/Interakt routes.
+- **Linkup V2 payloads:** `event.type` is nested under `body.event` (`"message"` for inbound DMs, not `message_received`). Signature: `X-Linkup-Timestamp` + `X-Linkup-Signature: v1=<hmac>` over `"{timestamp}.{raw_body}"`. Match contacts by vanity URL, stored `profileUrn` / `publicIdentifier`, or unique name fallback (webhooks often send URN-style `/in/ACo…` URLs).
 
 ---
 
@@ -297,3 +298,4 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 | 2026-06-05 | Autopilot scheduled outreach (cron), copilot manual mode, webhook tracking, retry queue |
 | 2026-06-08 | LinkedIn push: connect-first with `check_invitation` fallback to DM when already connected (autopilot + co-pilot) |
 | 2026-06-08 | LinkedIn credits: invite-first (1 credit cold); `check_invitation` only on failure or success without `invitation_urn`; reuse comm-log invitation state |
+| 2026-06-08 | Linkup webhooks: fix V2 event parsing (`message`), HMAC signature verification, `new_connections` payload, URN profile matching |

@@ -29,7 +29,24 @@ export function linkedInUrlsMatch(a, b) {
   const slugA = linkedInProfileSlug(a);
   const slugB = linkedInProfileSlug(b);
   if (slugA && slugB) return slugA === slugB;
+  const memberA = linkedInMemberIdFromUrl(a);
+  const memberB = linkedInMemberIdFromUrl(b);
+  if (memberA && memberB) return memberA === memberB;
   const normA = normalizeLinkedInProfileUrl(a);
   const normB = normalizeLinkedInProfileUrl(b);
   return normA === normB;
+}
+
+/** LinkedIn internal member id from URN-style /in/ACo… profile URLs (webhooks). */
+export function linkedInMemberIdFromUrl(url) {
+  const slug = linkedInProfileSlug(url);
+  if (!slug || !/^aco[a-z0-9_-]+$/i.test(slug)) return null;
+  return slug.toUpperCase();
+}
+
+/** Extract member id from a Linkup profile_urn value. */
+export function linkedInMemberIdFromUrn(urn) {
+  if (!urn) return null;
+  const match = String(urn).match(/:([A-Za-z0-9_-]+)$/);
+  return match?.[1]?.toUpperCase() ?? null;
 }

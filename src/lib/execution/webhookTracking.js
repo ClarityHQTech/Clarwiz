@@ -13,6 +13,11 @@ import {
   markWebhookEvent,
 } from "@/lib/integrationWebhooks";
 import { contactCampaignInclude } from "@/lib/campaignDetail";
+import {
+  linkedInMemberIdFromUrl,
+  linkedInMemberIdFromUrn,
+  linkedInUrlsMatch,
+} from "@/lib/linkedinProfileUrl";
 
 async function findContactCampaignByEmail(campaignId, email) {
   if (!email) return null;
@@ -65,14 +70,122 @@ export function verifySmartleadSignature(rawBody, signatureHeader, signingSecret
   }
 }
 
-export function verifyLinkupSignature(rawBody, signatureHeader, signingSecret) {
-  if (!signingSecret || !signatureHeader) return false;
-  const expected = createHmac("sha256", signingSecret).update(rawBody).digest("hex");
+/**
+ * Linkup V2: HMAC-SHA256 over "{X-Linkup-Timestamp}.{raw_body}", header "v1=<hex>".
+ * @see https://docs.linkupapi.com/api-reference/v2/webhooks/signature
+ */
+export function verifyLinkupSignature(
+  rawBody,
+  signatureHeader,
+  signingSecret,
+  timestampHeader
+) {
+  if (!signingSecret || !signatureHeader || !timestampHeader) return false;
+
+  const sig = String(signatureHeader).trim();
+  if (!sig.startsWith("v1=")) return false;
+
+  const ts = parseInt(String(timestampHeader).trim(), 10);
+  if (!Number.isFinite(ts)) return false;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSec - ts) > 300) return false;
+
+  const expected = createHmac("sha256", signingSecret)
+    .update(`${String(timestampHeader).trim()}.`)
+    .update(rawBody)
+    .digest("hex");
+
   try {
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(sig.slice(3)));
   } catch {
     return false;
   }
+}
+
+/** Parse Linkup V2 webhook wrapper — event.type is nested under body.event. */
+export function parseLinkupWebhookPayload(body) {
+  const eventObj =
+    body?.event && typeof body.event === "object" ? body.event : null;
+  const eventType =
+    eventObj?.type ?? body?.type ?? body?.event_type ?? null;
+
+  return {
+    eventType,
+    event: eventObj,
+    accountId: body?.account_id ?? null,
+  };
+}
+
+function contactCampaignRows(campaign) {
+  return campaign.contactCampaigns ?? [];
+}
+
+function matchContactByName(rows, senderName) {
+  const normalized = senderName?.trim().toLowerCase();
+  if (!normalized) return null;
+  const matches = rows.filter(
+    (row) =>
+      row.contact?.businessUser?.name?.trim().toLowerCase() === normalized
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function matchContactByLinkedInUrl(rows, profileUrl) {
+  if (!profileUrl) return null;
+  return (
+    rows.find((row) => {
+      const url = row.contact?.businessUser?.linkedinUrl;
+      return url && linkedInUrlsMatch(url, profileUrl);
+    }) ?? null
+  );
+}
+
+async function matchContactByCommLogProfileIds(campaign, rows, profileUrl) {
+  const memberId = linkedInMemberIdFromUrl(profileUrl);
+  if (!memberId || rows.length === 0) return null;
+
+  const logs = await prisma.communicationLog.findMany({
+    where: {
+      campaignId: campaign.id,
+      channel: "linkedin",
+      contactCampaignId: { in: rows.map((r) => r.id) },
+    },
+    select: { contactCampaignId: true, deliveryMeta: true },
+    orderBy: { sentAt: "desc" },
+    take: 200,
+  });
+
+  for (const log of logs) {
+    const meta = log.deliveryMeta ?? {};
+    const fromUrn = linkedInMemberIdFromUrn(meta.profileUrn);
+    const fromPublicId = meta.publicIdentifier
+      ? String(meta.publicIdentifier).toUpperCase()
+      : null;
+    if (fromUrn === memberId || fromPublicId === memberId) {
+      return rows.find((r) => r.id === log.contactCampaignId) ?? null;
+    }
+  }
+
+  return null;
+}
+
+async function findContactCampaignForLinkedInEvent(
+  campaign,
+  { profileUrl, senderName }
+) {
+  const rows = contactCampaignRows(campaign);
+
+  const byUrl = matchContactByLinkedInUrl(rows, profileUrl);
+  if (byUrl) return byUrl;
+
+  const byMemberId = await matchContactByCommLogProfileIds(
+    campaign,
+    rows,
+    profileUrl
+  );
+  if (byMemberId) return byMemberId;
+
+  return matchContactByName(rows, senderName);
 }
 
 export async function handleSmartleadWebhookEvent(tenantId, event) {
@@ -167,8 +280,21 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
 }
 
 export async function handleLinkupWebhookEvent(tenantId, body) {
-  const eventType = body?.event ?? body?.type ?? body?.event_type;
-  const data = body?.data ?? body;
+  const { eventType, event: eventPayload } = parseLinkupWebhookPayload(body);
+
+  if (!eventType) {
+    await markWebhookEvent(tenantId, "linkup", { error: "missing event type" });
+    return { processed: false, reason: "missing_event_type" };
+  }
+
+  if (eventType === "disconnection") {
+    await markWebhookEvent(tenantId, "linkup");
+    return {
+      processed: false,
+      reason: "disconnection",
+      message: eventPayload?.reason ?? null,
+    };
+  }
 
   const campaigns = await prisma.campaign.findMany({
     where: { tenantId },
@@ -184,33 +310,43 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
   let processed = false;
 
   for (const campaign of campaigns) {
-    if (eventType === "accepted_invitation" || eventType === "connection_accepted") {
-      const profileUrl =
-        data?.profile_url || data?.linkedin_url || data?.invitee_profile_url;
-      const cc = campaign.contactCampaigns.find((row) => {
-        const url = row.contact?.businessUser?.linkedinUrl;
-        return (
-          url &&
-          profileUrl &&
-          url.toLowerCase().includes(
-            profileUrl.toLowerCase().split("/").filter(Boolean).pop() ?? "___"
-          )
-        );
-      });
-      if (!cc) continue;
+    if (
+      eventType === "accepted_invitation" ||
+      eventType === "connection_accepted"
+    ) {
+      const connections = eventPayload?.new_connections?.length
+        ? eventPayload.new_connections
+        : eventPayload?.profile_url
+          ? [
+              {
+                profile_url: eventPayload.profile_url,
+                name: eventPayload.name,
+              },
+            ]
+          : [];
 
-      const connLog = await prisma.communicationLog.findFirst({
-        where: {
-          campaignId: campaign.id,
-          contactCampaignId: cc.id,
-          channel: "linkedin",
-          ctaType: "connect_linkedin",
-        },
-        orderBy: { sentAt: "desc" },
-      });
-      if (connLog) {
+      for (const conn of connections) {
+        const cc = await findContactCampaignForLinkedInEvent(campaign, {
+          profileUrl: conn.profile_url,
+          senderName: conn.name,
+        });
+        if (!cc) continue;
+
+        const connLog = await prisma.communicationLog.findFirst({
+          where: {
+            campaignId: campaign.id,
+            contactCampaignId: cc.id,
+            channel: "linkedin",
+            ctaType: "connect_linkedin",
+          },
+          orderBy: { sentAt: "desc" },
+        });
+        if (!connLog) continue;
+
         await applyLinkedInConnectedEngagement(connLog, {
-          message: data?.message ?? "Connection accepted",
+          message: conn.name
+            ? `Connection accepted — ${conn.name}`
+            : "Connection accepted",
         });
         await syncContactCampaignStatus(prisma, cc.id);
         processed = true;
@@ -218,16 +354,23 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
       }
     }
 
-    if (eventType === "message_received") {
-      const profileUrl = data?.sender_profile_url || data?.profile_url;
-      const messageText = data?.message || data?.text || data?.content || "";
-      const cc = campaign.contactCampaigns.find((row) => {
-        const url = row.contact?.businessUser?.linkedinUrl;
-        return (
-          url &&
-          profileUrl &&
-          (url === profileUrl || url.includes(profileUrl.replace(/\/$/, "")))
-        );
+    // Linkup V2 emits event.type "message" (subscription filter is message_received).
+    if (eventType === "message" || eventType === "message_received") {
+      const profileUrl =
+        eventPayload?.sender?.profile_url ??
+        eventPayload?.sender_profile_url ??
+        eventPayload?.profile_url;
+      const messageText =
+        eventPayload?.message_text ??
+        eventPayload?.message ??
+        eventPayload?.text ??
+        eventPayload?.content ??
+        "";
+      const senderName = eventPayload?.sender?.name ?? null;
+
+      const cc = await findContactCampaignForLinkedInEvent(campaign, {
+        profileUrl,
+        senderName,
       });
       if (!cc) continue;
 
@@ -239,18 +382,30 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
         },
         orderBy: { sentAt: "desc" },
       });
-      if (dmLog) {
-        await applyLinkedInReplyEngagement(dmLog, {
-          responseContent: messageText,
-        });
-        await syncContactCampaignStatus(prisma, cc.id);
-        await triggerReplyExecution(campaign.id, cc.id);
-        processed = true;
-        await syncCampaignMetrics(prisma, campaign.id);
-      }
+      if (!dmLog) continue;
+
+      await applyLinkedInReplyEngagement(dmLog, {
+        responseContent: messageText,
+        repliedAt: eventPayload?.metadata?.delivered_at
+          ? new Date(Number(eventPayload.metadata.delivered_at))
+          : eventPayload?.timestamp
+            ? new Date(eventPayload.timestamp)
+            : undefined,
+      });
+      await syncContactCampaignStatus(prisma, cc.id);
+      await triggerReplyExecution(campaign.id, cc.id);
+      processed = true;
+      await syncCampaignMetrics(prisma, campaign.id);
     }
   }
 
+  if (!processed) {
+    console.warn("[linkup webhook] no matching campaign contact", {
+      tenantId,
+      eventType,
+    });
+  }
+
   await markWebhookEvent(tenantId, "linkup");
-  return { processed };
+  return { processed, eventType };
 }
