@@ -184,9 +184,13 @@ export default function MeetingModal({ dealId, nba, contacts = [], isOpen, onClo
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
                 {(contacts || []).map((c) => {
                   const selected = selectedIds.includes(c.id);
+                  // email/name/title live on the linked BusinessUser, not the Contact.
+                  const email = c?.email || c?.businessUser?.email || null;
+                  const name = c?.name || c?.businessUser?.name || null;
+                  const title = c?.title || c?.businessUser?.jobTitle || null;
                   return (
                     <button
-                      key={c.id || c.email}
+                      key={c.id || email}
                       type="button"
                       onClick={() => c.id && toggle(c.id)}
                       aria-pressed={selected}
@@ -206,10 +210,10 @@ export default function MeetingModal({ dealId, nba, contacts = [], isOpen, onClo
                     >
                       <span style={{ fontSize: 12, fontWeight: 600, color: selected ? "var(--accent)" : "var(--text)" }}>
                         {selected ? "✓ " : ""}
-                        {c.name || c.email || "Contact"}
-                        {c.title ? ` · ${c.title}` : ""}
+                        {name || email || "Contact"}
+                        {title ? ` · ${title}` : ""}
                       </span>
-                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{c.email || "no email"}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{email || "no email"}</span>
                     </button>
                   );
                 })}

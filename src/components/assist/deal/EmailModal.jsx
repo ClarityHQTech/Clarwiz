@@ -36,8 +36,13 @@ export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose
   // Selected recipient Contact ids (multi-select "To").
   const [selectedIds, setSelectedIds] = useState([]);
 
+  // Email / name / title live on the linked BusinessUser, not the Contact row.
+  const emailOf = (c) => c?.email || c?.businessUser?.email || null;
+  const nameOf = (c) => c?.name || c?.businessUser?.name || null;
+  const titleOf = (c) => c?.title || c?.businessUser?.jobTitle || null;
+
   // Contacts that can actually be emailed (have an address).
-  const emailable = (contacts || []).filter((c) => c?.id && c?.email);
+  const emailable = (contacts || []).filter((c) => c?.id && emailOf(c));
 
   // Default-select the primary contact = first contact with an email.
   useEffect(() => {
@@ -201,16 +206,17 @@ export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose
                 ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
                     {(contacts || []).map((c) => {
-                      const hasEmail = !!c?.email;
+                      const email = emailOf(c);
+                      const hasEmail = !!email;
                       const selected = selectedIds.includes(c.id);
                       return (
                         <button
-                          key={c.id || c.email}
+                          key={c.id || email}
                           type="button"
                           onClick={() => hasEmail && toggleRecipient(c.id)}
                           disabled={!hasEmail}
                           aria-pressed={selected}
-                          title={hasEmail ? c.email : "No email on file"}
+                          title={hasEmail ? email : "No email on file"}
                           style={{
                             cursor: hasEmail ? "pointer" : "not-allowed",
                             opacity: hasEmail ? 1 : 0.5,
@@ -228,11 +234,11 @@ export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose
                         >
                           <span style={{ fontSize: 12, fontWeight: 600, color: selected ? "var(--accent)" : "var(--text)" }}>
                             {selected ? "✓ " : ""}
-                            {c.name || c.email || "Contact"}
-                            {c.title ? ` · ${c.title}` : ""}
+                            {nameOf(c) || email || "Contact"}
+                            {titleOf(c) ? ` · ${titleOf(c)}` : ""}
                           </span>
                           <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                            {hasEmail ? c.email : "no email"}
+                            {hasEmail ? email : "no email"}
                           </span>
                         </button>
                       );

@@ -54,7 +54,12 @@ export async function POST(request, { params }) {
             orderBy: { createdAt: "asc" },
             include: {
               contact: {
-                select: { id: true, hubspotContactId: true, email: true },
+                // email lives on the linked BusinessUser, not the Contact row.
+                select: {
+                  id: true,
+                  hubspotContactId: true,
+                  businessUser: { select: { email: true } },
+                },
               },
             },
           },
@@ -104,7 +109,7 @@ export async function POST(request, { params }) {
   // Only contacts actually synced to HubSpot can be associated to the email.
   const syncedRecipients = recipients.filter((c) => !!c.hubspotContactId);
   const recipientContactIds = syncedRecipients.map((c) => c.hubspotContactId);
-  const recipientEmails = syncedRecipients.map((c) => c.email).filter(Boolean);
+  const recipientEmails = syncedRecipients.map((c) => c.businessUser?.email).filter(Boolean);
 
   const token = await getDecryptedHubspotToken(prisma, ctx.tenantId);
   if (!token) {
