@@ -50,3 +50,36 @@ export function linkedInMemberIdFromUrn(urn) {
   const match = String(urn).match(/:([A-Za-z0-9_-]+)$/);
   return match?.[1]?.toUpperCase() ?? null;
 }
+
+/** Extract member id from message entity_urn (contains fsd_profile:ACo…). */
+export function linkedInMemberIdFromEntityUrn(entityUrn) {
+  if (!entityUrn) return null;
+  const match = String(entityUrn).match(/fsd_profile:([A-Za-z0-9_-]+)/i);
+  return match?.[1]?.toUpperCase() ?? null;
+}
+
+export function normalizePersonName(name) {
+  return (
+    name
+      ?.trim()
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ") ?? ""
+  );
+}
+
+export function personNameMatches(businessUser, senderName) {
+  if (!businessUser || !senderName?.trim()) return false;
+  const sender = normalizePersonName(senderName);
+  if (!sender) return false;
+
+  const candidates = [
+    businessUser.name,
+    [businessUser.firstName, businessUser.lastName].filter(Boolean).join(" "),
+  ]
+    .map(normalizePersonName)
+    .filter(Boolean);
+
+  return candidates.some((candidate) => candidate === sender);
+}

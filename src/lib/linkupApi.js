@@ -133,6 +133,21 @@ export async function linkupListConnections({
   return assertLinkupSuccess(result, "Failed to list LinkedIn connections");
 }
 
+/** POST /v2/profiles — action get (1 credit). Resolves URN URLs to vanity profile_url / public_id. */
+export async function linkupGetProfile({ accountId, profileUrl, identifier, profileUrn }) {
+  const params = {};
+  if (profileUrl) params.profile_url = profileUrl;
+  if (identifier) params.identifier = identifier;
+  if (profileUrn) params.profile_urn = profileUrn;
+
+  const result = await linkupAction("profiles", {
+    accountId,
+    action: "get",
+    params,
+  });
+  return assertLinkupSuccess(result, "Failed to get LinkedIn profile");
+}
+
 /** POST /v2/network — action check_invitation (1 credit). */
 export async function linkupCheckInvitation({ accountId, profileUrl }) {
   const result = await linkupAction("network", {
