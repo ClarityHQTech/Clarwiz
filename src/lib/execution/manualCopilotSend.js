@@ -41,12 +41,37 @@ async function applyPushResultToCommLog(logId, pushResult) {
 
   const isSuccess = pushResult.status === "sent" || pushResult.status === "queued";
 
+  const existing = await prisma.communicationLog.findUnique({
+    where: { id: logId },
+    select: { deliveryMeta: true, ctaType: true },
+  });
+  const priorMeta =
+    existing?.deliveryMeta && typeof existing.deliveryMeta === "object"
+      ? existing.deliveryMeta
+      : {};
+  const pushMeta =
+    pushResult.deliveryMeta && typeof pushResult.deliveryMeta === "object"
+      ? pushResult.deliveryMeta
+      : {};
+  const mergedMeta = { ...priorMeta, ...pushMeta };
+  if (isSuccess) {
+    delete mergedMeta.error;
+  }
+
+  const sentAsDmFallback =
+    isSuccess &&
+    mergedMeta.connectionCheckFallback &&
+    mergedMeta.action === "send";
+
   await prisma.communicationLog.update({
     where: { id: logId },
     data: {
       status: pushResult.status,
       deliveryProvider: pushResult.deliveryProvider,
-      deliveryMeta: pushResult.deliveryMeta,
+      deliveryMeta: mergedMeta,
+      ...(sentAsDmFallback && existing?.ctaType === "connect_linkedin"
+        ? { ctaType: "reply_email" }
+        : {}),
       ...(isSuccess ? { deliveredAt: new Date() } : {}),
       ...(pushResult.renderedMessage
         ? { message: pushResult.renderedMessage }
@@ -391,6 +416,7 @@ export async function manualCopilotSend({
     success: outcome.ok,
     skipped: outcome.skipped ?? false,
     error: outcome.error ?? outcome.reason ?? null,
+    deliveryMessage: pushResult?.deliveryMessage ?? null,
     commLog: refreshedLog,
   };
 }

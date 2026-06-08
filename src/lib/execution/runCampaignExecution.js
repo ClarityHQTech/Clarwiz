@@ -98,7 +98,12 @@ async function applyPushResultToCommLog(logId, pushResult) {
 
   const existing = await prisma.communicationLog.findUnique({
     where: { id: logId },
-    select: { contactCampaignId: true, retryCount: true, deliveryMeta: true },
+    select: {
+      contactCampaignId: true,
+      retryCount: true,
+      deliveryMeta: true,
+      ctaType: true,
+    },
   });
 
   const priorMeta =
@@ -115,12 +120,20 @@ async function applyPushResultToCommLog(logId, pushResult) {
     delete mergedMeta.error;
   }
 
+  const sentAsDmFallback =
+    isSuccess &&
+    mergedMeta.connectionCheckFallback &&
+    mergedMeta.action === "send";
+
   await prisma.communicationLog.update({
     where: { id: logId },
     data: {
       status: pushResult.status,
       deliveryProvider: pushResult.deliveryProvider,
       deliveryMeta: mergedMeta,
+      ...(sentAsDmFallback && existing?.ctaType === "connect_linkedin"
+        ? { ctaType: "reply_email" }
+        : {}),
       ...(isSuccess ? { deliveredAt: new Date() } : {}),
       ...(pushResult.renderedMessage
         ? { message: pushResult.renderedMessage }

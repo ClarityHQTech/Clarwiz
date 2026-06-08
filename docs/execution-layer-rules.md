@@ -37,9 +37,12 @@ LinkedIn has two outbound types, distinguished by `ctaType` on the comm log / te
 
 ### Rules
 
-- **Push order (autopilot + co-pilot):** `pushLinkedInConnectOrMessage()` always tries a **connection request** first when comm history does not show an accepted connection. Linkup cannot DM without a connection; sending an invite when already connected returns an error.
-- **On connection-request failure:** call Linkup `check_invitation` ([docs](https://docs.linkupapi.com/api-reference/v2/network/check-invitation)). If `invitation_state === "ACCEPTED"`, send the planned message as a **DM** instead. If `PENDING`, record the invite as sent/pending. Otherwise return the original failure.
-- **When history already shows acceptance** (`responseType: "connected"`, `deliveryMeta.invitationState === "ACCEPTED"`, or a prior successful DM `action: "send"`), skip the invite and send the DM directly.
+- **Push order (autopilot + co-pilot):** `pushLinkedInConnectOrMessage()` when comm history does not show an accepted connection or pending invite.
+- **Credit strategy (1 credit per Linkup action):** prefer **invite first** for cold contacts (1 credit). Call `check_invitation` ([docs](https://docs.linkupapi.com/api-reference/v2/network/check-invitation)) **only when needed** — invite failed, or invite returned `success` without `invitation_urn` (already-connected no-op). Do **not** check after every successful invite that includes an `invitation_urn`.
+- **Reuse comm-log state** (`deliveryMeta.invitationState`, `responseType: "connected"`) to skip redundant API calls on later touches.
+- **When history already shows acceptance** → DM only (1 credit). **When pending** → no new API call. **When cached `ACCEPTED` from a prior check** → DM only.
+- On ambiguous invite: if `invitation_state === "ACCEPTED"` / `CONNECTED` → DM; if `PENDING` → record pending; else return invite error.
+- Track total Linkup credits per send in `deliveryMeta.linkupCreditsUsed`.
 - Acceptance is also recorded when engagement tracking sets `responseType: "connected"` on a connection-request log (or `deliveryMeta.invitationState === "ACCEPTED"`).
 - The LLM may still *plan* a connection request (`connect_linkedin`) when not yet connected; it may plan a DM when history shows acceptance, or execution will attempt connect-then-DM fallback at push time.
 - Engagement tracking (`checkLinkedInEngagement`) updates connection accepts and DM replies; replies trigger re-execution (see §8).
@@ -293,3 +296,4 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 | 2026-05-27 | Qualified leads: Calendly OAuth + webhooks, tracked booking link, reply-intent LLM; same-channel reply priority; stop outreach when qualified |
 | 2026-06-05 | Autopilot scheduled outreach (cron), copilot manual mode, webhook tracking, retry queue |
 | 2026-06-08 | LinkedIn push: connect-first with `check_invitation` fallback to DM when already connected (autopilot + co-pilot) |
+| 2026-06-08 | LinkedIn credits: invite-first (1 credit cold); `check_invitation` only on failure or success without `invitation_urn`; reuse comm-log invitation state |

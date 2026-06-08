@@ -512,7 +512,7 @@ export default function ContactCopilotComposer({
       if (data.skipped) {
         toast.warning(data.error || "Send skipped — check integrations");
       } else if (data.success) {
-        toast.success("Message sent");
+        toast.success(data.deliveryMessage || "Message sent");
       } else {
         toast.error(data.error || "Send failed");
       }
