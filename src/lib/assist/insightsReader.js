@@ -14,6 +14,21 @@ const MQL_STAGES = ["lead", "marketingqualifiedlead", "salesqualifiedlead", "sub
 export async function getDashboardData(prisma, tenantId, { ownerId = null } = {}) {
   const dealWhere = { tenantId, status: "OPEN", ...(ownerId ? { ownerId } : {}) };
 
+  // "My book" accounts = companies where I own a deal OR own a contact. Without
+  // this, every synced company (incl. domain-enriched + email-noise ones) shows
+  // under My book even though they aren't part of this AE's book of business.
+  const accountWhere = {
+    tenantId,
+    ...(ownerId
+      ? {
+          OR: [
+            { deals: { some: { ownerId } } },
+            { company: { businessUsers: { some: { contacts: { some: { tenantId, ownerId } } } } } },
+          ],
+        }
+      : {}),
+  };
+
   const [deals, leadContacts, accounts] = await Promise.all([
     prisma.deal.findMany({
       where: dealWhere,
@@ -34,7 +49,7 @@ export async function getDashboardData(prisma, tenantId, { ownerId = null } = {}
       take: 100,
     }),
     prisma.account.findMany({
-      where: { tenantId },
+      where: accountWhere,
       include: {
         company: true,
         _count: { select: { deals: true } },
