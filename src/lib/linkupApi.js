@@ -8,15 +8,19 @@ function getApiKey() {
   return key;
 }
 
-async function linkupRequest(path, body) {
-  const res = await fetch(`${LINKUP_BASE}${path}`, {
-    method: "POST",
+async function linkupRequest(path, body, { method = "POST" } = {}) {
+  const init = {
+    method,
     headers: {
       "x-api-key": getApiKey(),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
-  });
+  };
+  if (method !== "GET" && method !== "DELETE" && body !== undefined) {
+    init.body = JSON.stringify(body ?? {});
+  }
+
+  const res = await fetch(`${LINKUP_BASE}${path}`, init);
 
   const data = await res.json().catch(() => ({}));
 
@@ -193,6 +197,16 @@ export async function linkupCreateWebhook({
   };
   const result = await linkupRequest("/webhooks", body);
   return assertLinkupSuccess(result, "Failed to create Linkup webhook");
+}
+
+/** DELETE /v2/webhooks/{webhook_id} — permanently delete a webhook. */
+export async function linkupDeleteWebhook(webhookId) {
+  const id = String(webhookId ?? "").trim();
+  if (!id) throw new Error("Webhook id is required");
+  const result = await linkupRequest(`/webhooks/${id}`, undefined, {
+    method: "DELETE",
+  });
+  return assertLinkupSuccess(result, "Failed to delete LinkedIn webhook");
 }
 
 /** POST /v2/webhooks/{webhook_id}/stop — pause SSE monitoring (stops credit billing). */

@@ -2,7 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { getLinkedInIntegrationWithAccountId } from "@/lib/linkedinIntegration";
 import { getEmailIntegration } from "@/lib/emailIntegration";
 import { getWhatsAppIntegration } from "@/lib/whatsappIntegration";
-import { linkupCreateWebhook, linkupStartWebhook, linkupStopWebhook } from "@/lib/linkupApi";
+import {
+  linkupCreateWebhook,
+  linkupDeleteWebhook,
+  linkupStartWebhook,
+  linkupStopWebhook,
+} from "@/lib/linkupApi";
 import {
   ensureWebhooksForConnectedChannels,
   fullWebhookUrl,
@@ -27,6 +32,28 @@ function linkupProviderMeta(row) {
     !Array.isArray(row.providerMeta)
     ? row.providerMeta
     : {};
+}
+
+function linkupWebhookNeedsRecreate(wh, { accountId, webhookUrl }) {
+  if (!wh?.providerWebhookId) return true;
+  const meta = linkupProviderMeta(wh);
+  if (!meta.linkupAccountId) return true;
+  if (meta.linkupAccountId !== accountId) return true;
+  const registeredUrl = meta.registeredWebhookUrl || wh.webhookUrl;
+  if (registeredUrl && webhookUrl && registeredUrl !== webhookUrl) return true;
+  if (webhookUrl?.includes("localhost") || webhookUrl?.includes("127.0.0.1")) {
+    return true;
+  }
+  return false;
+}
+
+async function deleteLinkupWebhookQuietly(webhookId) {
+  if (!webhookId) return;
+  try {
+    await linkupDeleteWebhook(webhookId);
+  } catch (err) {
+    console.warn("[linkup webhook] delete old webhook failed:", err.message);
+  }
 }
 
 export async function setWebhookMonitoring(tenantId, provider, action) {
@@ -238,8 +265,19 @@ export async function registerWebhookForProvider(
 
     const wh = await getOrCreateIntegrationWebhook(tenantId, WEBHOOK_PROVIDERS.LINKUP);
     const webhookUrl = fullWebhookUrl(WEBHOOK_PROVIDERS.LINKUP, wh.webhookToken);
+    const accountId = linkedin.linkupAccountIdPlain;
+    const needsRecreate = force || linkupWebhookNeedsRecreate(wh, { accountId, webhookUrl });
 
-    if (wh.providerWebhookId && !force) {
+    if (webhookUrl.includes("localhost") || webhookUrl.includes("127.0.0.1")) {
+      return {
+        provider,
+        ok: false,
+        error:
+          "Set NEXT_PUBLIC_URL to your public HTTPS app URL before connecting LinkedIn webhooks (Linkup cannot reach localhost).",
+      };
+    }
+
+    if (wh.providerWebhookId && !needsRecreate) {
       const monitoringActive = getLinkupWebhookMonitoring(wh) !== false;
       if (monitoringActive) {
         return {
@@ -260,6 +298,8 @@ export async function registerWebhookForProvider(
             lastError: null,
             providerMeta: {
               ...priorMeta,
+              linkupAccountId: accountId,
+              registeredWebhookUrl: webhookUrl,
               monitoring: true,
               monitoringStartedAt: new Date().toISOString(),
             },
@@ -279,19 +319,27 @@ export async function registerWebhookForProvider(
       }
     }
 
+    if (wh.providerWebhookId && needsRecreate) {
+      await deleteLinkupWebhookQuietly(wh.providerWebhookId);
+    }
+
     try {
       const created = await linkupCreateWebhook({
-        accountId: linkedin.linkupAccountIdPlain,
+        accountId,
         url: webhookUrl,
         events: ["message_received", "accepted_invitation"],
         enableSignature: true,
       });
-      const secret = created?.data?.secret;
-      if (secret) {
-        await upsertWebhookSecrets(tenantId, WEBHOOK_PROVIDERS.LINKUP, {
-          signingSecret: secret,
-        });
+      const secret = created?.data?.secret ?? created?.data?.signing_secret;
+      if (!secret) {
+        throw new Error(
+          "Linkup did not return a webhook signing secret — try Reconnect webhook again"
+        );
       }
+      await upsertWebhookSecrets(tenantId, WEBHOOK_PROVIDERS.LINKUP, {
+        signingSecret: secret,
+      });
+      const priorMeta = linkupProviderMeta(wh);
       await prisma.integrationWebhook.update({
         where: { id: wh.id },
         data: {
@@ -301,16 +349,21 @@ export async function registerWebhookForProvider(
           lastError: null,
           eventsSubscribed: ["message_received", "accepted_invitation"],
           providerMeta: {
-            ...linkupProviderMeta(wh),
+            ...priorMeta,
+            linkupAccountId: accountId,
+            registeredWebhookUrl: webhookUrl,
             monitoring: true,
             monitoringStartedAt: new Date().toISOString(),
+            recreatedAt: needsRecreate ? new Date().toISOString() : priorMeta.recreatedAt,
           },
         },
       });
       return {
         provider,
         ok: true,
-        message: "LinkedIn event tracking connected (~10 credits/day while monitoring is on)",
+        message: needsRecreate
+          ? "LinkedIn webhook re-registered with a fresh signing secret"
+          : "LinkedIn event tracking connected (~10 credits/day while monitoring is on)",
       };
     } catch (err) {
       await prisma.integrationWebhook.update({

@@ -13,6 +13,7 @@ import {
   markWebhookEvent,
 } from "@/lib/integrationWebhooks";
 import { contactCampaignInclude } from "@/lib/campaignDetail";
+import { getLinkedInIntegrationWithAccountId } from "@/lib/linkedinIntegration";
 import {
   linkedInMemberIdFromUrl,
   linkedInMemberIdFromUrn,
@@ -88,7 +89,7 @@ export function verifyLinkupSignature(
   const ts = parseInt(String(timestampHeader).trim(), 10);
   if (!Number.isFinite(ts)) return false;
   const nowSec = Math.floor(Date.now() / 1000);
-  if (Math.abs(nowSec - ts) > 300) return false;
+  if (Math.abs(nowSec - ts) > 600) return false;
 
   const expected = createHmac("sha256", signingSecret)
     .update(`${String(timestampHeader).trim()}.`)
@@ -280,11 +281,29 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
 }
 
 export async function handleLinkupWebhookEvent(tenantId, body) {
-  const { eventType, event: eventPayload } = parseLinkupWebhookPayload(body);
+  const { eventType, event: eventPayload, accountId } =
+    parseLinkupWebhookPayload(body);
 
   if (!eventType) {
     await markWebhookEvent(tenantId, "linkup", { error: "missing event type" });
     return { processed: false, reason: "missing_event_type" };
+  }
+
+  const linkedin = await getLinkedInIntegrationWithAccountId(tenantId);
+  if (
+    accountId &&
+    linkedin?.linkupAccountIdPlain &&
+    accountId !== linkedin.linkupAccountIdPlain
+  ) {
+    console.warn("[linkup webhook] account_id mismatch", {
+      tenantId,
+      eventAccountId: accountId,
+      integrationAccountId: linkedin.linkupAccountIdPlain,
+    });
+    await markWebhookEvent(tenantId, "linkup", {
+      error: "Webhook account mismatch — use Reconnect webhook after linking LinkedIn",
+    });
+    return { processed: false, reason: "account_mismatch" };
   }
 
   if (eventType === "disconnection") {
@@ -374,7 +393,13 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
       });
       if (!cc) continue;
 
-      const dmLog = await prisma.communicationLog.findFirst({
+      const repliedAt = eventPayload?.metadata?.delivered_at
+        ? new Date(Number(eventPayload.metadata.delivered_at))
+        : eventPayload?.timestamp
+          ? new Date(eventPayload.timestamp)
+          : new Date();
+
+      let dmLog = await prisma.communicationLog.findFirst({
         where: {
           campaignId: campaign.id,
           contactCampaignId: cc.id,
@@ -382,16 +407,35 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
         },
         orderBy: { sentAt: "desc" },
       });
-      if (!dmLog) continue;
 
-      await applyLinkedInReplyEngagement(dmLog, {
-        responseContent: messageText,
-        repliedAt: eventPayload?.metadata?.delivered_at
-          ? new Date(Number(eventPayload.metadata.delivered_at))
-          : eventPayload?.timestamp
-            ? new Date(eventPayload.timestamp)
-            : undefined,
-      });
+      if (!dmLog) {
+        dmLog = await prisma.communicationLog.create({
+          data: {
+            tenantId,
+            campaignId: campaign.id,
+            contactCampaignId: cc.id,
+            channel: "linkedin",
+            message: messageText.trim() || "LinkedIn inbound message",
+            status: "delivered",
+            responseType: "reply",
+            responseContent: messageText.trim() || "Prospect replied on LinkedIn",
+            responseAt: repliedAt,
+            decisionReason: "LinkedIn inbound webhook",
+            deliveryProvider: "linkup",
+            deliveryMeta: {
+              inboundWebhook: true,
+              senderProfileUrl: profileUrl ?? null,
+              linkupEventType: eventType,
+            },
+          },
+        });
+      } else {
+        await applyLinkedInReplyEngagement(dmLog, {
+          responseContent: messageText,
+          repliedAt,
+        });
+      }
+
       await syncContactCampaignStatus(prisma, cc.id);
       await triggerReplyExecution(campaign.id, cc.id);
       processed = true;

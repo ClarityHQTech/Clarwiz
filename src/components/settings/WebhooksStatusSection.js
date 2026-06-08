@@ -322,6 +322,16 @@ export default function WebhooksStatusSection({ refreshSignal = 0 }) {
                         : "Resume monitoring"}
                     </button>
                   ) : null}
+                  {wh.provider === "linkup" && wh.channelConnected && statusKey === "connected" ? (
+                    <button
+                      type="button"
+                      onClick={() => registerWebhook(wh.provider, { force: true })}
+                      disabled={isRegistering || monitoringBusy}
+                      className={`${ui.btnSecondarySurface} text-xs`}
+                    >
+                      {isRegistering ? "Reconnecting…" : "Reconnect webhook"}
+                    </button>
+                  ) : null}
                   {showUrlActions ? (
                     <button
                       type="button"

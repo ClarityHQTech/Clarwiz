@@ -149,6 +149,16 @@ export function getDecryptedSigningSecret(record) {
   return decryptWebhookSecret(record.encryptedSigningSecret);
 }
 
+/** Returns null instead of throwing when the stored secret cannot be decrypted. */
+export function tryGetDecryptedSigningSecret(record) {
+  if (!record?.encryptedSigningSecret) return null;
+  try {
+    return decryptWebhookSecret(record.encryptedSigningSecret);
+  } catch {
+    return null;
+  }
+}
+
 export function getDecryptedVerifyToken(record) {
   if (!record?.encryptedVerifyToken) return null;
   return decryptWebhookSecret(record.encryptedVerifyToken);
