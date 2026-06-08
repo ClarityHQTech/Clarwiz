@@ -52,13 +52,18 @@ function MofuSettingsPage() {
   const [savingBrand, setSavingBrand] = useState(false);
   const [showPatForm, setShowPatForm] = useState(false);
   const [savingSingleSend, setSavingSingleSend] = useState(false);
+  const [internalDomainsText, setInternalDomainsText] = useState("");
+  const [detectedDomains, setDetectedDomains] = useState([]);
+  const [savingDomains, setSavingDomains] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sRes, bRes] = await Promise.all([
+      const [sRes, bRes, dRes] = await Promise.all([
         fetch("/api/assist/settings"),
         fetch("/api/assist/brand"),
+        fetch("/api/assist/internal-domains"),
       ]);
       const sData = await sRes.json();
       const integ = sData.integration ?? { configured: false };
@@ -79,6 +84,11 @@ function MofuSettingsPage() {
             tagline: bData.brand.tagline ?? "",
           });
         }
+      }
+      if (dRes.ok) {
+        const dData = await dRes.json();
+        setInternalDomainsText((dData.configured ?? []).join("\n"));
+        setDetectedDomains(dData.detected ?? []);
       }
     } catch {
       toast.error("Failed to load MOFU settings");
@@ -200,6 +210,77 @@ function MofuSettingsPage() {
       toast.error("Could not save brand");
     } finally {
       setSavingBrand(false);
+    }
+  };
+
+  const parseDomains = (text) =>
+    text
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const onSaveDomains = async (e) => {
+    e.preventDefault();
+    setSavingDomains(true);
+    try {
+      const res = await fetch("/api/assist/internal-domains", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domains: parseDomains(internalDomainsText) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Could not save internal domains");
+        return;
+      }
+      setInternalDomainsText((data.configured ?? []).join("\n"));
+      setDetectedDomains(data.detected ?? []);
+      toast.success("Internal domains saved");
+    } catch {
+      toast.error("Could not save internal domains");
+    } finally {
+      setSavingDomains(false);
+    }
+  };
+
+  const onCleanupNoise = async () => {
+    setCleaning(true);
+    try {
+      // Preview first so the AE confirms against a real candidate count.
+      const dryRes = await fetch("/api/assist/cleanup-noise?dryRun=1", { method: "POST" });
+      const dry = await dryRes.json();
+      if (!dryRes.ok) {
+        toast.error(dry.error || "Could not preview cleanup");
+        return;
+      }
+      const count = dry.candidates?.length ?? 0;
+      if (count === 0) {
+        toast.success("No noise companies to remove — you're all clean");
+        return;
+      }
+      const names = (dry.candidates ?? [])
+        .slice(0, 8)
+        .map((c) => c.domain || c.name)
+        .join(", ");
+      const ok = window.confirm(
+        `Remove ${count} noise compan${count === 1 ? "y" : "ies"}?\n\n` +
+          `${names}${count > 8 ? ", …" : ""}\n\n` +
+          "These are internal or empty email-noise records with no deals. Accounts with deals are never touched. This cannot be undone."
+      );
+      if (!ok) return;
+      const res = await fetch("/api/assist/cleanup-noise", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Cleanup failed");
+        return;
+      }
+      toast.success(
+        `Removed ${data.deleted} noise compan${data.deleted === 1 ? "y" : "ies"}`
+      );
+    } catch {
+      toast.error("Cleanup failed");
+    } finally {
+      setCleaning(false);
     }
   };
 
@@ -379,6 +460,63 @@ function MofuSettingsPage() {
               {savingBrand ? "Saving…" : "Save brand"}
             </button>
           </form>
+        </CkCard>
+
+        <CkCard title="Internal domains" style={{ marginTop: 20 }}>
+          <p className="ck-kv-label" style={{ marginBottom: 16 }}>
+            Contacts at these domains are treated as your own team — hidden from leads and never
+            made into prospect companies. Add any extra company domains you own (e.g.{" "}
+            <code>clarityhq.ai</code>), one per line or comma-separated.
+          </p>
+          <form onSubmit={onSaveDomains}>
+            <Field label="Your company domains">
+              <textarea
+                className="ck-input"
+                rows={4}
+                placeholder={"clarityhq.ai\nacme.com"}
+                value={internalDomainsText}
+                onChange={(e) => setInternalDomainsText(e.target.value)}
+                style={{ resize: "vertical", fontFamily: "inherit" }}
+              />
+            </Field>
+            <div className="ck-kv-label" style={{ marginBottom: 16 }}>
+              Auto-detected from your team&apos;s logins:{" "}
+              {detectedDomains.length ? (
+                <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, marginLeft: 4 }}>
+                  {detectedDomains.map((d) => (
+                    <CkBadge key={d} variant="ghost">
+                      {d}
+                    </CkBadge>
+                  ))}
+                </span>
+              ) : (
+                <span style={{ opacity: 0.7 }}>none</span>
+              )}
+            </div>
+            <button type="submit" className="ck-btn ck-btn-primary" disabled={savingDomains}>
+              {savingDomains ? "Saving…" : "Save internal domains"}
+            </button>
+          </form>
+
+          <div
+            style={{ marginTop: 20, borderTop: "1px solid var(--border, #333)", paddingTop: 16 }}
+          >
+            <div className="ck-kv-label" style={{ marginBottom: 8 }}>
+              Clean up noise companies
+            </div>
+            <p className="ck-kv-label" style={{ marginBottom: 12, opacity: 0.85 }}>
+              Remove already-synced internal and empty email-noise company records that have no
+              deals. Accounts with deals are never touched. You&apos;ll see a count to confirm first.
+            </p>
+            <button
+              type="button"
+              className="ck-btn"
+              onClick={onCleanupNoise}
+              disabled={cleaning}
+            >
+              {cleaning ? "Working…" : "Clean up noise companies"}
+            </button>
+          </div>
         </CkCard>
       </div>
     </AssistShell>
