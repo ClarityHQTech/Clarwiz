@@ -22,6 +22,7 @@ import {
   getCompaniesByIds,
 } from "@/lib/assist/hubspot";
 import { resolveCompanyForContact } from "@/lib/assist/companyResolve";
+import { getTenantInternalDomains } from "@/lib/assist/internalDomains";
 
 /** Resolve (find-or-create) the global Company by unique name; refresh domain/industry. */
 async function resolveCompanyId(prisma, m) {
@@ -80,7 +81,7 @@ async function resolveBusinessUser(prisma, m) {
  * precedence and is reused (resolve dedups by domain, never double-creating).
  * Guarded: a resolve failure must never break contact sync.
  */
-async function linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, hsContact) {
+async function linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, hsContact, internalDomains = []) {
   if (!businessUser || businessUser.companyId || !businessUser.email) return;
   try {
     // HubSpot contact "company" text prop, when present, names the company.
@@ -89,6 +90,7 @@ async function linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, h
     const resolved = await resolveCompanyForContact(prisma, tenantId, {
       email: businessUser.email,
       companyName,
+      internalDomains,
     });
     if (!resolved) return;
     await prisma.businessUser.update({
@@ -101,12 +103,12 @@ async function linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, h
 }
 
 /** Upsert the tenant-scoped Contact (+ its global BusinessUser). Returns the Contact row. */
-export async function upsertContact(prisma, tenantId, hsContact) {
+export async function upsertContact(prisma, tenantId, hsContact, { internalDomains = [] } = {}) {
   const m = mapHsContact(hsContact);
   const businessUser = await resolveBusinessUser(prisma, m);
   // Enrich: link a company-less BusinessUser to a shared Company/Account via its
   // email domain, so standalone MQL leads resolve to an account (and its insights).
-  await linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, hsContact);
+  await linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, hsContact, internalDomains);
   // ownerId (hubspot_owner_id) powers the dashboard's "My book" lead filter.
   // NOTE: existing Contact rows stay null until the tenant re-syncs after
   // (re)connecting with the crm.objects.owners.read scope — no backfill needed.
@@ -156,6 +158,9 @@ async function linkDealContacts(prisma, dealId, contactIds) {
 export async function syncCrmGraph(prisma, tenantId, token, { fetchImpl = fetch } = {}) {
   const stageMap = buildStageMap(await getDealPipelines(token, { fetchImpl }));
   const counts = { accounts: 0, contacts: 0, deals: 0, dealContacts: 0, leads: 0 };
+  // The tenant's own domains — colleagues HubSpot auto-created from email cc's
+  // must not become prospect companies.
+  const internalDomains = await getTenantInternalDomains(prisma, tenantId);
 
   const dealsRes = await searchOpenDeals(token, { fetchImpl });
   if (!dealsRes.ok && dealsRes.status === 401) {
@@ -182,7 +187,7 @@ export async function syncCrmGraph(prisma, tenantId, token, { fetchImpl = fetch 
       const contacts = await getContactsByIds(token, assoc.contacts, { fetchImpl });
       const contactIds = [];
       for (const hsC of contacts) {
-        const contact = await upsertContact(prisma, tenantId, hsC);
+        const contact = await upsertContact(prisma, tenantId, hsC, { internalDomains });
         contactIds.push(contact.id);
         counts.contacts++;
       }
@@ -193,7 +198,7 @@ export async function syncCrmGraph(prisma, tenantId, token, { fetchImpl = fetch 
 
   const mql = await searchMqlContacts(token, { fetchImpl });
   for (const hsC of mql.results) {
-    await upsertContact(prisma, tenantId, hsC);
+    await upsertContact(prisma, tenantId, hsC, { internalDomains });
     counts.leads++;
   }
 

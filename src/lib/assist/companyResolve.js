@@ -92,10 +92,16 @@ export function domainFromEmail(email) {
  * @returns {{ companyId: string, accountId: string } | null}
  *   null when there is no resolvable business domain (free-mail / malformed).
  */
-export async function resolveCompanyForContact(prisma, tenantId, { email, companyName, domain } = {}) {
+export async function resolveCompanyForContact(
+  prisma,
+  tenantId,
+  { email, companyName, domain, internalDomains = [] } = {}
+) {
   const resolvedDomain = domain ? domainFromEmail(`x@${domain}`) || null : domainFromEmail(email);
   // Need a business domain to anchor on; without one we can't safely dedup.
   if (!resolvedDomain) return null;
+  // Our own company's domain → not a prospect; never create a company for it.
+  if (internalDomains.includes(resolvedDomain)) return null;
 
   // 1) Company — global, deduped by domain first, then by name.
   let company = await prisma.company.findFirst({ where: { domain: resolvedDomain } });

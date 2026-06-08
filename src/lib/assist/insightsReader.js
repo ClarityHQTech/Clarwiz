@@ -8,11 +8,21 @@
  * Every function is tenant-scoped. SIGNATURES ARE A CONTRACT — keep stable.
  */
 
+import { getTenantInternalDomains } from "@/lib/assist/internalDomains";
+
 const MQL_STAGES = ["lead", "marketingqualifiedlead", "salesqualifiedlead", "subscriber", "opportunity"];
 
 /** Dashboard: open leads (MQL contacts with no open deal), open deals, accounts. */
 export async function getDashboardData(prisma, tenantId, { ownerId = null } = {}) {
   const dealWhere = { tenantId, status: "OPEN", ...(ownerId ? { ownerId } : {}) };
+
+  // Exclude the tenant's own teammates (HubSpot auto-creates contacts for email
+  // recipients) from the leads column. NOT(email ends with any internal domain)
+  // keeps null-email contacts.
+  const internalDomains = await getTenantInternalDomains(prisma, tenantId);
+  const notInternal = internalDomains.length
+    ? { businessUser: { NOT: { OR: internalDomains.map((d) => ({ email: { endsWith: `@${d}` } })) } } }
+    : {};
 
   // "My book" accounts = companies where I own a deal OR own a contact. Without
   // this, every synced company (incl. domain-enriched + email-noise ones) shows
@@ -44,6 +54,7 @@ export async function getDashboardData(prisma, tenantId, { ownerId = null } = {}
         // "My book": leads without a populated ownerId (e.g. synced before the
         // owners scope was granted) simply won't appear — that's intended.
         ...(ownerId ? { ownerId } : {}),
+        ...notInternal,
       },
       include: { businessUser: { include: { company: true } } },
       take: 100,
