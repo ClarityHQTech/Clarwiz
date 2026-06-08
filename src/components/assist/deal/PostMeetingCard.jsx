@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CkCard } from "../cockpit/primitives";
@@ -22,6 +22,58 @@ export default function PostMeetingCard({ dealId }) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const autoFetched = useRef(false);
+
+  /**
+   * Pull the deal's meeting bodies + notes from HubSpot and pre-fill the
+   * textarea. If the textarea already has content we append below a divider
+   * rather than clobbering unsaved edits. `silent` suppresses the
+   * "nothing-to-fetch" toasts (used by the non-blocking auto-fetch on mount).
+   *
+   * NOTE: only meeting bodies + notes are fetched today; call transcripts can be
+   * added later once the crm.extensions_calling_transcripts scope is granted.
+   */
+  const fetchFromHubspot = async (silent = false) => {
+    setFetching(true);
+    try {
+      const res = await fetch(`/api/assist/deal/${dealId}/meeting-notes`);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 412) {
+        if (!silent) toast.error("Connect HubSpot in Settings to fetch meeting notes.");
+        return;
+      }
+      if (!res.ok || data.ok === false || !data.text) {
+        if (!silent) {
+          toast.message(
+            "No meeting notes in HubSpot yet — connect the appointments scope if you expected some."
+          );
+        }
+        return;
+      }
+      const incoming = data.text.trim();
+      setNotes((prev) => {
+        const existing = prev.trim();
+        if (!existing) return incoming;
+        if (existing.includes(incoming)) return prev;
+        return `${existing}\n\n---\n${incoming}`;
+      });
+      const n = data.count ?? 0;
+      toast.success(`Pulled ${n} meeting/note${n === 1 ? "" : "s"} from HubSpot`);
+    } catch {
+      if (!silent) toast.error("Failed to fetch meeting notes");
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  // Non-blocking auto-fetch once on mount when the textarea is empty.
+  useEffect(() => {
+    if (autoFetched.current) return;
+    autoFetched.current = true;
+    if (!notes.trim()) fetchFromHubspot(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealId]);
 
   const save = async () => {
     const text = notes.trim();
@@ -72,7 +124,23 @@ export default function PostMeetingCard({ dealId }) {
           placeholder="What was discussed, who said what, objections, next steps…"
           rows={5}
         />
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 12,
+          }}
+        >
+          <button
+            type="button"
+            className="ck-btn"
+            onClick={() => fetchFromHubspot(false)}
+            disabled={fetching}
+            title="Pull this deal's meeting bodies + notes from HubSpot"
+          >
+            {fetching ? "Fetching…" : "⟳ Fetch from HubSpot"}
+          </button>
           <button
             type="button"
             className="ck-btn ck-btn-primary"

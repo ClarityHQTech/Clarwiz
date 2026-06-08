@@ -21,6 +21,7 @@ import {
   getContactsByIds,
   getCompaniesByIds,
 } from "@/lib/assist/hubspot";
+import { resolveCompanyForContact } from "@/lib/assist/companyResolve";
 
 /** Resolve (find-or-create) the global Company by unique name; refresh domain/industry. */
 async function resolveCompanyId(prisma, m) {
@@ -53,15 +54,15 @@ export async function upsertAccount(prisma, tenantId, hsCompany) {
   });
 }
 
-/** Resolve (find-or-create) the global BusinessUser, deduped by lowercased email. */
-async function resolveBusinessUserId(prisma, m) {
+/** Resolve (find-or-create) the global BusinessUser, deduped by lowercased email. Returns the row. */
+async function resolveBusinessUser(prisma, m) {
   if (m.email) {
     const existing = await prisma.businessUser.findFirst({ where: { email: m.email } });
     if (existing) {
-      return existing.id;
+      return existing;
     }
   }
-  const bu = await prisma.businessUser.create({
+  return prisma.businessUser.create({
     data: {
       name: m.name,
       firstName: m.firstName,
@@ -71,19 +72,47 @@ async function resolveBusinessUserId(prisma, m) {
       phone: m.phone,
     },
   });
-  return bu.id;
+}
+
+/**
+ * Link a BusinessUser to a shared Company/Account by email domain (idempotent).
+ * Only runs when the BU has no companyId yet — deal sync's company handling takes
+ * precedence and is reused (resolve dedups by domain, never double-creating).
+ * Guarded: a resolve failure must never break contact sync.
+ */
+async function linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, hsContact) {
+  if (!businessUser || businessUser.companyId || !businessUser.email) return;
+  try {
+    // HubSpot contact "company" text prop, when present, names the company.
+    // (A HubSpot contact→company association read could improve accuracy later.)
+    const companyName = hsContact?.properties?.company || null;
+    const resolved = await resolveCompanyForContact(prisma, tenantId, {
+      email: businessUser.email,
+      companyName,
+    });
+    if (!resolved) return;
+    await prisma.businessUser.update({
+      where: { id: businessUser.id },
+      data: { companyId: resolved.companyId },
+    });
+  } catch {
+    // Best-effort enrichment — never let it break the contact sync.
+  }
 }
 
 /** Upsert the tenant-scoped Contact (+ its global BusinessUser). Returns the Contact row. */
 export async function upsertContact(prisma, tenantId, hsContact) {
   const m = mapHsContact(hsContact);
-  const businessUserId = await resolveBusinessUserId(prisma, m);
+  const businessUser = await resolveBusinessUser(prisma, m);
+  // Enrich: link a company-less BusinessUser to a shared Company/Account via its
+  // email domain, so standalone MQL leads resolve to an account (and its insights).
+  await linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, hsContact);
   // ownerId (hubspot_owner_id) powers the dashboard's "My book" lead filter.
   // NOTE: existing Contact rows stay null until the tenant re-syncs after
   // (re)connecting with the crm.objects.owners.read scope — no backfill needed.
   return prisma.contact.upsert({
-    where: { tenantId_businessUserId: { tenantId, businessUserId } },
-    create: { tenantId, businessUserId, hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage, ownerId: m.ownerId },
+    where: { tenantId_businessUserId: { tenantId, businessUserId: businessUser.id } },
+    create: { tenantId, businessUserId: businessUser.id, hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage, ownerId: m.ownerId },
     update: { hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage, ownerId: m.ownerId },
   });
 }

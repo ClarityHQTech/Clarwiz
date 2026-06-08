@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { CkCard, CkBadge } from "../cockpit/primitives";
 import EmailModal from "./EmailModal";
 import MeetingModal from "./MeetingModal";
 import BriefModal from "./BriefModal";
-import CollateralEditorModal from "@/components/assist/collateral/CollateralEditorModal";
 import { classifyNbaAction } from "@/lib/assist/nbaActions";
 
 /** Primary-button label for a classified NBA. */
@@ -53,8 +51,6 @@ export default function NbaRail({ dealId, nbas, contacts = [] }) {
   const [emailNba, setEmailNba] = useState(null);
   const [meetingNba, setMeetingNba] = useState(null);
   const [briefNba, setBriefNba] = useState(null);
-  const [genDocId, setGenDocId] = useState(null);
-  const [generating, setGenerating] = useState(false);
 
   // Primary action for an NBA card: open the modal that fits its classified kind.
   const openPrimary = (nba) => {
@@ -63,47 +59,8 @@ export default function NbaRail({ dealId, nbas, contacts = [] }) {
     else setEmailNba(nba); // email | collateral | task all draft an email here
   };
 
-  const generateCollateral = async () => {
-    if (generating) return;
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/assist/collateral/auto-generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.status === 412) {
-        toast.error("Connect HubSpot + Anthropic to generate collateral.");
-        return;
-      }
-      if (!res.ok || !data.documentId) {
-        toast.error(data.error || "Collateral generation failed");
-        return;
-      }
-      toast.success(data.reused ? "Opened existing collateral" : "Collateral generated");
-      setGenDocId(data.documentId);
-    } catch {
-      toast.error("Collateral generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const headerAction = (
-    <button
-      type="button"
-      className="ck-btn ck-btn-ghost"
-      style={{ fontSize: 11, padding: "5px 10px" }}
-      onClick={generateCollateral}
-      disabled={generating}
-    >
-      {generating ? "Generating…" : "⚡ Generate collateral"}
-    </button>
-  );
-
   return (
-    <CkCard title="Next Best Actions" count={nbas?.length || undefined} action={headerAction}>
+    <CkCard title="Next Best Actions" count={nbas?.length || undefined}>
       {!nbas?.length ? (
         <div className="ck-empty">No recommendations yet.</div>
       ) : (
@@ -177,9 +134,6 @@ export default function NbaRail({ dealId, nbas, contacts = [] }) {
         />
       )}
 
-      {genDocId && (
-        <CollateralEditorModal documentId={genDocId} onClose={() => setGenDocId(null)} />
-      )}
     </CkCard>
   );
 }
