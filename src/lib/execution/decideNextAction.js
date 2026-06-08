@@ -194,9 +194,9 @@ REPLY THREAD MODE (prospect has responded — this overrides template reuse):
     campaign.calendlyBookingUrl?.trim()
       ? `
 BOOKING / QUALIFICATION CTA:
-- Stage 1 outbound: do NOT include the Calendly or booking URL in the message.
+- Stage 1 outbound: do NOT include any booking URL or Calendly reference with a link.
 - Stage 2+ or reply follow-up: nudge toward booking a call; prefer ctaType book_demo when appropriate.
-- The app will append a tracked booking link after generation — focus on persuasive copy, not raw URLs in stage 1.`
+- Never paste Calendly URLs, [Calendly link], or other booking URLs — the app appends a tracked booking link after generation on every channel.`
       : "";
 
   const systemPrompt = `You are Clarwiz by ClarityHQ's execution layer: a context-aware next-best-action engine for B2B outreach (see Decision Logic: load context, score channel/stage fit, generate custom copy when needed).
@@ -227,7 +227,7 @@ ${bookingRules}
   const userPayload = {
     tenantContext: {
       ...buildTenantContext(campaign, tenantIcp),
-      calendlyBookingUrl: campaign.calendlyBookingUrl ?? null,
+      bookingLinkConfigured: Boolean(campaign.calendlyBookingUrl?.trim()),
       nextOutboundStage: getNextOutboundStage(commHistory),
     },
     prospect: {
@@ -453,7 +453,6 @@ ${bookingRules}
     prospectId: prospect.id,
     stage: decisionPayload.stage,
     isReplyFollowUp: replyFollowUp,
-    channel: decisionPayload.channel,
   });
 
   const enforced = enforceChannelRules(
