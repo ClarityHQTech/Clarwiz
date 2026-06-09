@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
+import { ui } from "@/lib/brandUi";
 
 const emptyForm = { name: "", industry: "", about: "", website: "" };
 
@@ -83,14 +84,14 @@ export default function TenantDetailsSection() {
 
   if (loading) {
     return (
-      <section className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
+      <section className={ui.panelSurface}>
         <p className="text-sm text-brand-stone">Loading workspace details...</p>
       </section>
     );
   }
 
   return (
-    <section className="rounded-lg border border-brand-secondary/30 bg-white p-5 shadow-sm">
+    <section className={ui.panelSurface}>
       <h2 className="text-base font-semibold text-brand-ink">Workspace details</h2>
       <p className="mt-1 text-sm text-brand-stone">
         {canEdit
@@ -107,7 +108,7 @@ export default function TenantDetailsSection() {
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, name: e.target.value }))
               }
-              className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
+              className={`mt-1 ${ui.inputSurface}`}
               required
             />
           </label>
@@ -120,7 +121,7 @@ export default function TenantDetailsSection() {
                 setForm((prev) => ({ ...prev, industry: e.target.value }))
               }
               placeholder="e.g. SaaS, Healthcare"
-              className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
+              className={`mt-1 ${ui.inputSurface}`}
             />
           </label>
 
@@ -133,7 +134,7 @@ export default function TenantDetailsSection() {
                 setForm((prev) => ({ ...prev, website: e.target.value }))
               }
               placeholder="https://example.com"
-              className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
+              className={`mt-1 ${ui.inputSurface}`}
             />
           </label>
 
@@ -146,7 +147,7 @@ export default function TenantDetailsSection() {
               }
               rows={4}
               placeholder="Brief description of your company"
-              className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm resize-y"
+              className={`mt-1 ${ui.inputSurface} resize-y`}
             />
           </label>
 

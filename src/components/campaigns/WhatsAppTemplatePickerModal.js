@@ -19,6 +19,7 @@ import {
   whatsAppTemplateKey,
 } from "@/lib/whatsappCampaignTemplates";
 import { parseWhatsAppTemplateVariableSlots } from "@/lib/whatsappTemplateVariables";
+import { modalShell, modalUi } from "@/lib/brandUi";
 
 export default function WhatsAppTemplatePickerModal({
   isOpen,
@@ -104,15 +105,20 @@ export default function WhatsAppTemplatePickerModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-      <ModalOverlay backdropFilter="blur(4px)" />
-      <ModalContent mx={3} maxH="88vh" borderRadius="xl" className="!bg-brand-surface">
-        <ModalHeader borderBottomWidth="1px" py={4} pr={12} className="!bg-brand-surface">
+      <ModalOverlay backdropFilter="blur(4px)" className={modalUi.overlayClass} />
+      <ModalContent
+        {...modalShell.content}
+        mx={3}
+        maxH="88vh"
+        className={modalUi.contentClass}
+      >
+        <ModalHeader {...modalShell.header} className={modalUi.headerClass}>
           <p className="text-base font-semibold text-brand-ink">{title}</p>
           <p className="text-xs font-normal text-brand-stone mt-0.5">{description}</p>
         </ModalHeader>
-        <ModalCloseButton />
+        <ModalCloseButton className={modalUi.closeButtonClass} />
 
-        <ModalBody py={4} px={{ base: 4, md: 5 }} className="!bg-brand-surface">
+        <ModalBody py={4} px={{ base: 4, md: 5 }} className={modalUi.bodyClass}>
           <div className="flex items-center justify-between gap-2 mb-3">
             <p className="text-xs text-brand-stone">
               {availableTemplates.length} available
@@ -142,13 +148,13 @@ export default function WhatsAppTemplatePickerModal({
             <div className="rounded-lg border border-brand-terracotta/40 bg-brand-terracotta/15 px-4 py-3 text-sm text-brand-ink">
               <p>{loadError}</p>
               <p className="text-xs mt-2 text-brand-ink">
-                Connect WhatsApp in Settings, then refresh templates.
+                Connect WhatsApp in Integrations, then refresh templates.
               </p>
             </div>
           ) : availableTemplates.length === 0 ? (
             <p className="text-sm text-brand-stone py-6 text-center">
               {templates.length === 0
-                ? "No approved templates found. Refresh from your provider or connect WhatsApp in Settings."
+                ? "No approved templates found. Refresh from your provider or connect WhatsApp in Integrations."
                 : "All available templates are already linked to this campaign."}
             </p>
           ) : (
@@ -204,7 +210,7 @@ export default function WhatsAppTemplatePickerModal({
           )}
         </ModalBody>
 
-        <ModalFooter borderTopWidth="1px" gap={2} className="!bg-brand-surface">
+        <ModalFooter {...modalShell.footer} className={modalUi.footerClass}>
           <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>

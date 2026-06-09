@@ -72,11 +72,63 @@ export const ui = {
   textPrimary: "text-brand-ink",
   textSecondary: "text-brand-stone",
   textMuted: "text-brand-steel",
-  section: "rounded-xl border border-brand-secondary/30 bg-white p-5 shadow-sm",
+  section: "rounded-xl border border-brand-secondary/30 bg-brand-surface p-5 shadow-sm",
   sectionTitle: "font-serif text-base font-semibold text-brand-ink",
   badgeAdmin: "rounded-full bg-brand-sage/25 px-2.5 py-0.5 text-xs font-medium text-brand-ink",
   code: "text-xs bg-brand-bg border border-brand-secondary/20 px-1 rounded font-mono",
   success: "text-brand-ink",
   successBg: "bg-brand-sage/20 text-brand-ink",
   error: "text-red-700",
+};
+
+/**
+ * Chakra modal shell — rounded corners with clipped header/footer.
+ * Without overflow:hidden + inherit radii, header/footer render square inside a
+ * rounded ModalContent and look curved + flat at once.
+ */
+export const modalUi = {
+  overlayClass: "!bg-black/40",
+  contentClass:
+    "!bg-brand-surface !border-brand-secondary/30 !shadow-xl !rounded-xl !overflow-hidden",
+  headerClass: "!bg-brand-surface !border-brand-secondary/25",
+  bodyClass: "!bg-brand-surface",
+  footerClass: "!bg-brand-surface !border-brand-secondary/25",
+  closeButtonClass: "!text-brand-stone hover:!bg-brand-bg",
+};
+
+export const modalShell = {
+  content: {
+    borderRadius: "xl",
+    overflow: "hidden",
+    borderWidth: "1px",
+    display: "flex",
+    flexDirection: "column",
+  },
+  contentCentered: {
+    mx: 4,
+    maxH: "90vh",
+  },
+  header: {
+    flexShrink: 0,
+    borderBottomWidth: "1px",
+    borderTopRadius: "inherit",
+    py: 4,
+    pr: 12,
+  },
+  body: {
+    flex: 1,
+    overflowY: "auto",
+  },
+  bodyPadded: {
+    py: 5,
+    px: { base: 4, md: 6 },
+  },
+  footer: {
+    flexShrink: 0,
+    borderTopWidth: "1px",
+    borderBottomRadius: "inherit",
+    gap: 2,
+    py: 4,
+    px: { base: 4, md: 6 },
+  },
 };

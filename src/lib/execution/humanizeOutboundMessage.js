@@ -1,4 +1,5 @@
 import { applyTemplateVariables, prospectFirstName } from "@/lib/execution/renderMessage";
+import { isProspectReply } from "@/lib/commLogEngagement";
 
 const PLACEHOLDER_LINE =
   /^\s*(\[\s*[^\]]+\s*\]|\{\{[^}]+\}\}|<\s*[^>]+\s*>)\s*\.?\s*$/i;
@@ -18,7 +19,7 @@ const GENERIC_CLOSING_LINES = [
 export function getLatestProspectReply(commHistory) {
   for (let i = commHistory.length - 1; i >= 0; i--) {
     const log = commHistory[i];
-    if (log.responseType && log.responseContent?.trim()) {
+    if (isProspectReply(log)) {
       return log;
     }
   }

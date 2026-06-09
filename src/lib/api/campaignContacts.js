@@ -5,6 +5,7 @@ import {
   getOwnedCampaignDetail,
 } from "@/lib/campaignDetail";
 import { computeNextOutreachAt } from "@/lib/execution/outreachSchedule";
+import { localTimeToUtcHHmm } from "@/lib/outreachTimezones";
 import {
   enrollContactInCampaign,
   flattenContactCampaign,
@@ -43,15 +44,22 @@ export async function addContactToCampaign(request, campaignId, tenantId) {
       twitterId: body.twitterId,
     });
 
+    const deliveryUtc = body.outreachDeliveryTime
+      ? localTimeToUtcHHmm(
+          body.outreachDeliveryTime,
+          campaign.outreachTimezone ?? "UTC"
+        )
+      : null;
+
     const nextAt = computeNextOutreachAt({
       campaign,
-      contactCampaign: { outreachDeliveryTime: body.outreachDeliveryTime ?? null },
+      contactCampaign: { outreachDeliveryTime: deliveryUtc },
     });
 
     await enrollContactInCampaign(tx, {
       contactId: contact.id,
       campaignId: campaign.id,
-      outreachDeliveryTime: body.outreachDeliveryTime,
+      outreachDeliveryTime: deliveryUtc,
       nextScheduledOutreachAt: nextAt,
     });
   });
@@ -94,7 +102,9 @@ export async function patchContactCampaign(
         { status: 400 }
       );
     }
-    data.outreachDeliveryTime = t;
+    data.outreachDeliveryTime = t
+      ? localTimeToUtcHHmm(t, campaign.outreachTimezone ?? "UTC")
+      : null;
   }
 
   if (body.status !== undefined) {

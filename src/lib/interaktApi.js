@@ -160,6 +160,31 @@ export async function sendInteraktTemplate({
   });
 }
 
+/** Send free-form text during an open customer service window. */
+export async function sendInteraktText({
+  apiKey,
+  countryCode,
+  phoneNumber,
+  body,
+  callbackData,
+}) {
+  const payload = {
+    countryCode,
+    phoneNumber: String(phoneNumber).replace(/\D/g, ""),
+    type: "Text",
+    data: {
+      message: String(body),
+    },
+  };
+
+  if (callbackData) payload.callbackData = callbackData;
+
+  return interaktFetch("/message/", apiKey, {
+    method: "POST",
+    body: payload,
+  });
+}
+
 /** Split E.164 or combined phone into country code + local number. */
 export function splitPhoneNumber(phone, defaultCountryCode = "+91") {
   const digits = String(phone).replace(/\D/g, "");

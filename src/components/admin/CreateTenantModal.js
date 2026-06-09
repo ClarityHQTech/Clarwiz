@@ -1,7 +1,18 @@
 "use client";
 
+import {
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  Checkbox,
+} from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { modalShell, modalUi, ui } from "@/lib/brandUi";
 
 const initialForm = {
   name: "",
@@ -12,20 +23,34 @@ const initialForm = {
   payment_status: false,
 };
 
-export default function CreateTenantModal({ open, onClose, onCreated }) {
+function Field({ label, required, children, hint }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-brand-stone mb-1.5">
+        {label}
+        {required && <span className="text-red-600 ml-0.5">*</span>}
+      </label>
+      {children}
+      {hint && <p className="text-xs text-brand-steel mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+export default function CreateTenantModal({ isOpen, onClose, onCreated }) {
   const [form, setForm] = useState(initialForm);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+    if (isOpen) setForm(initialForm);
+  }, [isOpen]);
 
-  if (!open) return null;
+  const update = (key) => (e) => {
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  };
+
+  const handleClose = () => {
+    if (!creating) onClose();
+  };
 
   const createTenant = async (e) => {
     e.preventDefault();
@@ -64,137 +89,128 @@ export default function CreateTenantModal({ open, onClose, onCreated }) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Close"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-tenant-title"
-        className="relative w-full max-w-lg rounded-lg border border-brand-secondary/30 bg-white shadow-xl"
-      >
-        <form onSubmit={createTenant} className="p-6 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 id="create-tenant-title" className="text-lg font-semibold text-brand-ink">
-                Create tenant
-              </h2>
-              <p className="mt-1 text-sm text-brand-stone">
-                Set up the workspace and assign a tenant admin.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md p-1 text-brand-stone hover:bg-brand-bg"
-            >
-              ✕
-            </button>
-          </div>
+  const formId = "create-tenant-form";
 
-          <div className="space-y-3">
-            <label className="block text-sm">
-              <span className="font-medium text-brand-stone">Name *</span>
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      size="lg"
+      isCentered
+      scrollBehavior="inside"
+      closeOnOverlayClick={!creating}
+      blockScrollOnMount
+    >
+      <ModalOverlay backdropFilter="blur(4px)" className={modalUi.overlayClass} />
+      <ModalContent
+        {...modalShell.content}
+        {...modalShell.contentCentered}
+        className={modalUi.contentClass}
+      >
+        <ModalHeader {...modalShell.header} className={modalUi.headerClass}>
+          <p className="text-base font-semibold text-brand-ink">Create tenant</p>
+          <p className="text-xs font-normal text-brand-stone mt-0.5">
+            Set up the workspace and assign a tenant admin.
+          </p>
+        </ModalHeader>
+        <ModalCloseButton
+          isDisabled={creating}
+          className={modalUi.closeButtonClass}
+        />
+
+        <ModalBody
+          {...modalShell.body}
+          {...modalShell.bodyPadded}
+          className={modalUi.bodyClass}
+        >
+          <form id={formId} onSubmit={createTenant} className="space-y-4">
+            <Field label="Name" required>
               <input
+                type="text"
                 value={form.name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, name: e.target.value }))
-                }
+                onChange={update("name")}
                 placeholder="Acme Corp"
-                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
+                className={ui.inputSurface}
+                autoFocus
                 required
               />
-            </label>
+            </Field>
 
-            <label className="block text-sm">
-              <span className="font-medium text-brand-stone">Industry</span>
+            <Field label="Industry">
               <input
+                type="text"
                 value={form.industry}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, industry: e.target.value }))
-                }
+                onChange={update("industry")}
                 placeholder="e.g. SaaS, Healthcare"
-                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
+                className={ui.inputSurface}
               />
-            </label>
+            </Field>
 
-            <label className="block text-sm">
-              <span className="font-medium text-brand-stone">Website</span>
+            <Field label="Website">
               <input
                 type="url"
                 value={form.website}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, website: e.target.value }))
-                }
+                onChange={update("website")}
                 placeholder="https://example.com"
-                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
+                className={ui.inputSurface}
               />
-            </label>
+            </Field>
 
-            <label className="block text-sm">
-              <span className="font-medium text-brand-stone">About</span>
+            <Field label="About">
               <textarea
                 value={form.about}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, about: e.target.value }))
-                }
+                onChange={update("about")}
                 placeholder="Brief description of the company"
                 rows={3}
-                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm resize-y"
+                className={`${ui.inputSurface} resize-y`}
               />
-            </label>
+            </Field>
 
-            <label className="block text-sm">
-              <span className="font-medium text-brand-stone">Admin email</span>
+            <Field label="Admin email" hint="Invited as tenant admin if provided">
               <input
                 type="email"
                 value={form.adminEmail}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, adminEmail: e.target.value }))
-                }
+                onChange={update("adminEmail")}
                 placeholder="admin@company.com"
-                className="mt-1 w-full rounded-md border border-brand-secondary/40 px-3 py-2 text-sm"
+                className={ui.inputSurface}
               />
-            </label>
+            </Field>
 
-            <label className="flex items-center gap-2 text-sm text-brand-stone">
-              <input
-                type="checkbox"
-                checked={form.payment_status}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    payment_status: e.target.checked,
-                  }))
-                }
-              />
+            <Checkbox
+              isChecked={form.payment_status}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  payment_status: e.target.checked,
+                }))
+              }
+              colorScheme="green"
+              className="!text-sm !text-brand-stone"
+            >
               Payment enabled
-            </label>
-          </div>
+            </Checkbox>
+          </form>
+        </ModalBody>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-brand-secondary/40 px-4 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={creating}
-              className="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
-            >
-              {creating ? "Creating..." : "Create tenant"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <ModalFooter {...modalShell.footer} className={modalUi.footerClass}>
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={creating}
+            className={ui.btnSecondarySurface}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form={formId}
+            disabled={creating}
+            className={ui.btnPrimary}
+          >
+            {creating ? "Creating…" : "Create tenant"}
+          </button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }

@@ -117,7 +117,7 @@ export default function TemplateEditorCard({
         placeholder={
           channel === "whatsapp"
             ? "Body text matching your approved WhatsApp template..."
-            : "Hi {{first_name}}, I noticed {{company}}..."
+            : "Hi {{first_name}}, I saw {{company}} is hiring for {{job_title}}..."
         }
       />
 

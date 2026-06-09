@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import IntegrationStatusBadge from "@/components/settings/IntegrationStatusBadge";
+import { ui } from "@/lib/brandUi";
 
 const PROXY_COUNTRIES = [
   { code: "US", label: "United States" },
@@ -180,7 +181,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
-                className="w-full max-w-xs rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink placeholder:text-brand-steel focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+                className={`${ui.inputSurface} max-w-xs text-brand-ink placeholder:text-brand-steel`}
               />
             </div>
           ) : null}
@@ -225,7 +226,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
-              className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink placeholder:text-brand-steel focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+              className={`${ui.inputSurface} text-brand-ink placeholder:text-brand-steel`}
             />
           </div>
           <div>
@@ -235,7 +236,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+              className={`${ui.inputSurface} text-brand-ink`}
             />
           </div>
           <div>
@@ -243,7 +244,7 @@ export default function LinkedInIntegrationSection({ integration, onRefresh }) {
             <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="w-full rounded-md border border-brand-secondary/30 px-3 py-2 text-sm text-brand-ink focus:border-brand-sage focus:outline-none focus:ring-1 focus:ring-brand-sage"
+              className={`${ui.inputSurface} text-brand-ink`}
             >
               {PROXY_COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>

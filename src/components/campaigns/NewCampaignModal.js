@@ -8,10 +8,7 @@ import {
   ModalBody,
   ModalFooter,
   ModalCloseButton,
-  Button,
-  Input,
-  Textarea,
-  Select,
+  useDisclosure,
 } from "@chakra-ui/react";
 import { useState } from "react";
 import {
@@ -19,22 +16,23 @@ import {
   HiOutlineArrowRight,
   HiOutlineArrowUpTray,
   HiOutlinePlus,
+  HiOutlineTrash,
 } from "react-icons/hi2";
 import { toast } from "sonner";
-import TemplateEditorCard from "@/components/campaigns/TemplateEditorCard";
+import AddContactModal from "@/components/campaigns/AddContactModal";
+import ChannelTemplatesSection from "@/components/campaigns/ChannelTemplatesSection";
 import WhatsAppCampaignTemplatesSection from "@/components/campaigns/WhatsAppCampaignTemplatesSection";
 import { commTemplatesFromWhatsAppSelection } from "@/lib/whatsappCampaignTemplates";
 import {
   CAMPAIGN_CHANNELS,
   CHANNEL_LABELS,
   CTA_OPTIONS,
-  MAX_TEMPLATE_STAGE,
   PROSPECT_IMPORT_COLUMNS,
-  createTemplate,
   validateTemplate,
 } from "@/lib/campaignConstants";
-import { TEMPLATE_VARIABLES } from "@/lib/templateVariables";
 import { parseProspectExcel } from "@/lib/parseProspectExcel";
+import { TEMPLATE_VARIABLES } from "@/lib/templateVariables";
+import { ui } from "@/lib/brandUi";
 
 const STEPS = ["Campaign", "Prospects", "Templates", "Review"];
 
@@ -90,53 +88,12 @@ function Field({ label, required, children, hint }) {
   );
 }
 
-function ChannelTemplatesSection({ channel, templates, onAdd, onUpdate, onRemove }) {
-  const channelTemplates = templates
-    .filter((t) => t.channel === channel)
-    .sort((a, b) => a.stage - b.stage);
-
-  return (
-    <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-brand-bg border-b border-brand-secondary/30">
-        <div>
-          <h4 className="text-sm font-semibold text-brand-ink">
-            {CHANNEL_LABELS[channel]}
-          </h4>
-          <p className="text-xs text-brand-stone mt-0.5">
-            Add stage templates for this channel (optional).
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onAdd(channel)}
-          className="inline-flex items-center gap-1 rounded-lg border border-brand-secondary/40 bg-white px-2.5 py-1.5 text-xs font-medium text-brand-stone hover:bg-brand-bg shrink-0"
-        >
-          <HiOutlinePlus className="h-3.5 w-3.5" />
-          Add template
-        </button>
-      </div>
-
-      <div className="p-4 space-y-3 bg-brand-bg/30">
-        {channelTemplates.length === 0 ? (
-          <p className="text-xs text-brand-steel text-center py-2">
-            No templates for {CHANNEL_LABELS[channel]} — skip or add when ready.
-          </p>
-        ) : (
-          channelTemplates.map((t) => (
-            <TemplateEditorCard
-              key={t.id}
-              template={t}
-              onChange={(patch) => onUpdate(t.id, patch)}
-              onRemove={() => onRemove(t.id)}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
+  const {
+    isOpen: addProspectOpen,
+    onOpen: openAddProspect,
+    onClose: closeAddProspect,
+  } = useDisclosure();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [campaign, setCampaign] = useState(INITIAL_CAMPAIGN);
@@ -164,25 +121,20 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
   const updateCampaign = (patch) =>
     setCampaign((prev) => ({ ...prev, ...patch }));
 
-  const addTemplate = (channel) => {
-    const existingStages = templates
-      .filter((t) => t.channel === channel)
-      .map((t) => t.stage);
-    const nextStage =
-      existingStages.length > 0 ? Math.max(...existingStages) + 1 : 1;
-    setTemplates((prev) => [
-      ...prev,
-      createTemplate(channel, Math.min(nextStage, MAX_TEMPLATE_STAGE)),
-    ]);
+  const saveChannelTemplate = async (template, mode) => {
+    setTemplates((prev) => {
+      if (mode === "edit") {
+        return prev.map((t) => (t.id === template.id ? template : t));
+      }
+      return [...prev, template];
+    });
   };
 
-  const updateTemplate = (id, patch) => {
+  const updateWhatsAppTemplate = (id, patch) => {
     setTemplates((prev) =>
       prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
     );
   };
-
-  const updateWhatsAppTemplate = (id, patch) => updateTemplate(id, patch);
 
   const removeTemplate = (id) => {
     setTemplates((prev) => prev.filter((t) => t.id !== id));
@@ -226,7 +178,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
     }
     if (step === 1) {
       if (!prospects.length) {
-        toast.error("Upload a prospect list with at least one row.");
+        toast.error("Add at least one prospect.");
         return false;
       }
       return true;
@@ -287,77 +239,105 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
       scrollBehavior="inside"
       closeOnOverlayClick={!submitting}
     >
-      <ModalOverlay backdropFilter="blur(4px)" />
-      <ModalContent m={0} maxH="100vh" minH="100vh" borderRadius="none">
-        <ModalHeader borderBottomWidth="1px" py={5} px={{ base: 5, md: 6 }} pr={12}>
+      <ModalOverlay backdropFilter="blur(4px)" className="!bg-black/40" />
+      <ModalContent
+        m={0}
+        maxH="100vh"
+        minH="100vh"
+        borderRadius="none"
+        display="flex"
+        flexDirection="column"
+        className="!bg-brand-surface"
+      >
+        <ModalHeader
+          flexShrink={0}
+          borderBottomWidth="1px"
+          py={5}
+          px={{ base: 5, md: 6 }}
+          pr={12}
+          className="!bg-brand-surface !border-brand-secondary/25"
+        >
           <p className="text-lg font-semibold text-brand-ink">New campaign</p>
           <p className="text-sm font-normal text-brand-stone mt-1">
             Configure campaign details, import prospects, and optionally add comm templates.
           </p>
         </ModalHeader>
-        <ModalCloseButton isDisabled={submitting} />
+        <ModalCloseButton
+          isDisabled={submitting}
+          className="!text-brand-stone hover:!bg-brand-bg"
+        />
 
-        <ModalBody py={6} px={{ base: 5, md: 8 }}>
+        <ModalBody
+          flex="1"
+          overflowY="auto"
+          py={6}
+          px={{ base: 5, md: 8 }}
+          className="!bg-brand-surface"
+        >
           <StepIndicator current={step} />
 
           {step === 0 && (
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Campaign name" required>
-                <Input
-                  size="md"
+                <input
+                  type="text"
                   value={campaign.name}
                   onChange={(e) => updateCampaign({ name: e.target.value })}
                   placeholder="Summer 2025"
+                  className={ui.inputSurface}
+                  autoFocus
                 />
               </Field>
               <Field label="Start date">
-                <Input
-                  size="md"
+                <input
                   type="date"
                   value={campaign.startDate}
                   onChange={(e) => updateCampaign({ startDate: e.target.value })}
+                  className={ui.inputSurface}
                 />
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Description">
-                  <Textarea
-                    size="md"
+                  <textarea
                     rows={3}
                     value={campaign.description}
                     onChange={(e) => updateCampaign({ description: e.target.value })}
                     placeholder="Campaign overview and positioning..."
+                    className={`${ui.inputSurface} resize-y`}
                   />
                 </Field>
               </div>
               <Field label="Target segment">
-                <Input
-                  size="md"
+                <input
+                  type="text"
                   value={campaign.targetSegment}
                   onChange={(e) => updateCampaign({ targetSegment: e.target.value })}
                   placeholder="Mid-market SaaS, US & UK"
+                  className={ui.inputSurface}
                 />
               </Field>
               <Field label="Goals">
-                <Input
-                  size="md"
+                <input
+                  type="text"
                   value={campaign.goals}
                   onChange={(e) => updateCampaign({ goals: e.target.value })}
                   placeholder="Book 20 demos, 50 qualified replies"
+                  className={ui.inputSurface}
                 />
               </Field>
               <div className="sm:col-span-2">
                 <Field
                   label="Calendly booking URL"
-                  hint="Used in stage 2+ outreach and tracked links. Connect Calendly in Settings for auto-qualify on book."
+                  hint="Used in stage 2+ outreach and tracked links. Connect Calendly in Integrations for auto-qualify on book."
                 >
-                  <Input
-                    size="md"
+                  <input
                     type="url"
                     value={campaign.calendlyBookingUrl}
                     onChange={(e) =>
                       updateCampaign({ calendlyBookingUrl: e.target.value })
                     }
                     placeholder="https://calendly.com/your-team/30min"
+                    className={ui.inputSurface}
                   />
                 </Field>
               </div>
@@ -366,19 +346,34 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
 
           {step === 1 && (
             <div className="space-y-4">
-              <div className="rounded-lg border-2 border-dashed border-brand-secondary/30 bg-brand-bg/50 p-7 text-center">
-                <HiOutlineArrowUpTray className="mx-auto h-8 w-8 text-brand-steel" />
-                <p className="text-base font-medium text-brand-ink mt-2">
-                  Upload prospect list (.xlsx, .xls, .csv)
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-brand-ink">
+                    Prospects ({prospects.length})
+                  </h3>
+                  <p className="text-xs text-brand-stone mt-0.5">
+                    Add contacts manually or import from a file.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openAddProspect}
+                  className={`inline-flex items-center gap-1.5 ${ui.btnSecondarySurface} shrink-0`}
+                >
+                  <HiOutlinePlus className="h-4 w-4" />
+                  Add contact
+                </button>
+              </div>
+
+              <div className="rounded-lg border-2 border-dashed border-brand-secondary/30 bg-brand-bg/50 p-5 text-center">
+                <HiOutlineArrowUpTray className="mx-auto h-6 w-6 text-brand-steel" />
+                <p className="text-sm font-medium text-brand-ink mt-2">
+                  Import from file (.xlsx, .xls, .csv)
                 </p>
-                <p className="text-sm text-brand-stone mt-1 max-w-lg mx-auto">
-                  Recognized columns (any casing):{" "}
+                <p className="text-xs text-brand-stone mt-1">
                   {PROSPECT_IMPORT_COLUMNS.join(" · ")}
                 </p>
-                <p className="text-sm text-brand-steel mt-1">
-                  Maps to template variables: {TEMPLATE_VARIABLES}
-                </p>
-                <label className="mt-4 inline-block">
+                <label className="mt-3 inline-block">
                   <input
                     type="file"
                     accept=".xlsx,.xls,.csv"
@@ -388,12 +383,12 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                       e.target.value = "";
                     }}
                   />
-                  <span className="cursor-pointer inline-flex items-center rounded-lg bg-white border border-brand-secondary/40 px-3.5 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg">
+                  <span className={`cursor-pointer ${ui.btnGhost} text-xs`}>
                     Choose file
                   </span>
                 </label>
                 {fileName && (
-                  <p className="text-sm text-brand-terracotta mt-2 font-medium">{fileName}</p>
+                  <p className="text-xs text-brand-terracotta mt-2 font-medium">{fileName}</p>
                 )}
               </div>
 
@@ -408,44 +403,73 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                 </div>
               )}
 
-              {prospects.length > 0 && (
-                <div className="rounded-lg border border-brand-secondary/30 overflow-hidden">
-                  <div className="px-3 py-2 bg-brand-bg border-b border-brand-secondary/30 flex justify-between items-center">
-                    <span className="text-xs font-medium text-brand-stone">
-                      Preview ({prospects.length} prospects)
-                    </span>
-                  </div>
-                  <div className="overflow-x-auto max-h-48">
-                    <table className="w-full text-xs">
+              {prospects.length > 0 ? (
+                <div className={ui.tableWrap}>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-sm">
                       <thead>
-                        <tr className="text-left text-brand-stone border-b border-brand-secondary/15">
-                          <th className="px-3 py-2 font-medium">Name</th>
-                          <th className="px-3 py-2 font-medium">First</th>
-                          <th className="px-3 py-2 font-medium">Company</th>
-                          <th className="px-3 py-2 font-medium">Title</th>
-                          <th className="px-3 py-2 font-medium">Industry</th>
-                          <th className="px-3 py-2 font-medium">Email</th>
+                        <tr className={ui.tableHead}>
+                          <th className={`${ui.tableHeadCell} py-2.5`}>Name</th>
+                          <th className={`${ui.tableHeadCell} py-2.5`}>Company</th>
+                          <th className={`${ui.tableHeadCell} py-2.5`}>Job title</th>
+                          <th className={`${ui.tableHeadCell} py-2.5`}>Email</th>
+                          <th className={`${ui.tableHeadCell} py-2.5`}>WhatsApp</th>
+                          <th className={`${ui.tableHeadCell} py-2.5`}>Phone</th>
+                          <th className={`${ui.tableHeadCell} py-2.5`}>LinkedIn</th>
+                          <th className="w-10 px-2 py-2.5" aria-hidden />
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-brand-secondary/15">
-                        {prospects.slice(0, 8).map((p, i) => (
-                          <tr key={i}>
-                            <td className="px-3 py-1.5 text-brand-ink">{p.name}</td>
-                            <td className="px-3 py-1.5 text-brand-stone">{p.firstName || "—"}</td>
-                            <td className="px-3 py-1.5 text-brand-stone">{p.company || "—"}</td>
-                            <td className="px-3 py-1.5 text-brand-stone">{p.jobTitle || "—"}</td>
-                            <td className="px-3 py-1.5 text-brand-stone">{p.painPoint || "—"}</td>
-                            <td className="px-3 py-1.5 text-brand-stone">{p.email || "—"}</td>
+                      <tbody className={ui.divider}>
+                        {prospects.map((p, i) => (
+                          <tr key={i} className={ui.tableRowHover}>
+                            <td className="px-4 py-2.5 font-medium text-brand-ink whitespace-nowrap">
+                              {p.name}
+                            </td>
+                            <td className="px-4 py-2.5 text-brand-stone">
+                              {p.company || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-brand-stone">
+                              {p.jobTitle || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-brand-stone">
+                              {p.email || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-brand-stone">
+                              {p.whatsapp || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-brand-stone">
+                              {p.phone || "—"}
+                            </td>
+                            <td className="px-4 py-2.5 text-brand-stone max-w-[160px] truncate">
+                              {p.linkedinUrl ? (
+                                <span title={p.linkedinUrl}>{p.linkedinUrl}</span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-2 py-2.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setProspects((prev) => prev.filter((_, idx) => idx !== i))
+                                }
+                                className="p-1 text-brand-steel hover:text-red-700 rounded"
+                                aria-label={`Remove ${p.name}`}
+                              >
+                                <HiOutlineTrash className="h-4 w-4" />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  {prospects.length > 8 && (
-                    <p className="text-xs text-brand-steel px-3 py-2 border-t border-brand-secondary/15">
-                      +{prospects.length - 8} more rows
-                    </p>
-                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-brand-secondary/30 bg-brand-bg/30 px-4 py-8 text-center">
+                  <p className="text-sm text-brand-stone">
+                    No prospects yet. Add a contact or import a file to continue.
+                  </p>
                 </div>
               )}
             </div>
@@ -454,9 +478,8 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
           {step === 2 && (
             <div className="space-y-4">
               <p className="text-xs text-brand-stone">
-                Templates are optional. For WhatsApp, select from your approved provider
-                templates. For email and LinkedIn, add stage templates manually. AI calling
-                is not available yet.
+                Templates are optional. WhatsApp: select approved provider templates.
+                Email and LinkedIn: add stage templates with variables {TEMPLATE_VARIABLES}.
               </p>
               <WhatsAppCampaignTemplatesSection
                 templates={templates}
@@ -469,8 +492,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                   key={channel}
                   channel={channel}
                   templates={templates}
-                  onAdd={addTemplate}
-                  onUpdate={updateTemplate}
+                  onSaveTemplate={saveChannelTemplate}
                   onRemove={removeTemplate}
                 />
               ))}
@@ -479,7 +501,7 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
 
           {step === 3 && (
             <div className="space-y-4 text-sm">
-              <div className="rounded-lg border border-brand-secondary/30 p-4 space-y-2">
+              <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-4 space-y-2">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-brand-stone">
                   Campaign
                 </h4>
@@ -497,13 +519,13 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
                   )}
                 </div>
               </div>
-              <div className="rounded-lg border border-brand-secondary/30 p-4">
+              <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-4">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-brand-stone mb-1">
                   Prospects
                 </h4>
                 <p className="text-brand-ink font-medium">{prospects.length} contacts</p>
               </div>
-              <div className="rounded-lg border border-brand-secondary/30 p-4 space-y-3">
+              <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-4 space-y-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-brand-stone">
                   Templates
                 </h4>
@@ -543,46 +565,64 @@ export default function NewCampaignModal({ isOpen, onClose, onCreated }) {
           )}
         </ModalBody>
 
-        <ModalFooter borderTopWidth="1px" gap={2} py={4} px={{ base: 5, md: 6 }}>
+        <ModalFooter
+          flexShrink={0}
+          borderTopWidth="1px"
+          gap={2}
+          py={4}
+          px={{ base: 5, md: 6 }}
+          className="!bg-brand-surface !border-brand-secondary/25"
+        >
           {step > 0 ? (
-            <Button
-              size="md"
-              variant="ghost"
-              leftIcon={<HiOutlineArrowLeft />}
+            <button
+              type="button"
               onClick={goBack}
-              isDisabled={submitting}
+              disabled={submitting}
+              className={`inline-flex items-center gap-1.5 ${ui.btnGhost} disabled:opacity-50`}
             >
+              <HiOutlineArrowLeft className="h-4 w-4" />
               Back
-            </Button>
+            </button>
           ) : (
             <div />
           )}
           <div className="flex-1" />
-          <Button size="md" variant="outline" onClick={handleClose} isDisabled={submitting}>
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={submitting}
+            className={ui.btnSecondarySurface}
+          >
             Cancel
-          </Button>
+          </button>
           {step < STEPS.length - 1 ? (
-            <Button
-              size="md"
-              colorScheme="blue"
-              rightIcon={<HiOutlineArrowRight />}
+            <button
+              type="button"
               onClick={goNext}
+              className={`${ui.btnPrimary} inline-flex items-center gap-1.5`}
             >
               Continue
-            </Button>
+              <HiOutlineArrowRight className="h-4 w-4" />
+            </button>
           ) : (
-            <Button
-              size="md"
-              colorScheme="blue"
+            <button
+              type="button"
               onClick={handleSubmit}
-              isLoading={submitting}
-              loadingText="Creating..."
+              disabled={submitting}
+              className={ui.btnPrimary}
             >
-              Create campaign
-            </Button>
+              {submitting ? "Creating…" : "Create campaign"}
+            </button>
           )}
         </ModalFooter>
       </ModalContent>
+
+      <AddContactModal
+        isOpen={addProspectOpen}
+        onClose={closeAddProspect}
+        variant="compact"
+        onAdd={(contact) => setProspects((prev) => [...prev, contact])}
+      />
     </Modal>
   );
 }

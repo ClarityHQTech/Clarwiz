@@ -12,16 +12,152 @@ function normalizeEmail(email) {
     .toLowerCase();
 }
 
-export async function resolveOrCreateCompany(tx, companyName) {
+/** Multi-part public suffixes (e.g. example.co.uk). */
+const TWO_PART_PUBLIC_SUFFIXES = new Set([
+  "co.uk",
+  "org.uk",
+  "ac.uk",
+  "gov.uk",
+  "net.uk",
+  "com.au",
+  "net.au",
+  "org.au",
+  "edu.au",
+  "co.nz",
+  "co.jp",
+  "co.in",
+  "co.za",
+  "com.br",
+  "com.mx",
+  "com.sg",
+  "com.hk",
+]);
+
+function extractEmailHost(email) {
+  const normalized = normalizeEmail(email);
+  if (!normalized.includes("@")) return null;
+
+  const host = normalized.split("@").pop()?.trim();
+  if (!host || !host.includes(".")) return null;
+
+  return host;
+}
+
+/** mail.example.com → example.com; example.ai → example.ai; john.tech@example.com uses example.com. */
+function getRegistrableDomain(host) {
+  const labels = host.trim().toLowerCase().split(".").filter(Boolean);
+  if (labels.length < 2) return null;
+
+  const lastTwo = labels.slice(-2).join(".");
+  if (TWO_PART_PUBLIC_SUFFIXES.has(lastTwo) && labels.length >= 3) {
+    return labels.slice(-3).join(".");
+  }
+
+  return labels.slice(-2).join(".");
+}
+
+function companyNameFromRegistrableDomain(domain) {
+  return domain.split(".")[0] || domain;
+}
+
+function parseContactEmailDomain(email) {
+  const host = extractEmailHost(email);
+  if (!host) return null;
+
+  const domain = getRegistrableDomain(host);
+  if (!domain) return null;
+
+  return {
+    host,
+    domain,
+    name: companyNameFromRegistrableDomain(domain),
+  };
+}
+
+async function resolveOrCreateCompanyByDomain(tx, { host, domain, name }) {
+  const normalizedDomain = domain.trim().toLowerCase();
+  const derivedName = name || companyNameFromRegistrableDomain(normalizedDomain);
+
+  const byDomain = await tx.company.findFirst({
+    where: { domain: { equals: normalizedDomain, mode: "insensitive" } },
+  });
+  if (byDomain) return byDomain;
+
+  if (host !== normalizedDomain) {
+    const legacyByHost = await tx.company.findFirst({
+      where: { domain: { equals: host, mode: "insensitive" } },
+    });
+    if (legacyByHost) {
+      return tx.company.update({
+        where: { id: legacyByHost.id },
+        data: { name: derivedName, domain: normalizedDomain },
+      });
+    }
+  }
+
+  const legacyByDomainName = await tx.company.findFirst({
+    where: { name: { equals: normalizedDomain, mode: "insensitive" } },
+  });
+  if (legacyByDomainName) {
+    return tx.company.update({
+      where: { id: legacyByDomainName.id },
+      data: { name: derivedName, domain: normalizedDomain },
+    });
+  }
+
+  const byNameWithoutDomain = await tx.company.findFirst({
+    where: {
+      name: { equals: derivedName, mode: "insensitive" },
+      domain: null,
+    },
+  });
+  if (byNameWithoutDomain) {
+    return tx.company.update({
+      where: { id: byNameWithoutDomain.id },
+      data: { domain: normalizedDomain },
+    });
+  }
+
+  return tx.company.create({
+    data: { name: derivedName, domain: normalizedDomain },
+  });
+}
+
+async function resolveOrCreateCompanyByName(tx, companyName) {
   const name = normalizeCompanyName(companyName);
   if (!name) return null;
 
   const existing = await tx.company.findFirst({
-    where: { name: { equals: name, mode: "insensitive" } },
+    where: {
+      name: { equals: name, mode: "insensitive" },
+      domain: null,
+    },
   });
   if (existing) return existing;
 
-  return tx.company.create({ data: { name } });
+  return tx.company.create({ data: { name, domain: null } });
+}
+
+export async function resolveOrCreateCompany(tx, companyName, { domain = null } = {}) {
+  if (domain?.trim()) {
+    return resolveOrCreateCompanyByDomain(tx, {
+      host: domain.trim().toLowerCase(),
+      domain: domain.trim().toLowerCase(),
+      name: companyNameFromRegistrableDomain(domain.trim().toLowerCase()),
+    });
+  }
+
+  return resolveOrCreateCompanyByName(tx, companyName);
+}
+
+/** Prefer email domain for company; fall back to contact company field when email is missing. */
+export async function resolveOrCreateCompanyFromContact(tx, { email, companyName }) {
+  const parsed = parseContactEmailDomain(email);
+  if (parsed) {
+    return resolveOrCreateCompanyByDomain(tx, parsed);
+  }
+
+  return resolveOrCreateCompanyByName(tx, companyName);
 }
 
 export async function resolveOrCreateBusinessUser(
@@ -47,13 +183,14 @@ export async function resolveOrCreateBusinessUser(
     throw new Error("Business user name is required");
   }
 
-  let companyId = null;
-  if (company?.trim()) {
-    const companyRow = await resolveOrCreateCompany(tx, company);
-    companyId = companyRow?.id ?? null;
-  }
-
   const normalizedEmail = normalizeEmail(email);
+
+  let companyId = null;
+  const companyRow = await resolveOrCreateCompanyFromContact(tx, {
+    email: normalizedEmail,
+    companyName: company,
+  });
+  companyId = companyRow?.id ?? null;
   const normalizedLinkedin = linkedinUrl?.trim() || null;
 
   let existing = null;
@@ -198,6 +335,7 @@ export function flattenContactCampaign(cc) {
     outreachDeliveryTime: cc.outreachDeliveryTime,
     nextScheduledOutreachAt: cc.nextScheduledOutreachAt,
     lastOutreachDate: cc.lastOutreachDate,
+    whatsapp24hWindowExpiresAt: cc.whatsapp24hWindowExpiresAt ?? null,
     signals: bu?.signals ?? [],
     contact: cc.contact,
     businessUser: bu,

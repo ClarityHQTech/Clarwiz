@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PERMISSIONS, ALL_PERMISSIONS } from "@/lib/permissions";
+import { ui } from "@/lib/brandUi";
 
 const PERMISSION_LABELS = {
   [PERMISSIONS.CAMPAIGN_CREATE]: "Campaign creation",
@@ -103,7 +104,7 @@ export default function TeamSection() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="colleague@company.com"
-          className="w-full rounded-lg border border-brand-secondary/40 px-3 py-2 text-sm"
+          className={ui.inputSurface}
           required
         />
         <div className="space-y-2">

@@ -131,7 +131,7 @@ const Page = () => {
       {loading ? (
         <p className="text-sm text-brand-stone">Loading users...</p>
       ) : (
-        <div className="rounded-lg border border-brand-secondary/30 bg-white overflow-hidden">
+        <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-brand-bg text-brand-stone">
               <tr>
@@ -211,10 +211,12 @@ const Page = () => {
 
       <Drawer isOpen={Boolean(selectedUserId)} placement="right" onClose={closeUserDrawer} size="md">
         <DrawerOverlay />
-        <DrawerContent>
+        <DrawerContent className="!bg-brand-surface">
           <DrawerCloseButton />
-          <DrawerHeader borderBottomWidth="1px">User Details</DrawerHeader>
-          <DrawerBody py={4}>
+          <DrawerHeader borderBottomWidth="1px" className="!bg-brand-surface">
+            User Details
+          </DrawerHeader>
+          <DrawerBody py={4} className="!bg-brand-surface">
             {!selectedUser ? (
               <p className="text-sm text-brand-stone">No user selected.</p>
             ) : (

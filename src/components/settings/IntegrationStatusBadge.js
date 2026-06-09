@@ -1,11 +1,12 @@
 "use client";
 
 const STYLES = {
-  connected: "bg-brand-sage/20 text-brand-ink ring-brand-sage/40",
+  connected: "bg-green-100 text-green-700 ring-green-600/25",
   checkpoint_required:
     "bg-brand-terracotta/15 text-brand-ink ring-brand-terracotta/40",
   failed: "bg-red-50 text-red-700 ring-red-600/20",
   pending: "bg-brand-bg text-brand-stone ring-brand-steel/30",
+  paused: "bg-amber-50 text-amber-800 ring-amber-600/20",
   not_configured: "bg-brand-bg text-brand-stone ring-brand-steel/30",
   coming_soon: "bg-brand-bg text-brand-stone ring-brand-steel/20",
   error: "bg-red-50 text-red-700 ring-red-600/20",
@@ -16,6 +17,7 @@ const LABELS = {
   checkpoint_required: "Verification required",
   failed: "Connection issue",
   pending: "Pending",
+  paused: "Paused",
   not_configured: "Not configured",
   coming_soon: "Coming soon",
   error: "Error",

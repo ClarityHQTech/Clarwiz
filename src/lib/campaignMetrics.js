@@ -1,4 +1,5 @@
 import { CHANNEL_LABELS } from "@/lib/campaignConstants";
+import { isProspectReply } from "@/lib/commLogEngagement";
 
 const OUTBOUND_STATUSES = new Set(["planned", "sent", "delivered"]);
 
@@ -11,7 +12,7 @@ export function computeCampaignMetrics(commLogs, prospectCount = 0, qualifiedCou
   );
   const sent = outbound.length;
   const opened = outbound.filter((l) => l.openedAt).length;
-  const withReply = commLogs.filter((l) => l.responseType);
+  const withReply = commLogs.filter(isProspectReply);
   const replyCount = withReply.length;
 
   const contactedIds = new Set(outbound.map((l) => l.contactCampaignId));
@@ -59,7 +60,7 @@ export async function syncCampaignMetrics(prisma, campaignId) {
   });
 }
 
-export function serializeCommLogForUi(log, { contactName, prospectName } = {}) {
+export function serializeCommLogForUi(log, { contactName, prospectName, message, subject } = {}) {
   const name = contactName ?? prospectName ?? null;
   return {
     id: log.id,
@@ -70,8 +71,8 @@ export function serializeCommLogForUi(log, { contactName, prospectName } = {}) {
     channel: log.channel,
     channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,
     stage: log.stage,
-    subject: log.subject,
-    message: log.message,
+    subject: subject ?? log.subject,
+    message: message ?? log.message,
     ctaType: log.ctaType,
     status: log.status,
     sentAt: log.sentAt?.toISOString?.() ?? log.sentAt,
@@ -89,7 +90,8 @@ export function serializeCommLogForUi(log, { contactName, prospectName } = {}) {
     providerCost: log.providerCost ?? null,
     templateId: log.templateId ?? null,
     signalRef: log.signalRef ?? null,
-    isReply: Boolean(log.responseType && log.responseContent),
+    isReply: isProspectReply(log),
+    isOpened: Boolean(log.openedAt),
   };
 }
 

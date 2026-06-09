@@ -37,10 +37,14 @@ LinkedIn has two outbound types, distinguished by `ctaType` on the comm log / te
 
 ### Rules
 
-- **Send a LinkedIn DM only after** a connection request for that prospect was **sent** and **accepted**.
-- Acceptance is recorded when tracking sets `responseType: "connected"` on the connection-request log (or `deliveryMeta.invitationState === "ACCEPTED"`).
-- If the next action is a LinkedIn message but connection is not accepted, **skip** with a clear reason—do not call Linkup `send message`.
-- The LLM may still *plan* a connection request (`connect_linkedin`) when not yet connected; it must not plan a DM until history shows acceptance.
+- **Push order (autopilot + co-pilot):** `pushLinkedInConnectOrMessage()` when comm history does not show an accepted connection or pending invite.
+- **Credit strategy (1 credit per Linkup action):** prefer **invite first** for cold contacts (1 credit). Call `check_invitation` ([docs](https://docs.linkupapi.com/api-reference/v2/network/check-invitation)) **only when needed** — invite failed, or invite returned `success` without `invitation_urn` (already-connected no-op). Do **not** check after every successful invite that includes an `invitation_urn`.
+- **Reuse comm-log state** (`deliveryMeta.invitationState`, `responseType: "connected"`) to skip redundant API calls on later touches.
+- **When history already shows acceptance** → DM only (1 credit). **When pending** → no new API call. **When cached `ACCEPTED` from a prior check** → DM only.
+- On ambiguous invite: if `invitation_state === "ACCEPTED"` / `CONNECTED` → DM; if `PENDING` → record pending; else return invite error.
+- Track total Linkup credits per send in `deliveryMeta.linkupCreditsUsed`.
+- Acceptance is also recorded when engagement tracking sets `responseType: "connected"` on a connection-request log (or `deliveryMeta.invitationState === "ACCEPTED"`).
+- The LLM may still *plan* a connection request (`connect_linkedin`) when not yet connected; it may plan a DM when history shows acceptance, or execution will attempt connect-then-DM fallback at push time.
 - Engagement tracking (`checkLinkedInEngagement`) updates connection accepts and DM replies; replies trigger re-execution (see §8).
 
 ---
@@ -138,8 +142,8 @@ When the prospect has **live signals** attached:
 
 ### LinkedIn
 
-- Connection: `ctaType === "connect_linkedin"` → `pushLinkedInConnectionRequest`.
-- Message: any other CTA → `pushLinkedInMessage` (only if §2 satisfied).
+- All outbound LinkedIn sends use `pushLinkedInConnectOrMessage()` (autopilot + co-pilot): connection request first, then `check_invitation` + DM fallback when already connected (§2).
+- When history shows acceptance, `pushLinkedInMessage` is used directly (no invite attempt).
 - Requires Linkup integration connected with `linkupAccountId`.
 - Requires normalized `linkedinUrl` on prospect.
 - **Connection request note length:** LinkedIn enforces a short note on invites (Linkup returns `CUSTOM_MESSAGE_TOO_LONG` when exceeded). ClarWiz caps notes at **200 characters** (safe for free LinkedIn accounts; paid accounts allow up to 300). The LLM is instructed to stay within this limit; `truncateLinkedInConnectionNote()` enforces it at decision time and again in `pushLinkedInConnectionRequest` before calling Linkup.
@@ -257,6 +261,7 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 
 - Provider signing/verify tokens are stored encrypted on `IntegrationWebhook` (not `.env` long-term). Env vars are bootstrapped once if DB row is missing.
 - Public URLs: `/api/webhooks/smartlead/[token]`, `/api/webhooks/linkup/[token]`; WhatsApp uses existing Meta/Interakt routes.
+- **Linkup V2 payloads:** `event.type` is nested under `body.event` (`"message"` for inbound DMs, not `message_received`). Signature: `X-Linkup-Timestamp` + `X-Linkup-Signature: v1=<hmac>` over `"{timestamp}.{raw_body}"`. Match contacts by vanity URL, stored `profileUrn` / `publicIdentifier`, or unique name fallback (webhooks often send URN-style `/in/ACo…` URLs).
 
 ---
 
@@ -268,7 +273,7 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 | LLM decision | `src/lib/execution/decideNextAction.js` |
 | Run loop | `src/lib/execution/runCampaignExecution.js` |
 | Schedule | `src/lib/execution/outreachSchedule.js` |
-| Cron | `src/app/api/cron/outreach/route.js` |
+| Cron | `src/app/api/cron/outreach/route.js` (Vercel Pro: `vercel.cron.pro.example.json` + `OUTREACH_CRON_ENABLED=true`) |
 | Webhooks | `src/lib/execution/webhookTracking.js`, `src/lib/integrationWebhooks.js` |
 | Retries | `src/lib/execution/outreachRetry.js` |
 | Track + rerun | `src/lib/execution/trackCampaignEngagement.js` |
@@ -291,3 +296,6 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 | 2026-05-27 | LinkedIn connection note capped at 200 chars (truncate + LLM rule) to avoid Linkup `CUSTOM_MESSAGE_TOO_LONG` |
 | 2026-05-27 | Qualified leads: Calendly OAuth + webhooks, tracked booking link, reply-intent LLM; same-channel reply priority; stop outreach when qualified |
 | 2026-06-05 | Autopilot scheduled outreach (cron), copilot manual mode, webhook tracking, retry queue |
+| 2026-06-08 | LinkedIn push: connect-first with `check_invitation` fallback to DM when already connected (autopilot + co-pilot) |
+| 2026-06-08 | LinkedIn credits: invite-first (1 credit cold); `check_invitation` only on failure or success without `invitation_urn`; reuse comm-log invitation state |
+| 2026-06-08 | Linkup webhooks: fix V2 event parsing (`message`), HMAC signature verification, `new_connections` payload, URN profile matching |

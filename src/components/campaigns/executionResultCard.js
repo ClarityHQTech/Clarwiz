@@ -59,10 +59,10 @@ export function ResultCard({ result }) {
                   result.status === "sent"
                 ? `delivered (${result.status ?? "sent"})`
                 : result.channelSendSkipped
-                  ? "planned only (connect channel in Settings)"
+                  ? "planned only (connect channel in Integrations)"
                   : result.deliveryProvider
                     ? result.status ?? "logged"
-                    : "planned only (connect channel in Settings)"}
+                    : "planned only (connect channel in Integrations)"}
         </p>
       )}
     </div>

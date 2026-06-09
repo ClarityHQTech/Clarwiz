@@ -113,7 +113,7 @@ model Company {
   businessUsers BusinessUser[]
   accounts      Account[]
 
-  @@unique([name])
+  @@unique([domain])
 }
 
 model BusinessUser {
@@ -370,6 +370,7 @@ model Campaign {
   smartleadCampaignId Int?
   outreachTimezone    String                  @default("UTC")
   defaultOutreachTime String                  @default("11:00")
+  enabledChannels     String[]                @default(["email", "linkedin", "whatsapp"])
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   contactCampaigns    ContactCampaign[]
@@ -412,6 +413,7 @@ model ContactCampaign {
   outreachDeliveryTime    String?
   nextScheduledOutreachAt DateTime?
   lastOutreachDate        DateTime?             @db.Date
+  whatsapp24hWindowExpiresAt DateTime?
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
   contact                 Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)

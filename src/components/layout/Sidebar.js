@@ -1,11 +1,11 @@
 "use client";
 import React from 'react'
 import { FaUserCircle } from 'react-icons/fa';
-import { IoPricetagOutline, IoSettingsOutline } from "react-icons/io5";
+import { IoPricetagOutline } from "react-icons/io5";
+import { HiOutlineChevronDoubleLeft, HiOutlineChevronDoubleRight, HiOutlineChevronRight, HiOutlineLink, HiOutlineSparkles, HiOutlineUserGroup } from "react-icons/hi2";
 import { MdDashboard, MdOutlineCampaign } from 'react-icons/md';
 import { HiOutlineSparkles } from "react-icons/hi2";
 import { IoIosLogOut } from "react-icons/io";
-import { HiOutlineChevronDoubleLeft, HiOutlineChevronDoubleRight } from "react-icons/hi2";
 import { useDisclosure } from '@chakra-ui/react';
 import { useUser } from '@/context/UserContext';
 import { usePathname } from 'next/navigation';
@@ -29,11 +29,12 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
     }
 
     const params = pathname.split('/')[1];
+    const campaignsActive = pathname.startsWith('/campaigns');
 
   return (
-    <div className='h-[100vh] flex flex-col justify-between p-3'>
-        <div className='w-full'>
-            <div className='flex items-center justify-between h-[5vh] w-full p-2 pb-4'>
+    <div className='h-full flex flex-col justify-between p-3 overflow-y-auto no-scrollbar'>
+        <div className='w-full shrink-0'>
+            <div className='flex items-center justify-between w-full p-2 pb-4'>
                 <Link href={'/'} className={`flex items-center ${collapsed ? 'justify-center w-full' : 'justify-start gap-2'}`}>
                     <img className='h-8' src="/logo.svg" alt={BRAND.lockup} />
                     {!collapsed && <BrandLockup />}
@@ -48,20 +49,37 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 </button>
             </div>
         </div>
-        <div className={`h-[90vh] flex flex-col justify-between w-full text-white ${collapsed ? 'items-center' : 'items-start'}`}>
+        <div className={`flex-1 min-h-0 flex flex-col justify-between w-full text-white ${collapsed ? 'items-center' : 'items-start'}`}>
             <div className='flex flex-col gap-4 w-full'>
                 {(user?.canAccessDashboard !== false) && (
                 <LinkButton collapsed={collapsed} url='/dashboard' title='Dashboard' icon={<MdDashboard size={20}/>} active={params === 'dashboard'} />
                 )}
                 {user?.canAccessCampaignOutreach !== false && (
-                <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={params === 'campaigns'} />
+                <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={campaignsActive} />
                 )}
                 <LinkButton collapsed={collapsed} url='/assist' title='AE Assist' icon={<HiOutlineSparkles size={20}/>} active={params === 'assist'} />
                 <LinkButton collapsed={collapsed} url='/settings' title='Settings' icon={<IoSettingsOutline size={20}/>} active={params === 'settings'} />
+                <LinkButton collapsed={collapsed} url='/integrations' title='Integrations' icon={<HiOutlineLink size={20}/>} active={params === 'integrations'} />
+                <LinkButton collapsed={collapsed} url='/context' title='Context' icon={<HiOutlineSparkles size={20}/>} active={params === 'context'} />
+                {user?.canManageTeam ? (
+                <LinkButton collapsed={collapsed} url='/teams' title='Team' icon={<HiOutlineUserGroup size={20}/>} active={params === 'teams'} />
+                ) : null}
                 <LinkButton collapsed={collapsed} url='/pricing' title='Pricing' icon={<IoPricetagOutline size={20}/>} active={params === 'pricing'} />
             </div>
 
             <div className='w-full'>
+                {user?.isSuperadmin ? (
+                <Link
+                    href="/admin/dashboard"
+                    className={`flex items-center w-full rounded-lg bg-brand-sage text-brand-ink text-sm font-medium hover:bg-brand-sage/90 transition-colors mb-2 ${
+                      collapsed ? "justify-center p-2.5" : "justify-between px-4 py-2.5"
+                    }`}
+                    title="Admin Panel"
+                >
+                    {!collapsed && <span>Admin Panel</span>}
+                    <HiOutlineChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+                </Link>
+                ) : null}
                 <button
                     onClick={logout.onOpen}
                     className={`flex items-center w-full cursor-pointer ${collapsed ? 'justify-center p-2.5' : 'gap-2 p-4'}`}

@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 import {
   getDecryptedSmartleadAccountId,
   getEmailIntegration,
 } from "@/lib/emailIntegration";
 import {
   buildProspectSmartleadSchedule,
-  resolveDeliveryTime,
+  resolveDeliveryTimeLocal,
   resolveTimezone,
 } from "@/lib/execution/outreachSchedule";
 import {
@@ -214,12 +215,12 @@ export async function requireConnectedEmailIntegration(tenantId) {
     !integration.hasSmartleadAccount
   ) {
     throw new Error(
-      "Connect a Smartlead inbox in Settings before sending email outreach."
+      "Connect a Smartlead inbox in Integrations before sending email outreach."
     );
   }
   const emailAccountId = await getDecryptedSmartleadAccountId(tenantId);
   if (!emailAccountId) {
-    throw new Error("Smartlead email account is missing — reconnect in Settings.");
+    throw new Error("Smartlead email account is missing — reconnect in Integrations.");
   }
   return { integration, emailAccountId: Number(emailAccountId) };
 }
@@ -444,7 +445,7 @@ export async function sendPlannedEmailViaSmartlead({
       smartleadCampaignId,
       buildProspectSmartleadSchedule({
         timezone: resolveTimezone(campaign),
-        deliveryTime: resolveDeliveryTime(prospect, campaign),
+        deliveryTime: resolveDeliveryTimeLocal(prospect, campaign),
       })
     );
   } else {
@@ -670,6 +671,8 @@ export async function applyEngagementToCommLog(log, engagement) {
     where: { id: log.id },
     data,
   });
+
+  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
 
   return { updated: true, log: updated, activity: engagement.activity };
 }

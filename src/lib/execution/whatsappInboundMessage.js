@@ -5,6 +5,10 @@ import {
   normalizePhone,
 } from "@/lib/execution/checkWhatsAppEngagement";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
+import { runPostTrackQualification } from "@/lib/execution/qualifyProspect";
+import { shouldAutoExecuteOnWebhook } from "@/lib/execution/webhookAutoExecute";
+import { computeWhatsAppWindowExpiry } from "@/lib/whatsappSessionWindow";
+import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 
 /** Match two phone numbers (full or last 10 digits). */
 export function phonesMatch(a, b) {
@@ -98,6 +102,51 @@ function alreadyProcessedInbound(log, inboundMessageId) {
   return Array.isArray(ids) && ids.includes(inboundMessageId);
 }
 
+async function refreshWhatsAppSessionWindow(contactCampaignId, repliedAtDate) {
+  const expiresAt = computeWhatsAppWindowExpiry(repliedAtDate);
+  await prisma.contactCampaign.update({
+    where: { id: contactCampaignId },
+    data: { whatsapp24hWindowExpiresAt: expiresAt },
+  });
+  return expiresAt;
+}
+
+async function createInboundOnlyCommLog({
+  tenantId,
+  contactCampaignId,
+  campaignId,
+  provider,
+  trimmedText,
+  inboundMessageId,
+  repliedAtDate,
+  messageType,
+}) {
+  const processedIds = inboundMessageId ? [inboundMessageId] : [];
+
+  return prisma.communicationLog.create({
+    data: {
+      tenantId,
+      campaignId,
+      contactCampaignId,
+      channel: "whatsapp",
+      message: "",
+      status: "delivered",
+      responseType: "reply",
+      responseAt: repliedAtDate,
+      responseContent: trimmedText,
+      decisionReason: "Inbound WhatsApp message",
+      deliveryProvider: provider ?? "meta",
+      deliveryMeta: {
+        inboundOnly: true,
+        lastInboundMessageId: inboundMessageId ?? null,
+        processedInboundIds: processedIds,
+        inboundMessageType: messageType ?? "text",
+        inboundProvider: provider,
+      },
+    },
+  });
+}
+
 /**
  * Store an inbound WhatsApp message on the prospect's comm log.
  */
@@ -118,6 +167,8 @@ export async function recordWhatsAppInboundMessage({
   if (!trimmedText) {
     return { stored: false, reason: "empty_message" };
   }
+
+  const repliedAtDate = repliedAt ? new Date(repliedAt) : new Date();
 
   let log = null;
 
@@ -143,6 +194,84 @@ export async function recordWhatsAppInboundMessage({
     }
   }
 
+  if (!log && prospect) {
+    if (inboundMessageId) {
+      const priorInbound = await prisma.communicationLog.findFirst({
+        where: {
+          tenantId,
+          contactCampaignId: prospect.id,
+          channel: "whatsapp",
+          deliveryMeta: {
+            path: ["lastInboundMessageId"],
+            equals: inboundMessageId,
+          },
+        },
+      });
+      if (priorInbound) {
+        return {
+          stored: false,
+          reason: "duplicate",
+          commLogId: priorInbound.id,
+          prospectId: prospect.id,
+        };
+      }
+    }
+
+    await refreshWhatsAppSessionWindow(prospect.id, repliedAtDate);
+
+    const created = await createInboundOnlyCommLog({
+      tenantId,
+      contactCampaignId: prospect.id,
+      campaignId: campaignId ?? prospect.campaignId,
+      provider,
+      trimmedText,
+      inboundMessageId,
+      repliedAtDate,
+      messageType,
+    });
+
+    await syncCampaignMetrics(prisma, created.campaignId);
+    await syncContactCampaignStatus(prisma, created.contactCampaignId);
+
+    const activeCampaign = await prisma.campaign.findFirst({
+      where: { id: created.campaignId, status: "active" },
+      select: { id: true },
+    });
+    if (activeCampaign) {
+      await prisma.contactCampaign.update({
+        where: { id: created.contactCampaignId },
+        data: { nextScheduledOutreachAt: new Date() },
+      });
+    }
+
+    let ranExecution = false;
+    const autoExecute =
+      triggerExecution &&
+      (await shouldAutoExecuteOnWebhook(created.campaignId));
+    if (autoExecute) {
+      await runExecutionForCampaign(created.campaignId, {
+        contactCampaignIds: [created.contactCampaignId],
+        skipDailyLimit: true,
+        forceWhatsAppFreeform: true,
+      });
+      ranExecution = true;
+    } else {
+      await runPostTrackQualification(prisma, created.campaignId, {
+        contactCampaignIds: [created.contactCampaignId],
+      });
+    }
+
+    return {
+      stored: true,
+      commLogId: created.id,
+      prospectId: created.contactCampaignId,
+      campaignId: created.campaignId,
+      responseContent: trimmedText,
+      ranExecution,
+      inboundOnly: true,
+    };
+  }
+
   if (!log) {
     return {
       stored: false,
@@ -160,7 +289,6 @@ export async function recordWhatsAppInboundMessage({
     };
   }
 
-  const repliedAtDate = repliedAt ? new Date(repliedAt) : new Date();
   const priorInbound = log.responseContent?.trim();
   let responseContent = trimmedText;
 
@@ -199,15 +327,35 @@ export async function recordWhatsAppInboundMessage({
     },
   });
 
+  await refreshWhatsAppSessionWindow(updated.contactCampaignId, repliedAtDate);
   await syncCampaignMetrics(prisma, updated.campaignId);
+  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
+
+  const activeCampaign = await prisma.campaign.findFirst({
+    where: { id: updated.campaignId, status: "active" },
+    select: { id: true },
+  });
+  if (activeCampaign) {
+    await prisma.contactCampaign.update({
+      where: { id: updated.contactCampaignId },
+      data: { nextScheduledOutreachAt: new Date() },
+    });
+  }
 
   let ranExecution = false;
-  if (triggerExecution) {
+  const autoExecute =
+    triggerExecution && (await shouldAutoExecuteOnWebhook(updated.campaignId));
+  if (autoExecute) {
     await runExecutionForCampaign(updated.campaignId, {
       contactCampaignIds: [updated.contactCampaignId],
       skipDailyLimit: true,
+      forceWhatsAppFreeform: true,
     });
     ranExecution = true;
+  } else {
+    await runPostTrackQualification(prisma, updated.campaignId, {
+      contactCampaignIds: [updated.contactCampaignId],
+    });
   }
 
   return {

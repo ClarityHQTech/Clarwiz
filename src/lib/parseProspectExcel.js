@@ -3,10 +3,11 @@ import { prospectFirstName } from "@/lib/execution/renderMessage";
 
 /**
  * Canonical prospect fields ↔ template variables:
- * {{first_name}} → firstName (fallback: first token of name)
+ * {{first_name}} → firstName (fallback: first token of name at send time)
+ * {{last_name}}  → lastName
+ * {{name}}       → name
  * {{company}}    → company
  * {{job_title}}  → jobTitle
- * {{pain_point}} → painPoint (fallback: campaign goals at send time)
  */
 export const PROSPECT_COLUMN_ALIASES = {
   name: [

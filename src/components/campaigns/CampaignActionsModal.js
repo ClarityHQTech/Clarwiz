@@ -11,11 +11,9 @@ import {
   Button,
 } from "@chakra-ui/react";
 import { useCallback, useState } from "react";
-import {
-  HiOutlineArrowPath,
-  HiOutlineBolt,
-} from "react-icons/hi2";
+import { HiOutlineBolt } from "react-icons/hi2";
 import { toast } from "sonner";
+import { modalShell, modalUi } from "@/lib/brandUi";
 import { CHANNEL_LABELS } from "@/lib/campaignConstants";
 import { ResultCard } from "@/components/campaigns/executionResultCard";
 
@@ -29,14 +27,11 @@ export default function CampaignActionsModal({
   templates = [],
   onCampaignUpdate,
   onRunExecution,
-  onTrackEngagement,
 }) {
   const whatsappTemplates = templates.filter((t) => t.channel === "whatsapp");
   const [running, setRunning] = useState(false);
-  const [tracking, setTracking] = useState(false);
   const [starting, setStarting] = useState(false);
   const [results, setResults] = useState([]);
-  const [trackResults, setTrackResults] = useState([]);
   const [commLogs, setCommLogs] = useState([]);
 
   const refreshCampaign = useCallback(async () => {
@@ -74,36 +69,6 @@ export default function CampaignActionsModal({
     }
   };
 
-  const trackEngagement = async () => {
-    if (onTrackEngagement) {
-      await onTrackEngagement();
-      return;
-    }
-    setTracking(true);
-    try {
-      const res = await fetch(`/api/campaigns/${campaignId}/track`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Tracking failed");
-      setTrackResults(data.results ?? []);
-      setCommLogs(data.commLogs ?? []);
-      const updated = data.summary?.updated ?? 0;
-      toast.success(
-        updated > 0
-          ? `Updated ${updated} engagement event(s) across channels`
-          : "No new engagement detected"
-      );
-      await refreshCampaign();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setTracking(false);
-    }
-  };
-
   const startCampaign = async () => {
     setStarting(true);
     try {
@@ -128,18 +93,25 @@ export default function CampaignActionsModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="3xl" scrollBehavior="inside">
-      <ModalOverlay />
-      <ModalContent maxH="90vh" className="!bg-brand-surface">
-        <ModalHeader className="text-base font-semibold text-brand-ink pr-10 !bg-brand-surface">
+      <ModalOverlay backdropFilter="blur(4px)" className={modalUi.overlayClass} />
+      <ModalContent
+        {...modalShell.content}
+        maxH="90vh"
+        className={modalUi.contentClass}
+      >
+        <ModalHeader
+          {...modalShell.header}
+          className={`text-base font-semibold text-brand-ink ${modalUi.headerClass}`}
+        >
           Campaign actions — {campaignName}
         </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody className="space-y-5 !bg-brand-surface">
+        <ModalCloseButton className={modalUi.closeButtonClass} />
+        <ModalBody className={`space-y-5 ${modalUi.bodyClass}`}>
           <p className="text-sm text-brand-stone">
             Run the next-best-action engine using comm history, live signals, and
             tenant ICP context. Outbound messages are sent via your connected
-            channels (Smartlead, LinkedIn, WhatsApp). Track engagement to sync
-            opens, replies, and connection accepts back into comm logs.
+            channels (Smartlead, LinkedIn, WhatsApp). Opens, replies, and inbound
+            messages sync into comm logs via webhooks in real time.
           </p>
 
           {whatsappTemplates.length > 0 ? (
@@ -186,15 +158,6 @@ export default function CampaignActionsModal({
                   <HiOutlineBolt className="h-4 w-4" />
                   {running ? "Running…" : "Run outreach"}
                 </button>
-                <button
-                  type="button"
-                  onClick={trackEngagement}
-                  disabled={tracking || !prospects?.length}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-brand-secondary/40 bg-brand-surface px-3 py-2 text-sm font-medium text-brand-stone hover:bg-brand-bg disabled:opacity-50"
-                >
-                  <HiOutlineArrowPath className="h-4 w-4" />
-                  {tracking ? "Tracking…" : "Track engagement"}
-                </button>
               </>
             )}
             {!needsActivate && (
@@ -217,22 +180,6 @@ export default function CampaignActionsModal({
                   />
                 ))}
               </div>
-            </div>
-          )}
-
-          {trackResults.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-brand-ink">
-                Tracking results ({trackResults.length})
-              </h3>
-              <ul className="text-xs text-brand-stone space-y-1 max-h-40 overflow-y-auto">
-                {trackResults.map((r, i) => (
-                  <li key={`${r.prospectId}-${r.channel}-${i}`}>
-                    {r.channel}: {r.activity ?? "no change"}
-                    {r.error ? ` — ${r.error}` : ""}
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
 
@@ -272,7 +219,7 @@ export default function CampaignActionsModal({
             </div>
           )}
         </ModalBody>
-        <ModalFooter className="!bg-brand-surface">
+        <ModalFooter {...modalShell.footer} className={modalUi.footerClass}>
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>

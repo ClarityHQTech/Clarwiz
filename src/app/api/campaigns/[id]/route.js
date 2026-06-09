@@ -8,6 +8,12 @@ import {
 } from "@/lib/campaignDetail";
 import { seedCampaignProspectSchedules } from "@/lib/execution/outreachSchedule";
 import { registerWebhooksForTenant } from "@/lib/execution/registerIntegrationWebhooks";
+import {
+  isAllowedOutreachTimezone,
+  localTimeToUtcHHmm,
+  normalizeOutreachTimezone,
+} from "@/lib/outreachTimezones";
+import { normalizeEnabledChannels } from "@/lib/campaignChannels";
 
 export async function GET(_request, { params }) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
@@ -80,9 +86,21 @@ export async function PATCH(request, { params }) {
     body.defaultOutreachTime !== undefined
   ) {
     const data = {};
+    const tz =
+      body.outreachTimezone !== undefined
+        ? normalizeOutreachTimezone(body.outreachTimezone)
+        : normalizeOutreachTimezone(campaign.outreachTimezone);
+
     if (body.outreachTimezone !== undefined) {
-      data.outreachTimezone = body.outreachTimezone?.trim() || "UTC";
+      if (!isAllowedOutreachTimezone(body.outreachTimezone)) {
+        return NextResponse.json(
+          { error: "Invalid outreach timezone" },
+          { status: 400 }
+        );
+      }
+      data.outreachTimezone = tz;
     }
+
     if (body.defaultOutreachTime !== undefined) {
       const t = body.defaultOutreachTime?.trim();
       if (t && !/^\d{1,2}:\d{2}$/.test(t)) {
@@ -91,9 +109,15 @@ export async function PATCH(request, { params }) {
           { status: 400 }
         );
       }
-      data.defaultOutreachTime = t || "11:00";
+      data.defaultOutreachTime = localTimeToUtcHHmm(t || "11:00", tz);
     }
+
     await prisma.campaign.update({ where: { id: campaign.id }, data });
+
+    if (campaign.status === "active") {
+      await seedCampaignProspectSchedules(campaign.id);
+    }
+
     return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
   }
 
@@ -109,6 +133,76 @@ export async function PATCH(request, { params }) {
     await prisma.campaign.update({
       where: { id: campaign.id },
       data: { calendlyBookingUrl: url },
+    });
+
+    return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
+  }
+
+  if (
+    body.name !== undefined ||
+    body.description !== undefined ||
+    body.targetSegment !== undefined ||
+    body.goals !== undefined ||
+    body.startDate !== undefined
+  ) {
+    const data = {};
+
+    if (body.name !== undefined) {
+      const name = body.name?.trim();
+      if (!name) {
+        return NextResponse.json(
+          { error: "Campaign name is required" },
+          { status: 400 }
+        );
+      }
+      data.name = name;
+    }
+
+    if (body.description !== undefined) {
+      data.description = body.description?.trim() || null;
+    }
+
+    if (body.targetSegment !== undefined) {
+      data.targetSegment = body.targetSegment?.trim() || null;
+    }
+
+    if (body.goals !== undefined) {
+      data.goals = body.goals?.trim() || null;
+    }
+
+    if (body.startDate !== undefined) {
+      const raw = body.startDate?.trim();
+      if (!raw) {
+        data.startDate = null;
+      } else {
+        const parsed = new Date(`${raw}T00:00:00.000Z`);
+        if (Number.isNaN(parsed.getTime())) {
+          return NextResponse.json(
+            { error: "Invalid start date" },
+            { status: 400 }
+          );
+        }
+        data.startDate = parsed;
+      }
+    }
+
+    await prisma.campaign.update({ where: { id: campaign.id }, data });
+
+    return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
+  }
+
+  if (body.enabledChannels !== undefined) {
+    const enabledChannels = normalizeEnabledChannels(body.enabledChannels);
+    if (enabledChannels.length === 0) {
+      return NextResponse.json(
+        { error: "Select at least one outreach channel" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { enabledChannels },
     });
 
     return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));

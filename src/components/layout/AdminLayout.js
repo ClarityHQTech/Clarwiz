@@ -16,7 +16,7 @@ function AdminShell({ children }) {
   if (!user?.isSuperadmin) {
     return (
       <div className="h-screen flex items-center justify-center bg-brand-bg p-6">
-        <div className="max-w-md w-full rounded-lg border border-brand-secondary/30 bg-white p-6 text-center">
+        <div className="max-w-md w-full rounded-lg border border-brand-secondary/30 bg-brand-surface p-6 text-center">
           <h1 className="text-lg font-semibold text-brand-ink">
             Super admin access required
           </h1>

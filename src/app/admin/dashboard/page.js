@@ -7,7 +7,7 @@ const Page = () => {
   return (
     <div className={`${ui.page} p-8 space-y-4`}>
       <h1 className={ui.title}>Admin Dashboard</h1>
-      <div className={`${ui.card} p-5`}>
+      <div className={`${ui.cardSurface} p-5`}>
         <p className="text-sm text-brand-stone">
           Campaign metrics and platform analytics will be added here.
         </p>

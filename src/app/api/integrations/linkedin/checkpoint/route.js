@@ -8,6 +8,7 @@ import {
   serializeLinkedInIntegration,
 } from "@/lib/linkedinIntegration";
 import { prisma } from "@/lib/prisma";
+import { registerWebhooksForTenant } from "@/lib/execution/registerIntegrationWebhooks";
 
 export async function POST(request) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CHANNEL_INTEGRATE });
@@ -84,6 +85,10 @@ export async function POST(request) {
 
   const accountId = result.data?.account_id ?? linkupAccountId;
   const record = await markLinkedInConnected(ctx.tenantId, accountId);
+
+  registerWebhooksForTenant(ctx.tenantId).catch((err) =>
+    console.warn("[linkedin/checkpoint] webhook registration:", err.message)
+  );
 
   return NextResponse.json({
     integration: serializeLinkedInIntegration(record),

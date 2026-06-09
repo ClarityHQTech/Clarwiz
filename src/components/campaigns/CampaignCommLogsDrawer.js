@@ -9,6 +9,7 @@ import {
   DrawerOverlay,
 } from "@chakra-ui/react";
 import { CHANNEL_LABELS } from "@/lib/campaignConstants";
+import { isProspectReply } from "@/lib/commLogEngagement";
 
 function formatDateTime(iso) {
   if (!iso) return "—";
@@ -72,10 +73,10 @@ function CommLogCard({ log }) {
         <p className="text-xs text-brand-stone italic">{log.decisionReason}</p>
       )}
 
-      {log.responseContent && (
+      {isProspectReply(log) && (
         <div className="rounded-md bg-brand-sage/20 border border-brand-sage/30 px-2.5 py-2">
-          <p className="text-xs font-medium text-brand-ink capitalize mb-1">
-            Reply {log.responseType ? `(${log.responseType})` : ""}
+          <p className="text-xs font-medium text-brand-ink mb-1">
+            Reply
             {log.responseAt ? ` · ${formatDateTime(log.responseAt)}` : ""}
           </p>
           <p className="text-xs text-brand-ink whitespace-pre-wrap">
@@ -90,6 +91,9 @@ function CommLogCard({ log }) {
         {cost && <span>{cost}</span>}
         {log.deliveryProvider && (
           <span className="capitalize">{log.deliveryProvider}</span>
+        )}
+        {log.openedAt && (
+          <span>Opened {formatDateTime(log.openedAt)}</span>
         )}
         {log.ctaClickedAt && (
           <span>Link clicked {formatDateTime(log.ctaClickedAt)}</span>

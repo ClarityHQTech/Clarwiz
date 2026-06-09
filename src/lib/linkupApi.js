@@ -8,15 +8,19 @@ function getApiKey() {
   return key;
 }
 
-async function linkupRequest(path, body) {
-  const res = await fetch(`${LINKUP_BASE}${path}`, {
-    method: "POST",
+async function linkupRequest(path, body, { method = "POST" } = {}) {
+  const init = {
+    method,
     headers: {
       "x-api-key": getApiKey(),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
-  });
+  };
+  if (method !== "GET" && method !== "DELETE" && body !== undefined) {
+    init.body = JSON.stringify(body ?? {});
+  }
+
+  const res = await fetch(`${LINKUP_BASE}${path}`, init);
 
   const data = await res.json().catch(() => ({}));
 
@@ -129,6 +133,21 @@ export async function linkupListConnections({
   return assertLinkupSuccess(result, "Failed to list LinkedIn connections");
 }
 
+/** POST /v2/profiles — action get (1 credit). Resolves URN URLs to vanity profile_url / public_id. */
+export async function linkupGetProfile({ accountId, profileUrl, identifier, profileUrn }) {
+  const params = {};
+  if (profileUrl) params.profile_url = profileUrl;
+  if (identifier) params.identifier = identifier;
+  if (profileUrn) params.profile_urn = profileUrn;
+
+  const result = await linkupAction("profiles", {
+    accountId,
+    action: "get",
+    params,
+  });
+  return assertLinkupSuccess(result, "Failed to get LinkedIn profile");
+}
+
 /** POST /v2/network — action check_invitation (1 credit). */
 export async function linkupCheckInvitation({ accountId, profileUrl }) {
   const result = await linkupAction("network", {
@@ -193,4 +212,30 @@ export async function linkupCreateWebhook({
   };
   const result = await linkupRequest("/webhooks", body);
   return assertLinkupSuccess(result, "Failed to create Linkup webhook");
+}
+
+/** DELETE /v2/webhooks/{webhook_id} — permanently delete a webhook. */
+export async function linkupDeleteWebhook(webhookId) {
+  const id = String(webhookId ?? "").trim();
+  if (!id) throw new Error("Webhook id is required");
+  const result = await linkupRequest(`/webhooks/${id}`, undefined, {
+    method: "DELETE",
+  });
+  return assertLinkupSuccess(result, "Failed to delete LinkedIn webhook");
+}
+
+/** POST /v2/webhooks/{webhook_id}/stop — pause SSE monitoring (stops credit billing). */
+export async function linkupStopWebhook(webhookId) {
+  const id = String(webhookId ?? "").trim();
+  if (!id) throw new Error("Webhook id is required");
+  const result = await linkupRequest(`/webhooks/${id}/stop`, {});
+  return assertLinkupSuccess(result, "Failed to stop LinkedIn webhook monitoring");
+}
+
+/** POST /v2/webhooks/{webhook_id}/start — resume monitoring after /stop. */
+export async function linkupStartWebhook(webhookId) {
+  const id = String(webhookId ?? "").trim();
+  if (!id) throw new Error("Webhook id is required");
+  const result = await linkupRequest(`/webhooks/${id}/start`, {});
+  return assertLinkupSuccess(result, "Failed to start LinkedIn webhook monitoring");
 }

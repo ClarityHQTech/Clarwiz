@@ -28,10 +28,12 @@ const TenantDetailsDrawer = ({
   return (
     <Drawer isOpen={open} placement="right" onClose={onClose} size="md">
       <DrawerOverlay />
-      <DrawerContent>
+      <DrawerContent className="!bg-brand-surface">
         <DrawerCloseButton />
-        <DrawerHeader borderBottomWidth="1px">Tenant Details</DrawerHeader>
-        <DrawerBody py={4}>
+        <DrawerHeader borderBottomWidth="1px" className="!bg-brand-surface">
+          Tenant Details
+        </DrawerHeader>
+        <DrawerBody py={4} className="!bg-brand-surface">
 
         {loading ? (
           <p className="mt-6 text-sm text-brand-stone">Loading details...</p>

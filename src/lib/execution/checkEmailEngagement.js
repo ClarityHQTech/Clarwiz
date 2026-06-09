@@ -7,6 +7,7 @@ import {
 } from "@/lib/smartleadOutreach";
 import { getDecryptedSmartleadAccountId } from "@/lib/emailIntegration";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
+import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 
 export async function checkEmailEngagementForProspect({
   campaignId,
@@ -89,6 +90,9 @@ export async function checkEmailEngagementForProspect({
           },
         },
       });
+      if (resolved.status === "sent" || resolved.status === "delivered") {
+        await syncContactCampaignStatus(prisma, prospectId);
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import {
   getLatestProspectReply,
   isReplyFollowUp,
 } from "@/lib/execution/humanizeOutboundMessage";
+import { DEFAULT_ENABLED_CHANNELS } from "@/lib/campaignChannels";
 
 /**
  * Runtime helpers for execution-layer constraints.
@@ -14,11 +15,17 @@ export const EXECUTION_RULES_DOC = "docs/execution-layer-rules.md";
 /** Channels the execution layer may plan, push, and track. */
 export const ACTIVE_EXECUTION_CHANNELS = ["email", "linkedin", "whatsapp"];
 
-export function availableProspectChannels(prospect) {
+export function availableProspectChannels(prospect, enabledChannels = null) {
+  const enabled = enabledChannels ?? DEFAULT_ENABLED_CHANNELS;
+
   const channels = [];
-  if (prospect?.email) channels.push("email");
-  if (prospect?.linkedinUrl) channels.push("linkedin");
-  if (prospect?.whatsapp) channels.push("whatsapp");
+  if (prospect?.email && enabled.includes("email")) channels.push("email");
+  if (prospect?.linkedinUrl && enabled.includes("linkedin")) {
+    channels.push("linkedin");
+  }
+  if (prospect?.whatsapp && enabled.includes("whatsapp")) {
+    channels.push("whatsapp");
+  }
   return channels;
 }
 
@@ -27,13 +34,18 @@ export function availableProspectChannels(prospect) {
  * @see docs/execution-layer-rules.md §2
  */
 export function isLinkedInConnectionAccepted(commHistory) {
-  return (commHistory ?? []).some(
-    (log) =>
-      log.channel === "linkedin" &&
-      log.ctaType === "connect_linkedin" &&
-      (log.responseType === "connected" ||
-        log.deliveryMeta?.invitationState === "ACCEPTED")
-  );
+  return (commHistory ?? []).some((log) => {
+    if (log.channel !== "linkedin") return false;
+    if (log.responseType === "connected") return true;
+    if (log.deliveryMeta?.invitationState === "ACCEPTED") return true;
+    if (
+      log.deliveryMeta?.action === "send" &&
+      ["sent", "queued", "delivered"].includes(log.status)
+    ) {
+      return true;
+    }
+    return false;
+  });
 }
 
 /** LinkedIn DMs require an accepted connection (§2). */
@@ -46,6 +58,32 @@ export function isLinkedInConnectionRequest(decision) {
     decision?.channel === "linkedin" &&
     decision?.ctaType === "connect_linkedin"
   );
+}
+
+/** Connection invite sent but not yet accepted (§2). */
+export function hasLinkedInConnectionPending(commHistory) {
+  if (isLinkedInConnectionAccepted(commHistory)) return false;
+  return (commHistory ?? []).some(
+    (log) =>
+      log.channel === "linkedin" &&
+      ["sent", "queued", "delivered"].includes(log.status) &&
+      (log.ctaType === "connect_linkedin" ||
+        log.deliveryMeta?.invitationState === "PENDING")
+  );
+}
+
+export { getWhatsAppCopilotUiState } from "@/lib/whatsappSessionWindow";
+
+/** UI / copilot send eligibility for LinkedIn on a contact thread. */
+export function getLinkedInCopilotUiState(commHistory) {
+  const connectionAccepted = isLinkedInConnectionAccepted(commHistory);
+  const connectionPending = hasLinkedInConnectionPending(commHistory);
+  return {
+    connectionAccepted,
+    connectionPending,
+    canSendConnection: !connectionAccepted && !connectionPending,
+    canSendMessage: connectionAccepted,
+  };
 }
 
 /**
@@ -95,36 +133,42 @@ export function enforceReplyChannelPriority(
 /**
  * Block or remap invalid channel decisions (e.g. call, unavailable channel).
  */
-export function enforceChannelRules(decision, prospectChannels, commHistory = []) {
+export function enforceChannelRules(
+  decision,
+  prospectChannels,
+  commHistory = [],
+  enabledChannels = ACTIVE_EXECUTION_CHANNELS
+) {
   if (!decision || decision.skip) return decision;
 
   let channel = decision.channel;
-  if (channel === "call" || !ACTIVE_EXECUTION_CHANNELS.includes(channel)) {
-    channel = prospectChannels[0] ?? null;
+  if (channel && !enabledChannels.includes(channel)) {
+    return {
+      ...decision,
+      skip: true,
+      skipReason: `Channel "${channel}" is not enabled for this campaign`,
+      channel,
+    };
   }
-  if (channel && !prospectChannels.includes(channel)) {
-    channel = prospectChannels[0] ?? null;
+
+  const allowedProspectChannels = prospectChannels.filter((ch) =>
+    enabledChannels.includes(ch)
+  );
+
+  if (channel === "call" || !ACTIVE_EXECUTION_CHANNELS.includes(channel)) {
+    channel = allowedProspectChannels[0] ?? null;
+  }
+  if (channel && !allowedProspectChannels.includes(channel)) {
+    channel = allowedProspectChannels[0] ?? null;
   }
   if (!channel) {
     return {
       ...decision,
       skip: true,
       skipReason:
-        "No supported contact channel available (email, linkedin, whatsapp only)",
-    };
-  }
-
-  if (
-    channel === "linkedin" &&
-    !isLinkedInConnectionRequest(decision) &&
-    !canPushLinkedInMessage(commHistory)
-  ) {
-    return {
-      ...decision,
-      skip: true,
-      skipReason:
-        "LinkedIn message blocked: send a connection request and wait for acceptance before DM (see docs/execution-layer-rules.md §2)",
-      channel: "linkedin",
+        allowedProspectChannels.length === 0
+          ? "No enabled contact channels available for this prospect"
+          : "No supported contact channel available (email, linkedin, whatsapp only)",
     };
   }
 

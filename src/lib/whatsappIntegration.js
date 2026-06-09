@@ -13,8 +13,12 @@ import {
   normalizeMetaTemplates,
   validateMetaConnection,
 } from "@/lib/metaWhatsAppApi";
+import {
+  hasMetaVerifyToken,
+  saveMetaVerifyToken,
+} from "@/lib/integrationWebhooks";
 
-export function serializeWhatsAppIntegration(record) {
+export function serializeWhatsAppIntegration(record, { hasWebhookVerifyToken = false } = {}) {
   if (!record) return null;
 
   const templates = Array.isArray(record.templatesCache)
@@ -30,6 +34,7 @@ export function serializeWhatsAppIntegration(record) {
     businessPhone: record.businessPhone,
     businessName: record.businessName,
     hasMetaTokenForTemplates: Boolean(record.encryptedMetaToken),
+    hasWebhookVerifyToken,
     templateCount: templates.length,
     templates,
     templatesCachedAt: record.templatesCachedAt?.toISOString() ?? null,
@@ -44,16 +49,19 @@ export async function getWhatsAppIntegration(tenantId, { refresh = false } = {})
   });
   if (!record) return null;
 
+  let resolved = record;
   if (refresh) {
     try {
-      const updated = await refreshTemplatesCache(record);
-      return serializeWhatsAppIntegration(updated);
+      resolved = await refreshTemplatesCache(record);
     } catch {
       // Return cached row if refresh fails
     }
   }
 
-  return serializeWhatsAppIntegration(record);
+  const hasWebhookVerifyToken =
+    resolved.mode === "meta" ? await hasMetaVerifyToken(tenantId) : false;
+
+  return serializeWhatsAppIntegration(resolved, { hasWebhookVerifyToken });
 }
 
 export async function getDecryptedAccessToken(tenantId) {
@@ -98,7 +106,16 @@ export async function refreshTemplatesCache(record) {
   });
 }
 
-export async function connectMetaWhatsApp(tenantId, { accessToken, phoneNumberId, wabaId }) {
+export async function connectMetaWhatsApp(
+  tenantId,
+  { accessToken, phoneNumberId, wabaId, webhookVerifyToken }
+) {
+  if (!webhookVerifyToken?.trim()) {
+    throw new Error(
+      "Webhook verify token is required (same value you set in Meta Developer Console)"
+    );
+  }
+
   const meta = await validateMetaConnection({ accessToken, phoneNumberId, wabaId });
 
   const record = await prisma.whatsAppIntegration.upsert({
@@ -128,7 +145,22 @@ export async function connectMetaWhatsApp(tenantId, { accessToken, phoneNumberId
     },
   });
 
-  return refreshTemplatesCache(record);
+  await saveMetaVerifyToken(tenantId, webhookVerifyToken);
+
+  const updated = await refreshTemplatesCache(record);
+  return serializeWhatsAppIntegration(updated, { hasWebhookVerifyToken: true });
+}
+
+export async function updateMetaWebhookVerifyToken(tenantId, webhookVerifyToken) {
+  const record = await prisma.whatsAppIntegration.findUnique({
+    where: { tenantId },
+  });
+  if (!record || record.mode !== "meta") {
+    throw new Error("Connect Meta WhatsApp first");
+  }
+
+  await saveMetaVerifyToken(tenantId, webhookVerifyToken);
+  return serializeWhatsAppIntegration(record, { hasWebhookVerifyToken: true });
 }
 
 export async function connectInteraktWhatsApp(

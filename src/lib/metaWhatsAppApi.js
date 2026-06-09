@@ -228,6 +228,33 @@ export async function sendMarketingTemplateMessage({
   });
 }
 
+/** Send a free-form text message during an open customer service window. */
+export async function sendTextMessage({
+  phoneNumberId,
+  accessToken,
+  to,
+  body,
+  previewUrl = false,
+  callbackData,
+}) {
+  const payload = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: to.replace(/\D/g, ""),
+    type: "text",
+    text: {
+      preview_url: Boolean(previewUrl),
+      body: String(body),
+    },
+    ...(callbackData ? { biz_opaque_callback_data: String(callbackData) } : {}),
+  };
+
+  return graphFetch(`/${phoneNumberId}/messages`, accessToken, {
+    method: "POST",
+    body: payload,
+  });
+}
+
 /** Fetch message status by WAMID (best-effort poll; webhooks are primary). */
 export async function getWhatsAppMessageStatus(messageId, accessToken) {
   if (!messageId?.trim()) return null;

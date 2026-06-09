@@ -27,7 +27,7 @@ const Loader = ({
       <div className="relative flex items-center justify-center">
         <div
           style={ringStyle}
-          className="absolute rounded-full border-4 border-brand-sage border-t-transparent animate-spin"
+          className="absolute rounded-full border-4 border-gray-600 border-t-transparent animate-spin"
         />
         <img
           src="/logo.svg"
