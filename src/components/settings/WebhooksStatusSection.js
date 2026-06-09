@@ -31,7 +31,7 @@ function getStatusDescription(wh, statusKey) {
   }
   if (statusKey === "paused") {
     if (wh.provider === "linkup") {
-      return "Monitoring paused — no credit billing · Resume when running autopilot campaigns";
+      return "Monitoring paused — no credit billing · Resume when tracking campaign engagement";
     }
     return "Paused";
   }
@@ -222,8 +222,9 @@ export default function WebhooksStatusSection({ refreshSignal = 0 }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="text-sm text-brand-stone max-w-2xl">
           Webhooks deliver opens, replies, connection accepts, and message events into comm
-          logs for autopilot campaigns. They are set up automatically when you connect a channel,
-          or via the steps below when manual configuration is required.
+          logs in real time for all campaigns (copilot and autopilot). They are set up
+          automatically when you connect a channel, or via the steps below when manual
+          configuration is required.
         </p>
         <div className="flex flex-wrap gap-2 shrink-0">
           <button

@@ -7,6 +7,8 @@ import {
   applyLinkedInReplyEngagement,
 } from "@/lib/execution/applyChannelEngagement";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
+import { runPostTrackQualification } from "@/lib/execution/qualifyProspect";
+import { shouldAutoExecuteOnWebhook } from "@/lib/execution/webhookAutoExecute";
 import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 import {
   getDecryptedSigningSecret,
@@ -44,7 +46,22 @@ async function findLatestEmailLog(campaignId, contactCampaignId) {
   });
 }
 
+async function afterWebhookReply(campaignId, contactCampaignId) {
+  try {
+    await runPostTrackQualification(prisma, campaignId, {
+      contactCampaignIds: [contactCampaignId],
+    });
+  } catch (err) {
+    console.error("[webhook] qualification failed:", err.message);
+  }
+}
+
 async function triggerReplyExecution(campaignId, contactCampaignId) {
+  if (!(await shouldAutoExecuteOnWebhook(campaignId))) {
+    await afterWebhookReply(campaignId, contactCampaignId);
+    return;
+  }
+
   try {
     await runExecutionForCampaign(campaignId, {
       contactCampaignIds: [contactCampaignId],

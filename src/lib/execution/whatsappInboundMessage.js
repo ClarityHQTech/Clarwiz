@@ -5,6 +5,8 @@ import {
   normalizePhone,
 } from "@/lib/execution/checkWhatsAppEngagement";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
+import { runPostTrackQualification } from "@/lib/execution/qualifyProspect";
+import { shouldAutoExecuteOnWebhook } from "@/lib/execution/webhookAutoExecute";
 import { computeWhatsAppWindowExpiry } from "@/lib/whatsappSessionWindow";
 import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
 
@@ -243,13 +245,20 @@ export async function recordWhatsAppInboundMessage({
     }
 
     let ranExecution = false;
-    if (triggerExecution) {
+    const autoExecute =
+      triggerExecution &&
+      (await shouldAutoExecuteOnWebhook(created.campaignId));
+    if (autoExecute) {
       await runExecutionForCampaign(created.campaignId, {
         contactCampaignIds: [created.contactCampaignId],
         skipDailyLimit: true,
         forceWhatsAppFreeform: true,
       });
       ranExecution = true;
+    } else {
+      await runPostTrackQualification(prisma, created.campaignId, {
+        contactCampaignIds: [created.contactCampaignId],
+      });
     }
 
     return {
@@ -334,13 +343,19 @@ export async function recordWhatsAppInboundMessage({
   }
 
   let ranExecution = false;
-  if (triggerExecution) {
+  const autoExecute =
+    triggerExecution && (await shouldAutoExecuteOnWebhook(updated.campaignId));
+  if (autoExecute) {
     await runExecutionForCampaign(updated.campaignId, {
       contactCampaignIds: [updated.contactCampaignId],
       skipDailyLimit: true,
       forceWhatsAppFreeform: true,
     });
     ranExecution = true;
+  } else {
+    await runPostTrackQualification(prisma, updated.campaignId, {
+      contactCampaignIds: [updated.contactCampaignId],
+    });
   }
 
   return {

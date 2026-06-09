@@ -13,6 +13,7 @@ import {
   resolveOrCreateContact,
 } from "@/lib/resolveBusinessUser";
 import { computeNextOutreachAt } from "@/lib/execution/outreachSchedule";
+import { registerWebhooksForTenant } from "@/lib/execution/registerIntegrationWebhooks";
 
 const CTA_VALUES = ["book_demo", "reply_email", "connect_linkedin", "visit_website"];
 
@@ -206,6 +207,10 @@ export async function POST(request) {
         include: { _count: { select: { contactCampaigns: true } } },
       });
     });
+
+    registerWebhooksForTenant(ctx.tenantId, { campaignId: campaign.id }).catch(
+      (err) => console.warn("[campaign create] webhook registration:", err.message)
+    );
 
     return NextResponse.json(serializeCampaign(campaign), { status: 201 });
   } catch (error) {

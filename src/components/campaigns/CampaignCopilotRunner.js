@@ -2,12 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { HiOutlineArrowPath, HiOutlineBolt } from "react-icons/hi2";
+import { HiOutlineBolt } from "react-icons/hi2";
 import { ResultCard } from "@/components/campaigns/executionResultCard";
 import { ui } from "@/lib/brandUi";
 
 /**
- * Sequential copilot: for each prospect, run outreach then track.
+ * Sequential copilot: for each prospect, run outreach (engagement via webhooks).
  */
 export default function CampaignCopilotRunner({
   campaignId,
@@ -59,31 +59,6 @@ export default function CampaignCopilotRunner({
           execResult,
         };
         setSteps([...log]);
-
-        log.push({
-          prospectId: prospect.id,
-          prospectName: prospect.name,
-          phase: "track",
-          status: "running",
-        });
-        setSteps([...log]);
-
-        const trackRes = await fetch(`/api/campaigns/${campaignId}/track`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prospectIds: [prospect.id] }),
-        });
-        const trackData = await trackRes.json();
-        if (!trackRes.ok) throw new Error(trackData.error || "Tracking failed");
-
-        log[log.length - 1] = {
-          ...log[log.length - 1],
-          phase: "track",
-          status: "done",
-          trackResult: trackData.results?.[0],
-          trackSummary: trackData.summary,
-        };
-        setSteps([...log]);
       } catch (err) {
         log[log.length - 1] = {
           ...log[log.length - 1],
@@ -107,7 +82,8 @@ export default function CampaignCopilotRunner({
         <div>
           <h3 className="text-sm font-semibold text-brand-ink">Copilot outreach</h3>
           <p className="text-xs text-brand-stone mt-0.5">
-            Runs outreach then tracking for each prospect in order.
+            Runs outreach for each prospect in order. Engagement is tracked via
+            webhooks in real time.
           </p>
         </div>
         <button
@@ -135,11 +111,7 @@ export default function CampaignCopilotRunner({
               key={`${step.prospectId}-${step.phase}-${idx}`}
               className="flex items-start gap-2 border-b border-brand-sand/40 pb-2"
             >
-              {step.phase === "track" ? (
-                <HiOutlineArrowPath className="h-3.5 w-3.5 mt-0.5 shrink-0 text-brand-stone" />
-              ) : (
-                <HiOutlineBolt className="h-3.5 w-3.5 mt-0.5 shrink-0 text-brand-terracotta" />
-              )}
+              <HiOutlineBolt className="h-3.5 w-3.5 mt-0.5 shrink-0 text-brand-terracotta" />
               <div className="min-w-0 flex-1">
                 <span className="font-medium text-brand-ink">{step.prospectName}</span>
                 <span className="text-brand-stone"> — {step.phase}</span>

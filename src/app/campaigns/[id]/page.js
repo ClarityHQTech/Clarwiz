@@ -23,7 +23,6 @@ import {
   HiOutlinePause,
   HiOutlinePlus,
   HiOutlineBolt,
-  HiOutlineArrowPath,
   HiOutlineClipboardDocumentList,
   HiOutlineTrash,
   HiOutlineCog6Tooth,
@@ -127,7 +126,6 @@ const Page = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [runLoading, setRunLoading] = useState(false);
-  const [trackLoading, setTrackLoading] = useState(false);
   const [search, setSearch] = useState("");
   const {
     isOpen: prospectDrawerOpen,
@@ -200,8 +198,8 @@ const Page = () => {
       setCampaign(data);
       toast.success(
         action === "start"
-          ? "Campaign launched — autopilot outreach and webhook tracking enabled."
-          : "Campaign paused."
+          ? "Campaign launched — autopilot outreach enabled."
+          : "Campaign paused — copilot mode with real-time webhook tracking."
       );
     } catch (err) {
       toast.error(err.message);
@@ -230,30 +228,6 @@ const Page = () => {
       toast.error(err.message);
     } finally {
       setRunLoading(false);
-    }
-  };
-
-  const trackEngagement = async () => {
-    setTrackLoading(true);
-    try {
-      const res = await fetch(`/api/campaigns/${id}/track`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Tracking failed");
-      const updated = data.summary?.updated ?? 0;
-      toast.success(
-        updated > 0
-          ? `Updated ${updated} engagement event(s)`
-          : "No new engagement detected"
-      );
-      await fetchCampaign();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setTrackLoading(false);
     }
   };
 
@@ -317,6 +291,7 @@ const Page = () => {
     campaign.status === "draft" || campaign.status === "paused";
   const canPause = campaign.status === "active";
   const isAutopilot = campaign.status === "active";
+  const isCopilot = canStart;
   const enabledChannels =
     campaign.enabledChannels ?? DEFAULT_ENABLED_CHANNELS;
   const outreachTimezoneName = outreachTimezoneLabel(campaign.outreachTimezone);
@@ -389,32 +364,34 @@ const Page = () => {
             Activity log
           </button>
           {canStart && metrics.prospectCount > 0 && (
-            <>
-              <button
-                type="button"
-                disabled={runLoading}
-                onClick={runNextBestAction}
-                className={`${ui.btnSecondarySurface} disabled:opacity-50`}
-              >
-                <HiOutlineBolt className="h-4 w-4" />
-                {runLoading ? "Running…" : "Run outreach"}
-              </button>
-              <button
-                type="button"
-                disabled={trackLoading}
-                onClick={trackEngagement}
-                className={`${ui.btnSecondarySurface} disabled:opacity-50`}
-              >
-                <HiOutlineArrowPath className="h-4 w-4" />
-                {trackLoading ? "Tracking…" : "Track"}
-              </button>
-            </>
+            <button
+              type="button"
+              disabled={runLoading}
+              onClick={runNextBestAction}
+              className={`${ui.btnSecondarySurface} disabled:opacity-50`}
+            >
+              <HiOutlineBolt className="h-4 w-4" />
+              {runLoading ? "Running…" : "Run outreach"}
+            </button>
           )}
           {campaign.status === "completed" && (
             <span className="text-xs text-brand-stone px-2">Campaign completed</span>
           )}
         </div>
       </div>
+
+      {isCopilot && (
+        <div className={`${ui.alertInfo} space-y-1`}>
+          <p>
+            Copilot mode — run outreach manually. Opens, replies, and inbound
+            messages are tracked in real time via webhooks (configure in{" "}
+            <Link href="/integrations" className="font-medium underline text-brand-ink">
+              Integrations
+            </Link>
+            ). Messages are not sent automatically.
+          </p>
+        </div>
+      )}
 
       {isAutopilot && (
         <div className={`${ui.alertInfo} space-y-1`}>
@@ -426,7 +403,7 @@ const Page = () => {
               campaign.defaultOutreachTime ?? "11:00",
               campaign.outreachTimezone
             )}{" "}
-            UTC). Tracking is via webhooks — configure them in{" "}
+            UTC). Engagement is tracked via webhooks — configure them in{" "}
             <Link href="/integrations" className="font-medium underline text-brand-ink">
               Integrations
             </Link>
