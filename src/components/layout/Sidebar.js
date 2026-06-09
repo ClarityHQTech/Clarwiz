@@ -4,6 +4,7 @@ import { FaUserCircle } from 'react-icons/fa';
 import { IoPricetagOutline } from "react-icons/io5";
 import { HiOutlineChevronDoubleLeft, HiOutlineChevronDoubleRight, HiOutlineChevronRight, HiOutlineLink, HiOutlineSparkles, HiOutlineUserGroup } from "react-icons/hi2";
 import { MdDashboard, MdOutlineCampaign } from 'react-icons/md';
+import { HiOutlineSparkles } from "react-icons/hi2";
 import { IoIosLogOut } from "react-icons/io";
 import { useDisclosure } from '@chakra-ui/react';
 import { useUser } from '@/context/UserContext';
@@ -56,6 +57,8 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 {user?.canAccessCampaignOutreach !== false && (
                 <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={campaignsActive} />
                 )}
+                <LinkButton collapsed={collapsed} url='/assist' title='AE Assist' icon={<HiOutlineSparkles size={20}/>} active={params === 'assist'} />
+                <LinkButton collapsed={collapsed} url='/settings' title='Settings' icon={<IoSettingsOutline size={20}/>} active={params === 'settings'} />
                 <LinkButton collapsed={collapsed} url='/integrations' title='Integrations' icon={<HiOutlineLink size={20}/>} active={params === 'integrations'} />
                 <LinkButton collapsed={collapsed} url='/context' title='Context' icon={<HiOutlineSparkles size={20}/>} active={params === 'context'} />
                 {user?.canManageTeam ? (

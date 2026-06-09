@@ -40,6 +40,69 @@ enum ContactCampaignStatus {
   PAUSED
 }
 
+// ── MOFU (AE Assist) layer ──────────────────────────────────────────────
+enum DealStageBand {
+  LEAD
+  DEAL_EARLY
+  DEAL_LATE
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum NbaStatus {
+  SUGGESTED
+  DRAFTED
+  APPROVED
+  EXECUTED
+  DISMISSED
+}
+
+enum CollateralType {
+  MARKETING_DOC
+  PITCH_DECK
+  BATTLECARD
+  ONE_PAGER
+  CASE_STUDY
+  EMAIL_TEMPLATE
+  OTHER
+}
+
+enum CollateralSrc {
+  GENERATED
+  HEYPARROT
+  PILOT
+  UPLOAD
+}
+
+enum CollateralCategory {
+  MARKETING
+  SALES
+}
+
+enum FunnelStage {
+  LEAD
+  DEAL_EARLY
+  DEAL_LATE
+  ANY
+}
+
+enum AssistAction {
+  INSIGHT_COMPUTED
+  NBA_DRAFTED
+  NBA_EXECUTED
+  EMAIL_DRAFTED
+  COLLATERAL_SENT
+  TASK_CREATED
+  NOTE_ADDED
+  DEAL_CREATED
+  MEETING_SCHEDULED
+  CHAT_QUERY
+}
+
 model Company {
   id            String         @id @default(cuid())
   name          String
@@ -48,6 +111,7 @@ model Company {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   businessUsers BusinessUser[]
+  accounts      Account[]
 
   @@unique([domain])
 }
@@ -126,6 +190,16 @@ model Tenant {
   calendlyIntegration CalendlyIntegration?
   tenantIcpContext    TenantIcpContext?
   integrationWebhooks IntegrationWebhook[]
+  mofuIntegration     MofuIntegration?
+  accounts            Account[]
+  deals               Deal[]
+  dealInsights        DealInsight[]
+  companyInsights     CompanyInsight[]
+  nbas                NbaRecommendation[]
+  signals             Signal[]
+  collateralIndex     CollateralIndex[]
+  assistActionLogs    AssistActionLog[]
+  documents           Document[]
 }
 
 model ExternalApiKey {
@@ -307,19 +381,26 @@ model Campaign {
 }
 
 model Contact {
-  id               String            @id @default(cuid())
+  id               String              @id @default(cuid())
   tenantId         String
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   businessUserId   String
-  businessUser     BusinessUser      @relation(fields: [businessUserId], references: [id], onDelete: Restrict)
-  persona          ContactPersona    @default(OTHER)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  businessUser     BusinessUser        @relation(fields: [businessUserId], references: [id], onDelete: Restrict)
+  persona          ContactPersona      @default(OTHER)
+  hubspotContactId String?
+  lifecycleStage   String?
+  ownerId          String? // HubSpot hubspot_owner_id — for "my book" owner filtering
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   contactCampaigns ContactCampaign[]
+  dealContacts     DealContact[]
+  nbas             NbaRecommendation[]
 
   @@unique([tenantId, businessUserId])
+  @@unique([tenantId, hubspotContactId])
   @@index([tenantId])
   @@index([businessUserId])
+  @@index([tenantId, ownerId])
 }
 
 model ContactCampaign {
@@ -369,16 +450,16 @@ model CommunicationLog {
   responseContent   String?
   signalRef         String?
   decisionReason    String?
-  modelUsed           String?
-  providerUsage       Json?
-  providerCost        Json?
-  deliveryProvider    String?
-  deliveryMeta        Json?
-  scheduledFor        DateTime?
-  retryCount          Int             @default(0)
-  lastRetryAt         DateTime?
-  nextRetryAt         DateTime?
-  createdAt           DateTime        @default(now())
+  modelUsed         String?
+  providerUsage     Json?
+  providerCost      Json?
+  deliveryProvider  String?
+  deliveryMeta      Json?
+  scheduledFor      DateTime?
+  retryCount        Int             @default(0)
+  lastRetryAt       DateTime?
+  nextRetryAt       DateTime?
+  createdAt         DateTime        @default(now())
 
   @@index([tenantId])
   @@index([tenantId, sentAt])
@@ -426,4 +507,259 @@ model CommunicationTemplate {
   createdAt               DateTime @default(now())
 
   @@index([campaignId])
+}
+
+// ── MOFU (AE Assist) layer — intelligence over the shared CRM graph ──────
+// SOR stays HubSpot; these mirror + store Clarwiz-computed intelligence.
+
+/// Per-tenant MOFU config: HubSpot creds + LLM/prompt config (mirrors LinkedInIntegration).
+model MofuIntegration {
+  id                           String    @id @default(cuid())
+  tenantId                     String    @unique
+  tenant                       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  encryptedHubspotToken        String? // PAT (private-app token) path
+  connectionMode               String    @default("pat") // "pat" | "oauth"
+  encryptedHubspotAccessToken  String? // OAuth access token (short-lived)
+  encryptedHubspotRefreshToken String? // OAuth refresh token (long-lived)
+  hubspotTokenExpiresAt        DateTime?
+  hubspotScopes                String[]  @default([])
+  hubspotPortalId              String?
+  hubspotSingleSendEmailId     String? // saved transactional email id for real Single Send delivery
+  defaultOwnerId               String?
+  insightModel                 String?
+  promptVersion                String?
+  status                       String    @default("pending")
+  connectedAt                  DateTime?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+}
+
+/// Tenant ↔ Company bridge (company-side mirror of Contact) + HubSpot linkage.
+model Account {
+  id               String           @id @default(cuid())
+  tenantId         String
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyId        String?
+  company          Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  hubspotCompanyId String
+  ownerId          String?
+  lifecycleStage   String?
+  payload          Json?
+  syncedAt         DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deals            Deal[]
+  companyInsights  CompanyInsight[]
+  signals          Signal[]
+
+  @@unique([tenantId, hubspotCompanyId])
+  @@index([tenantId])
+  @@index([tenantId, ownerId])
+  @@index([companyId])
+}
+
+/// Tenant-scoped deal mirror + the anchor for all deal intelligence.
+model Deal {
+  id             String              @id @default(cuid())
+  tenantId       String
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accountId      String?
+  account        Account?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  hubspotDealId  String
+  name           String
+  stageLabel     String?
+  stageBand      DealStageBand?
+  amount         Float?
+  status         DealStatus          @default(OPEN)
+  ownerId        String?
+  score          Int?
+  lastActivityAt DateTime?
+  payload        Json?
+  syncedAt       DateTime            @default(now())
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  insights       DealInsight[]
+  nbas           NbaRecommendation[]
+  signals        Signal[]
+  dealContacts   DealContact[]
+
+  @@unique([tenantId, hubspotDealId])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([accountId])
+  @@index([tenantId, ownerId])
+}
+
+/// Deal ↔ Contact stakeholders (reuses the shared Contact graph).
+model DealContact {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  role      String?
+  createdAt DateTime @default(now())
+
+  @@unique([dealId, contactId])
+  @@index([contactId])
+}
+
+/// Stored computed deal intelligence (AURA-structured payload, computed in Clarwiz).
+model DealInsight {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealId        String
+  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  score         Int?
+  briefing      String?  @db.Text
+  summary       String?  @db.Text
+  payload       Json
+  model         String?
+  promptVersion String?
+  tokensUsed    Json?
+  computedAt    DateTime @default(now())
+
+  @@index([dealId])
+  @@index([tenantId, computedAt])
+}
+
+/// Stored computed company intelligence (the 10-tab payload).
+model CompanyInsight {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  payload       Json
+  model         String?
+  promptVersion String?
+  tokensUsed    Json?
+  computedAt    DateTime @default(now())
+
+  @@index([accountId])
+  @@index([tenantId, computedAt])
+}
+
+/// Next best actions — computed in Clarwiz, with draft→approve→execute lifecycle.
+model NbaRecommendation {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealId       String?
+  deal         Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId    String?
+  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  signalId     String?
+  signal       Signal?   @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  actionType   String // high-level type: draft_email | schedule_meeting | create_task | send_collateral | clarify_technical
+  actionVerb   String? // ontology GTM verb, e.g. "Sales::Negotiate", "Shared::Escalate"
+  title        String
+  score        Int       @default(0)
+  rationale    String?   @db.Text
+  status       NbaStatus @default(SUGGESTED)
+  payload      Json? // full AURA nba_action object (asset, email_detail, mental_model_reasoning_summary, …)
+  draftPayload Json? // generated email/collateral draft on execution
+  executedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([dealId])
+  @@index([tenantId, status])
+}
+
+/// MOFU buying/risk signals over the context (distinct from TOFU's BusinessUserSignal).
+model Signal {
+  id             String              @id @default(cuid())
+  tenantId       String
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealId         String?
+  deal           Deal?               @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  accountId      String?
+  account        Account?            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type           String // ontology signal_type, e.g. "Behavior::Response_Time_Decay"
+  category       String? // denormalized noun category, e.g. "Behavior" (part before ::)
+  tier           Int?
+  score          Int? // signal_score 0-100
+  confidence     Int? // extraction confidence 0-100
+  headline       String
+  evidence       String?             @db.Text
+  sourceUrl      String?
+  suggestedAngle String?             @db.Text
+  slaHours       Int?
+  payload        Json? // full AURA signal object (quotes, raised_by, handling_effectiveness, …)
+  detectedAt     DateTime            @default(now())
+  createdAt      DateTime            @default(now())
+  nbas           NbaRecommendation[]
+
+  @@index([tenantId])
+  @@index([dealId])
+  @@index([tenantId, category])
+}
+
+/// Unified marketing + sales collateral directory.
+model CollateralIndex {
+  id          String              @id @default(cuid())
+  tenantId    String
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  type        CollateralType
+  category    CollateralCategory?
+  source      CollateralSrc
+  isTemplate  Boolean             @default(false)
+  externalId  String?
+  slug        String?
+  url         String?
+  funnelStage FunnelStage         @default(ANY)
+  tags        String[]            @default([])
+  companyHsId String?
+  dealHsId    String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([tenantId, funnelStage])
+  @@index([tenantId, isTemplate])
+  @@index([tenantId, companyHsId])
+}
+
+/// Append-only audit + activity feed — the demo narrative.
+model AssistActionLog {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUserId String?
+  entityType  String
+  hsObjectId  String?
+  action      AssistAction
+  payload     Json?
+  createdAt   DateTime     @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, hsObjectId])
+}
+
+/// AI-generated sales collateral (Tailspin/AURA). Stores the generated React
+/// `template` + structured `data` + `compliance`, registered in CollateralIndex.
+model Document {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  collateralId  String?
+  dealHsId      String?
+  companyHsId   String?
+  title         String
+  template      String   @db.Text
+  html          String?  @db.Text
+  data          Json?
+  compliance    Json?
+  versions      Json?
+  model         String?
+  promptVersion String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
 }
