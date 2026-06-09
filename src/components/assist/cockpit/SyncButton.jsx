@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { HiOutlineArrowPath } from "react-icons/hi2";
 import { toast } from "sonner";
+import { ui } from "@/lib/brandUi";
 
 const ERROR_COPY = {
   mofu_not_configured: "Connect HubSpot in Settings first.",
@@ -11,11 +13,9 @@ const ERROR_COPY = {
 };
 
 /**
- * Cockpit-styled HubSpot sync button. POSTs /api/assist/sync, toasts counts,
- * then refreshes the server component. Exposes `onDone` so the topbar icon can
- * share the spinner state. `variant`: primary | ghost.
+ * HubSpot sync button. POSTs /api/assist/sync, toasts counts, then refreshes.
  */
-export default function SyncButton({ children = "Sync HubSpot", variant = "primary" }) {
+export default function SyncButton({ children = "Sync HubSpot", className = "" }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -44,16 +44,11 @@ export default function SyncButton({ children = "Sync HubSpot", variant = "prima
   return (
     <button
       type="button"
-      className={`ck-btn ${variant === "primary" ? "ck-btn-primary" : "ck-btn-ghost"}`}
+      className={`${ui.btnSecondarySurface} disabled:opacity-50 ${className}`}
       onClick={onSync}
       disabled={loading}
     >
-      <span className={loading ? "ck-spin" : undefined} style={{ display: "grid" }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M21 12a9 9 0 0 0-15-6.7L3 8" />
-          <path d="M3 3v5h5" />
-        </svg>
-      </span>
+      <HiOutlineArrowPath className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
       {loading ? "Syncing…" : children}
     </button>
   );

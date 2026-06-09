@@ -2,13 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+} from "@chakra-ui/react";
 import { toast } from "sonner";
+import { modalUi, ui } from "@/lib/brandUi";
 
-/**
- * "Demo booked → Promote to Deal" (cockpit). Opens a modal pre-filled with a
- * deal name, optional amount, POSTs to the promote route (unchanged), then
- * routes to the newly created deal workroom.
- */
 export default function PromoteButton({ contactId, companyName }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -18,17 +23,8 @@ export default function PromoteButton({ contactId, companyName }) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  const openModal = () => {
-    setDealname(defaultName);
-    setAmount("");
-    setOpen(true);
-  };
+    if (open) setDealname(defaultName);
+  }, [open, defaultName]);
 
   const submit = async () => {
     if (!dealname.trim()) {
@@ -64,61 +60,45 @@ export default function PromoteButton({ contactId, companyName }) {
 
   return (
     <>
-      <button type="button" className="ck-btn ck-btn-primary" onClick={openModal}>
-        Promote to Deal →
+      <button type="button" className={ui.btnPrimary} onClick={() => setOpen(true)}>
+        Promote to deal
       </button>
 
-      {open && (
-        <div className="ck-modal" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-          <div className="ck-email-frame" style={{ width: 520 }} role="dialog" aria-label="Promote to deal">
-            <div className="ck-email-header">
-              <div className="ck-email-title">Promote to Deal</div>
-              <button
-                type="button"
-                className="ck-drawer-close"
-                style={{ position: "relative", top: 0, right: 0 }}
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-              >
-                ✕
-              </button>
+      <Modal isOpen={open} onClose={() => setOpen(false)} isCentered>
+        <ModalOverlay className={modalUi.overlayClass} />
+        <ModalContent className={modalUi.contentClass}>
+          <ModalHeader className={modalUi.headerClass}>Promote to deal</ModalHeader>
+          <ModalCloseButton className={modalUi.closeButtonClass} />
+          <ModalBody className={`${modalUi.bodyClass} space-y-4`}>
+            <p className={ui.body}>
+              Creates a HubSpot deal in the first open stage, associates this contact
+              {companyName ? " and company" : ""}, and links it back into Clarwiz.
+            </p>
+            <div>
+              <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>Deal name</label>
+              <input className={ui.inputSurface} value={dealname} onChange={(e) => setDealname(e.target.value)} autoFocus />
             </div>
-            <div className="ck-email-body">
-              <p className="ck-risk-desc" style={{ marginBottom: 16 }}>
-                Creates a HubSpot deal in the first open stage, associates this contact
-                {companyName ? " and company" : ""}, and links it back into Clarwiz.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div>
-                  <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Deal name</div>
-                  <input className="ck-input" value={dealname} onChange={(e) => setDealname(e.target.value)} autoFocus />
-                </div>
-                <div>
-                  <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Amount (optional)</div>
-                  <input
-                    className="ck-input"
-                    type="number"
-                    placeholder="0"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                  />
-                </div>
-              </div>
+            <div>
+              <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>Amount (optional)</label>
+              <input
+                className={ui.inputSurface}
+                type="number"
+                placeholder="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
             </div>
-            <div className="ck-email-footer">
-              <div className="ck-email-footer-meta" />
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className="ck-btn ck-btn-ghost" onClick={() => setOpen(false)} disabled={submitting}>
-                  Cancel
-                </button>
-                <button type="button" className="ck-btn ck-btn-primary" onClick={submit} disabled={submitting}>
-                  {submitting ? "Creating…" : "Create deal"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          </ModalBody>
+          <ModalFooter className={`${modalUi.footerClass} gap-2`}>
+            <button type="button" className={ui.btnSecondary} onClick={() => setOpen(false)} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="button" className={ui.btnPrimary} onClick={submit} disabled={submitting}>
+              {submitting ? "Creating…" : "Create deal"}
+            </button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

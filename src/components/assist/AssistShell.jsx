@@ -1,19 +1,12 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import NextLink from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { HiOutlineArrowLeft } from "react-icons/hi2";
 import "@/app/assist/cockpit.css";
 import ChatDock from "@/components/assist/ChatDock";
+import { ui } from "@/lib/brandUi";
 
-const NAV = [
-  { key: "dashboard", label: "Dashboard", href: "/assist" },
-  { key: "collaterals", label: "Collateral", href: "/assist/collaterals" },
-  { key: "log", label: "Log", href: "/assist/log" },
-  { key: "settings", label: "Settings", href: "/assist/settings" },
-];
-
-/** Lets nested cards toggle / read the chat dock open-state via the topbar button. */
 const ChatToggleCtx = createContext(null);
 export function useChatToggle() {
   return useContext(ChatToggleCtx);
@@ -39,18 +32,10 @@ function ChatIcon() {
 }
 
 /**
- * Shared cockpit chrome for every /assist page. Wrap a page body in:
- *   <AssistShell active="dashboard" crumbs={[…]} actions={…}>…</AssistShell>
- *
- * Renders the glass topbar (brand lockup, nav, sync/recompute/chat-toggle,
- * breadcrumbs) on the premium dark theme, the main content area, and mounts the
- * <ChatDock>. The chat-toggle button in the topbar and the dock share open-state.
- *
- * `onSync` (optional): wires the topbar Sync icon button to a handler.
- * `actions` render in the page header (e.g. Recompute / Promote / Generate).
+ * Cockpit chrome for deal/lead workrooms. Renders the dark cockpit topbar with
+ * back link, breadcrumbs, sync, and chat toggle — plus the ChatDock.
  */
 export default function AssistShell({
-  active,
   crumbs = [],
   chatContext,
   onSync,
@@ -58,40 +43,25 @@ export default function AssistShell({
   topbarExtra,
   children,
 }) {
-  const pathname = usePathname();
   const [chatOpen, setChatOpen] = useState(false);
-
-  const crumbItems = crumbs.length ? crumbs : ["Today"];
+  const crumbItems = crumbs.length ? crumbs : ["Workroom"];
 
   return (
     <ChatToggleCtx.Provider value={{ chatOpen, setChatOpen, toggleChat: () => setChatOpen((v) => !v) }}>
       <div className="cockpit">
         <div className="cockpit-shell">
           <header className="ck-topbar">
-            <NextLink href="/assist" className="ck-brand" style={{ textDecoration: "none" }}>
+            <Link href="/assist" className="ck-brand" style={{ textDecoration: "none" }}>
               <span className="ck-brand-mark" />
               <span className="ck-brand-name">Clarwiz</span>
-              <span className="ck-brand-tag">AE Assist</span>
-            </NextLink>
-
-            <nav className="ck-nav">
-              {NAV.map((n) => {
-                const isActive =
-                  active === n.key || (active == null && pathname === n.href);
-                return (
-                  <NextLink
-                    key={n.key}
-                    href={n.href}
-                    className={`ck-nav-item${isActive ? " active" : ""}`}
-                  >
-                    {n.label}
-                  </NextLink>
-                );
-              })}
-            </nav>
+              <span className="ck-brand-tag">AE Cockpit</span>
+            </Link>
 
             <div className="ck-crumbs">
-              <span className="active">AE Cockpit</span>
+              <Link href="/assist" className={`inline-flex items-center gap-1 ${ui.link}`} style={{ color: "inherit" }}>
+                <HiOutlineArrowLeft className="h-3.5 w-3.5" />
+                AE Assist
+              </Link>
               {crumbItems.map((c, i) => (
                 <span key={i} style={{ display: "contents" }}>
                   <span className="sep">/</span>

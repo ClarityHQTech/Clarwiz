@@ -1,8 +1,7 @@
 "use client";
 
-import { CkCard } from "../cockpit/primitives";
+import { AssistPanel } from "../ui/AssistPanel";
 
-/** Map a signal to a tier dot class (t1 danger / t2 warn / t3 info). */
 export function tierDot(s) {
   const tier = String(s.tier || "").toLowerCase();
   if (tier === "hot" || tier === "t1" || tier === "high") return "t1";
@@ -20,24 +19,29 @@ export function signalLabel(s) {
   return s.headline || s.category || s.type || "Signal";
 }
 
-/** Horizontal strip of deal-level signals (cockpit chips with tier dots). */
+const DOT_CLASS = {
+  t1: "bg-red-500",
+  t2: "bg-brand-gold",
+  t3: "bg-brand-terracotta/70",
+};
+
 export default function SignalsStrip({ signals }) {
   if (!signals?.length) return null;
 
   return (
-    <CkCard title="Active Signals" count={signals.length}>
-      <div className="ck-signals-strip">
+    <AssistPanel title="Active signals" count={signals.length}>
+      <div className="flex flex-wrap gap-2 px-4 pb-4">
         {signals.map((s) => (
           <span
-            className="ck-signal-chip"
             key={s.id}
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand-bg border border-brand-secondary/25 px-3 py-1 text-xs font-medium text-brand-ink"
             title={s.evidence || s.suggestedAngle || ""}
           >
-            <span className={`dot ${tierDot(s)}`} />
+            <span className={`h-2 w-2 rounded-full shrink-0 ${DOT_CLASS[tierDot(s)]}`} />
             {signalLabel(s)}
           </span>
         ))}
       </div>
-    </CkCard>
+    </AssistPanel>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { CkCard } from "../cockpit/primitives";
 import { fmtStaleness } from "../cockpit/format";
+import { ui } from "@/lib/brandUi";
 
 const ACTION_LABEL = {
   INSIGHT_COMPUTED: "Insight computed",
@@ -39,30 +39,45 @@ export function actionDot(action) {
   }
 }
 
-/**
- * Right-rail activity feed (cockpit) from recentAssistActions().
- * actions = AssistActionLog[] { action, entityType, hsObjectId, createdAt }
- */
+const DOT_STYLES = {
+  ok: "bg-brand-sage",
+  info: "bg-brand-terracotta/70",
+  accent: "bg-brand-gold",
+  "": "bg-brand-steel",
+};
+
 export default function ActivityFeed({ actions = [] }) {
   return (
-    <CkCard title="Recent activity" count={actions.length || undefined}>
+    <div className={ui.cardSurface}>
+      <div className={`px-4 py-3 ${ui.tableToolbar}`}>
+        <h2 className={`${ui.titleSm} text-base`}>
+          Recent activity
+          {actions.length > 0 ? (
+            <span className="ml-2 text-sm font-sans font-normal text-brand-stone">({actions.length})</span>
+          ) : null}
+        </h2>
+      </div>
       {actions.length === 0 ? (
-        <div className="ck-empty">No activity yet.</div>
+        <p className="px-4 py-8 text-center text-sm text-brand-stone">No activity yet.</p>
       ) : (
-        <div>
+        <ul className={ui.divider}>
           {actions.map((a) => (
-            <div className="ck-log-row" key={a.id}>
-              <div className="ck-log-time">{fmtStaleness(a.createdAt)}</div>
-              <div className={`ck-log-dot ${actionDot(a.action)}`} />
-              <div className="ck-log-text">
-                <strong>{actionLabel(a.action)}</strong>
-                {a.entityType ? ` · ${a.entityType}` : ""}
-                {a.hsObjectId ? ` · ${a.hsObjectId}` : ""}
-              </div>
-            </div>
+            <li key={a.id} className="flex gap-3 px-4 py-2.5">
+              <span className="text-xs text-brand-steel tabular-nums w-14 shrink-0 pt-0.5">
+                {fmtStaleness(a.createdAt)}
+              </span>
+              <span
+                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${DOT_STYLES[actionDot(a.action)] ?? DOT_STYLES[""]}`}
+              />
+              <p className="text-sm text-brand-ink min-w-0">
+                <span className="font-medium">{actionLabel(a.action)}</span>
+                {a.entityType ? <span className="text-brand-stone"> · {a.entityType}</span> : null}
+                {a.hsObjectId ? <span className="text-brand-stone"> · {a.hsObjectId}</span> : null}
+              </p>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </CkCard>
+    </div>
   );
 }

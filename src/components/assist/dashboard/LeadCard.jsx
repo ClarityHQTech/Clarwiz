@@ -1,12 +1,8 @@
 "use client";
 
-import NextLink from "next/link";
-import { CkBadge } from "../cockpit/primitives";
+import Link from "next/link";
+import AssistBadge from "../ui/AssistBadge";
 
-/**
- * One MQL contact row (cockpit) → links to /assist/lead/[id].
- * lead = Contact { id, lifecycleStage, businessUser{ name, jobTitle, email, company{name} } }
- */
 export default function LeadCard({ lead }) {
   const bu = lead.businessUser ?? {};
   const name = bu.name || bu.email || "Unknown lead";
@@ -15,22 +11,23 @@ export default function LeadCard({ lead }) {
 
   return (
     <li>
-      <NextLink href={`/assist/lead/${lead.id}`} className="ck-list-item">
-        <div>
-          <div className="ck-list-item-name">{name}</div>
-          <div className="ck-list-item-meta">
-            {company && <span>{company}</span>}
-            {company && bu.jobTitle && <span className="dot">·</span>}
-            {bu.jobTitle && <span>{bu.jobTitle}</span>}
-          </div>
-          <div className="ck-chip-row">
-            <CkBadge variant="accent">{stageLabel}</CkBadge>
+      <Link
+        href={`/assist/lead/${lead.id}`}
+        className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-brand-sage/10 transition-colors"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-brand-ink truncate">{name}</p>
+          <p className="text-xs text-brand-stone mt-0.5 truncate">
+            {[company, bu.jobTitle].filter(Boolean).join(" · ") || "—"}
+          </p>
+          <div className="mt-2">
+            <AssistBadge variant="accent">{stageLabel}</AssistBadge>
           </div>
         </div>
-        <div className="ck-list-item-side">
-          {bu.email && <div className="activity" style={{ textTransform: "none", letterSpacing: 0 }}>{bu.email}</div>}
-        </div>
-      </NextLink>
+        {bu.email ? (
+          <span className="text-xs text-brand-stone shrink-0 max-w-[140px] truncate">{bu.email}</span>
+        ) : null}
+      </Link>
     </li>
   );
 }

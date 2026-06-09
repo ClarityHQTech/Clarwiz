@@ -24,15 +24,31 @@ import {
 import { resolveCompanyForContact } from "@/lib/assist/companyResolve";
 import { getTenantInternalDomains } from "@/lib/assist/internalDomains";
 
-/** Resolve (find-or-create) the global Company by unique name; refresh domain/industry. */
+/** Resolve (find-or-create) the global Company; deduped by domain when present, else by name. */
 async function resolveCompanyId(prisma, m) {
-  const company = await prisma.company.upsert({
-    where: { name: m.name },
-    create: { name: m.name, domain: m.domain, industry: m.industry },
-    update: {
-      domain: m.domain ?? undefined,
-      industry: m.industry ?? undefined,
-    },
+  if (m.domain) {
+    const company = await prisma.company.upsert({
+      where: { domain: m.domain },
+      create: { name: m.name, domain: m.domain, industry: m.industry },
+      update: {
+        name: m.name,
+        industry: m.industry ?? undefined,
+      },
+    });
+    return company.id;
+  }
+
+  const existing = await prisma.company.findFirst({ where: { name: m.name } });
+  if (existing) {
+    const company = await prisma.company.update({
+      where: { id: existing.id },
+      data: { industry: m.industry ?? undefined },
+    });
+    return company.id;
+  }
+
+  const company = await prisma.company.create({
+    data: { name: m.name, industry: m.industry },
   });
   return company.id;
 }

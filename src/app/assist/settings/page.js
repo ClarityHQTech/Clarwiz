@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { HiOutlineArrowLeft } from "react-icons/hi2";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import AssistShell from "@/components/assist/AssistShell";
-import { CkCard, CkBadge } from "@/components/assist/cockpit/primitives";
+import AssistBadge from "@/components/assist/ui/AssistBadge";
+import { ui } from "@/lib/brandUi";
 
 const EMPTY_FORM = {
   hubspotToken: "",
@@ -24,22 +26,34 @@ const EMPTY_BRAND = {
 };
 
 function statusBadge(integration, loading) {
-  if (loading) return <CkBadge variant="ghost">Checking…</CkBadge>;
-  if (!integration?.configured) return <CkBadge variant="ghost">Not configured</CkBadge>;
-  if (integration.status === "connected") return <CkBadge variant="ok">Connected</CkBadge>;
-  if (integration.status === "error") return <CkBadge variant="danger">Test failed</CkBadge>;
-  return <CkBadge variant="warn">Pending</CkBadge>;
+  if (loading) return <AssistBadge variant="ghost">Checking…</AssistBadge>;
+  if (!integration?.configured) return <AssistBadge variant="ghost">Not configured</AssistBadge>;
+  if (integration.status === "connected") return <AssistBadge variant="ok">Connected</AssistBadge>;
+  if (integration.status === "error") return <AssistBadge variant="danger">Test failed</AssistBadge>;
+  return <AssistBadge variant="warn">Pending</AssistBadge>;
 }
 
-function Field({ label, required, children }) {
+function SettingsSection({ title, description, action, children }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div className="ck-kv-label" style={{ marginBottom: 6 }}>
-        {label}
-        {required && <span style={{ color: "var(--accent)" }}> *</span>}
+    <section className={`${ui.cardSurface} p-4 sm:p-5 space-y-4`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className={`${ui.titleSm} text-base`}>{title}</h2>
+          {description ? <p className="text-sm text-brand-stone mt-1">{description}</p> : null}
+        </div>
+        {action}
       </div>
       {children}
-    </div>
+    </section>
+  );
+}
+
+function FieldLabel({ children, required }) {
+  return (
+    <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+      {children}
+      {required ? <span className="text-brand-terracotta"> *</span> : null}
+    </label>
   );
 }
 
@@ -68,7 +82,6 @@ function MofuSettingsPage() {
       const sData = await sRes.json();
       const integ = sData.integration ?? { configured: false };
       setIntegration(integ);
-      // Seed the Single Send email ID so it survives a re-save (it is not a secret).
       if (integ.singleSendEmailId) {
         setForm((f) => ({ ...f, singleSendEmailId: String(integ.singleSendEmailId) }));
       }
@@ -101,7 +114,6 @@ function MofuSettingsPage() {
     load();
   }, [load]);
 
-  // Surface the result of the HubSpot OAuth round-trip (?hubspot=… on return).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("hubspot");
@@ -110,7 +122,6 @@ function MofuSettingsPage() {
     else if (status === "denied") toast.error("HubSpot connection was denied");
     else if (status === "badstate") toast.error("HubSpot connection expired — please try again");
     else if (status === "error") toast.error("HubSpot connection failed — please try again");
-    // Clean the query so a refresh doesn't re-toast.
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
@@ -119,6 +130,7 @@ function MofuSettingsPage() {
   };
 
   const onChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const onBrandChange = (key) => (e) => setBrand((b) => ({ ...b, [key]: e.target.value }));
 
   const onSave = async (e) => {
     e.preventDefault();
@@ -139,12 +151,9 @@ function MofuSettingsPage() {
         return;
       }
       setIntegration(data.integration);
-      setForm((f) => ({ ...f, hubspotToken: "" })); // never keep the raw token in state
-      if (data.verified?.hubspot) {
-        toast.success("HubSpot connected");
-      } else {
-        toast.warning("Saved, but the HubSpot test failed — check the token and scopes");
-      }
+      setForm((f) => ({ ...f, hubspotToken: "" }));
+      if (data.verified?.hubspot) toast.success("HubSpot connected");
+      else toast.warning("Saved, but the HubSpot test failed — check the token and scopes");
     } catch {
       toast.error("Save failed");
     } finally {
@@ -178,8 +187,6 @@ function MofuSettingsPage() {
       setSavingSingleSend(false);
     }
   };
-
-  const onBrandChange = (key) => (e) => setBrand((b) => ({ ...b, [key]: e.target.value }));
 
   const onSaveBrand = async (e) => {
     e.preventDefault();
@@ -246,7 +253,6 @@ function MofuSettingsPage() {
   const onCleanupNoise = async () => {
     setCleaning(true);
     try {
-      // Preview first so the AE confirms against a real candidate count.
       const dryRes = await fetch("/api/assist/cleanup-noise?dryRun=1", { method: "POST" });
       const dry = await dryRes.json();
       if (!dryRes.ok) {
@@ -274,9 +280,7 @@ function MofuSettingsPage() {
         toast.error(data.error || "Cleanup failed");
         return;
       }
-      toast.success(
-        `Removed ${data.deleted} noise compan${data.deleted === 1 ? "y" : "ies"}`
-      );
+      toast.success(`Removed ${data.deleted} noise compan${data.deleted === 1 ? "y" : "ies"}`);
     } catch {
       toast.error("Cleanup failed");
     } finally {
@@ -284,242 +288,218 @@ function MofuSettingsPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className={`${ui.page} ${ui.container}`}>
+        <p className={ui.body}>Loading settings…</p>
+      </div>
+    );
+  }
+
   return (
-    <AssistShell active="settings" crumbs={["Settings"]}>
-      <div className="ck-page-header">
-        <div className="ck-page-title-block">
-          <div className="ck-eyebrow">Integrations · Credentials</div>
-          <h1 className="ck-page-title">
-            AE Assist — <em>Settings</em>
-          </h1>
-          <p className="ck-page-subtitle">
-            Connect HubSpot so the assist layer can read your deals, companies, and contacts.
-          </p>
-        </div>
+    <div className={`${ui.page} ${ui.container} space-y-6 max-w-3xl`}>
+      <Link href="/assist" className={`inline-flex items-center gap-1 ${ui.link}`}>
+        <HiOutlineArrowLeft className="h-4 w-4" />
+        AE Assist
+      </Link>
+
+      <div>
+        <h1 className={ui.title}>AE Assist settings</h1>
+        <p className={ui.subtitle}>
+          Connect HubSpot so the assist layer can read your deals, companies, and contacts.
+        </p>
       </div>
 
-      <div style={{ maxWidth: 640 }}>
-        <CkCard title="HubSpot" action={statusBadge(integration, loading)}>
-          {integration.connectionMode === "oauth" && integration.configured ? (
-            <div className="ck-kv-label" style={{ marginBottom: 16 }}>
-              Connected via OAuth · Portal {integration.hubspotPortalId || "—"} ·{" "}
-              {integration.scopeCount ?? 0} scopes
-            </div>
-          ) : (
-            <p className="ck-kv-label" style={{ marginBottom: 16 }}>
-              Install the Clarwiz app into your HubSpot portal to grant access — no token to
-              paste.
-            </p>
-          )}
+      <SettingsSection title="HubSpot" action={statusBadge(integration, loading)}>
+        {integration.connectionMode === "oauth" && integration.configured ? (
+          <p className={ui.body}>
+            Connected via OAuth · Portal {integration.hubspotPortalId || "—"} ·{" "}
+            {integration.scopeCount ?? 0} scopes
+          </p>
+        ) : (
+          <p className={ui.body}>
+            Install the Clarwiz app into your HubSpot portal to grant access — no token to paste.
+          </p>
+        )}
 
-          <button type="button" className="ck-btn ck-btn-primary" onClick={connectHubspot}>
-            {integration.connectionMode === "oauth" && integration.configured
-              ? "Reconnect HubSpot"
-              : "Connect HubSpot"}
+        <button type="button" className={ui.btnPrimary} onClick={connectHubspot}>
+          {integration.connectionMode === "oauth" && integration.configured
+            ? "Reconnect HubSpot"
+            : "Connect HubSpot"}
+        </button>
+
+        <div className="pt-4 border-t border-brand-secondary/25">
+          <button type="button" className={ui.btnSecondary} onClick={() => setShowPatForm((v) => !v)}>
+            {showPatForm ? "Hide" : "Advanced: use a private-app token instead"}
           </button>
 
-          <div style={{ marginTop: 20, borderTop: "1px solid var(--border, #333)", paddingTop: 12 }}>
-            <button
-              type="button"
-              className="ck-btn"
-              onClick={() => setShowPatForm((v) => !v)}
-              style={{ marginBottom: showPatForm ? 16 : 0 }}
-            >
-              {showPatForm ? "Hide" : "Advanced: use a private-app token instead"}
-            </button>
+          {showPatForm ? (
+            <form onSubmit={onSave} className="mt-4 space-y-4">
+              {integration.configured && integration.connectionMode !== "oauth" ? (
+                <p className={ui.body}>
+                  Token {integration.hubspotTokenMasked} · Portal {integration.hubspotPortalId || "—"}
+                </p>
+              ) : null}
+              <div>
+                <FieldLabel required>HubSpot private-app token</FieldLabel>
+                <input
+                  className={ui.inputSurface}
+                  type="password"
+                  placeholder="pat-naX-…"
+                  autoComplete="off"
+                  value={form.hubspotToken}
+                  onChange={onChange("hubspotToken")}
+                />
+              </div>
+              <div>
+                <FieldLabel>Portal ID (optional)</FieldLabel>
+                <input className={ui.inputSurface} value={form.hubspotPortalId} onChange={onChange("hubspotPortalId")} />
+              </div>
+              <div>
+                <FieldLabel>Default owner ID (optional)</FieldLabel>
+                <input className={ui.inputSurface} value={form.defaultOwnerId} onChange={onChange("defaultOwnerId")} />
+              </div>
+              <div>
+                <FieldLabel>Insight model (optional)</FieldLabel>
+                <input className={ui.inputSurface} placeholder="gpt-4o" value={form.insightModel} onChange={onChange("insightModel")} />
+              </div>
+              <button type="submit" className={ui.btnPrimary} disabled={saving}>
+                {saving ? "Saving…" : integration.configured ? "Update" : "Save & verify"}
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </SettingsSection>
 
-            {showPatForm && (
-              <>
-                {integration.configured && integration.connectionMode !== "oauth" && (
-                  <div className="ck-kv-label" style={{ marginBottom: 16 }}>
-                    Token {integration.hubspotTokenMasked} · Portal{" "}
-                    {integration.hubspotPortalId || "—"}
-                  </div>
-                )}
-                <form onSubmit={onSave}>
-                  <Field label="HubSpot private-app token" required>
-                    <input
-                      className="ck-input"
-                      type="password"
-                      placeholder="pat-naX-…"
-                      autoComplete="off"
-                      value={form.hubspotToken}
-                      onChange={onChange("hubspotToken")}
-                    />
-                  </Field>
-                  <Field label="Portal ID (optional)">
-                    <input className="ck-input" value={form.hubspotPortalId} onChange={onChange("hubspotPortalId")} />
-                  </Field>
-                  <Field label="Default owner ID (optional)">
-                    <input className="ck-input" value={form.defaultOwnerId} onChange={onChange("defaultOwnerId")} />
-                  </Field>
-                  <Field label="Insight model (optional)">
-                    <input
-                      className="ck-input"
-                      placeholder="gpt-4o"
-                      value={form.insightModel}
-                      onChange={onChange("insightModel")}
-                    />
-                  </Field>
-                  <Field label="Single Send email ID (optional)">
-                    <input
-                      className="ck-input"
-                      inputMode="numeric"
-                      placeholder="e.g. 12345678"
-                      value={form.singleSendEmailId}
-                      onChange={onChange("singleSendEmailId")}
-                    />
-                  </Field>
-                  <button type="submit" className="ck-btn ck-btn-primary" disabled={saving}>
-                    {saving ? "Saving…" : integration.configured ? "Update" : "Save & verify"}
-                  </button>
-                </form>
-              </>
-            )}
+      <SettingsSection
+        title="Email sending"
+        description="Create a transactional email in HubSpot (Save for Single Send API) with {{ custom.subject }} and {{ custom.body }} tokens. With no ID, NBA emails are logged to the timeline instead of being delivered."
+        action={
+          integration.canDeliverEmail ? (
+            <AssistBadge variant="ok">Delivers</AssistBadge>
+          ) : (
+            <AssistBadge variant="ghost">Timeline only</AssistBadge>
+          )
+        }
+      >
+        <form onSubmit={onSaveSingleSend} className="space-y-4">
+          <div>
+            <FieldLabel>Single Send email ID</FieldLabel>
+            <input
+              className={ui.inputSurface}
+              inputMode="numeric"
+              placeholder="e.g. 12345678"
+              value={form.singleSendEmailId}
+              onChange={onChange("singleSendEmailId")}
+            />
           </div>
-        </CkCard>
+          <button type="submit" className={ui.btnPrimary} disabled={savingSingleSend}>
+            {savingSingleSend ? "Saving…" : "Save"}
+          </button>
+        </form>
+      </SettingsSection>
 
-        <CkCard
-          title="Email sending"
-          style={{ marginTop: 20 }}
-          action={
-            integration.canDeliverEmail ? (
-              <CkBadge variant="ok">Delivers</CkBadge>
+      <SettingsSection
+        title="Brand"
+        description="The brand the renderer and personalization use for collateral. Bake these into your templates."
+      >
+        <form onSubmit={onSaveBrand} className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <FieldLabel>Primary color</FieldLabel>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={brand.primary || "#1F2937"}
+                  onChange={onBrandChange("primary")}
+                  className="h-10 w-12 rounded-lg border border-brand-secondary/40"
+                  aria-label="Primary color"
+                />
+                <input className={ui.inputSurface} value={brand.primary} onChange={onBrandChange("primary")} />
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Accent color</FieldLabel>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={brand.accent || "#F2A65A"}
+                  onChange={onBrandChange("accent")}
+                  className="h-10 w-12 rounded-lg border border-brand-secondary/40"
+                  aria-label="Accent color"
+                />
+                <input className={ui.inputSurface} value={brand.accent} onChange={onBrandChange("accent")} />
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Heading font</FieldLabel>
+              <input className={ui.inputSurface} value={brand.fontHeading} onChange={onBrandChange("fontHeading")} />
+            </div>
+            <div>
+              <FieldLabel>Body font</FieldLabel>
+              <input className={ui.inputSurface} value={brand.fontBody} onChange={onBrandChange("fontBody")} />
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Logo URL</FieldLabel>
+            <input className={ui.inputSurface} value={brand.logoUrl} onChange={onBrandChange("logoUrl")} placeholder="https://…/logo.png" />
+          </div>
+          <div>
+            <FieldLabel>Company one-liner</FieldLabel>
+            <input className={ui.inputSurface} value={brand.tagline} onChange={onBrandChange("tagline")} />
+          </div>
+          <button type="submit" className={ui.btnPrimary} disabled={savingBrand}>
+            {savingBrand ? "Saving…" : "Save brand"}
+          </button>
+        </form>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Internal domains"
+        description="Contacts at these domains are treated as your own team — hidden from leads and never made into prospect companies."
+      >
+        <form onSubmit={onSaveDomains} className="space-y-4">
+          <div>
+            <FieldLabel>Your company domains</FieldLabel>
+            <textarea
+              className={`${ui.inputSurface} resize-y`}
+              rows={4}
+              placeholder={"clarityhq.ai\nacme.com"}
+              value={internalDomainsText}
+              onChange={(e) => setInternalDomainsText(e.target.value)}
+            />
+          </div>
+          <p className={ui.body}>
+            Auto-detected from your team&apos;s logins:{" "}
+            {detectedDomains.length ? (
+              <span className="inline-flex flex-wrap gap-1.5 ml-1">
+                {detectedDomains.map((d) => (
+                  <AssistBadge key={d} variant="ghost">
+                    {d}
+                  </AssistBadge>
+                ))}
+              </span>
             ) : (
-              <CkBadge variant="ghost">Timeline only</CkBadge>
-            )
-          }
-        >
-          <p className="ck-kv-label" style={{ marginBottom: 16 }}>
-            Create a transactional email in HubSpot (Save for Single Send API) with{" "}
-            <code>{"{{ custom.subject }}"}</code> and <code>{"{{ custom.body }}"}</code> tokens,
-            paste its email ID here. With no ID, NBA emails are logged to the deal/contact timeline
-            instead of being delivered.
+              "none"
+            )}
           </p>
-          <form onSubmit={onSaveSingleSend}>
-            <Field label="Single Send email ID">
-              <input
-                className="ck-input"
-                inputMode="numeric"
-                placeholder="e.g. 12345678"
-                value={form.singleSendEmailId}
-                onChange={onChange("singleSendEmailId")}
-              />
-            </Field>
-            <button type="submit" className="ck-btn ck-btn-primary" disabled={savingSingleSend}>
-              {savingSingleSend ? "Saving…" : "Save"}
-            </button>
-          </form>
-        </CkCard>
+          <button type="submit" className={ui.btnPrimary} disabled={savingDomains}>
+            {savingDomains ? "Saving…" : "Save internal domains"}
+          </button>
+        </form>
 
-        <CkCard title="Brand" style={{ marginTop: 20 }}>
-          <p className="ck-kv-label" style={{ marginBottom: 16 }}>
-            The brand the renderer and personalization use for collateral. Bake these into your
-            templates.
+        <div className="pt-4 border-t border-brand-secondary/25 space-y-3">
+          <h3 className={`${ui.titleSm} text-base`}>Clean up noise companies</h3>
+          <p className={ui.body}>
+            Remove already-synced internal and empty email-noise company records that have no deals.
+            Accounts with deals are never touched. You&apos;ll see a count to confirm first.
           </p>
-          <form onSubmit={onSaveBrand}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Primary color">
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="color"
-                    value={brand.primary || "#1F2937"}
-                    onChange={onBrandChange("primary")}
-                    style={{ width: 44, height: 38, padding: 2, borderRadius: 8, border: "1px solid var(--border, #333)", background: "transparent" }}
-                    aria-label="Primary color"
-                  />
-                  <input className="ck-input" value={brand.primary} onChange={onBrandChange("primary")} placeholder="#1F2937" />
-                </div>
-              </Field>
-              <Field label="Accent color">
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="color"
-                    value={brand.accent || "#F2A65A"}
-                    onChange={onBrandChange("accent")}
-                    style={{ width: 44, height: 38, padding: 2, borderRadius: 8, border: "1px solid var(--border, #333)", background: "transparent" }}
-                    aria-label="Accent color"
-                  />
-                  <input className="ck-input" value={brand.accent} onChange={onBrandChange("accent")} placeholder="#F2A65A" />
-                </div>
-              </Field>
-              <Field label="Heading font">
-                <input className="ck-input" value={brand.fontHeading} onChange={onBrandChange("fontHeading")} placeholder="Instrument Serif" />
-              </Field>
-              <Field label="Body font">
-                <input className="ck-input" value={brand.fontBody} onChange={onBrandChange("fontBody")} placeholder="Inter" />
-              </Field>
-            </div>
-            <Field label="Logo URL">
-              <input className="ck-input" value={brand.logoUrl} onChange={onBrandChange("logoUrl")} placeholder="https://…/logo.png" />
-            </Field>
-            <Field label="Company one-liner">
-              <input className="ck-input" value={brand.tagline} onChange={onBrandChange("tagline")} placeholder="What your company does, in one line" />
-            </Field>
-            <button type="submit" className="ck-btn ck-btn-primary" disabled={savingBrand}>
-              {savingBrand ? "Saving…" : "Save brand"}
-            </button>
-          </form>
-        </CkCard>
-
-        <CkCard title="Internal domains" style={{ marginTop: 20 }}>
-          <p className="ck-kv-label" style={{ marginBottom: 16 }}>
-            Contacts at these domains are treated as your own team — hidden from leads and never
-            made into prospect companies. Add any extra company domains you own (e.g.{" "}
-            <code>clarityhq.ai</code>), one per line or comma-separated.
-          </p>
-          <form onSubmit={onSaveDomains}>
-            <Field label="Your company domains">
-              <textarea
-                className="ck-input"
-                rows={4}
-                placeholder={"clarityhq.ai\nacme.com"}
-                value={internalDomainsText}
-                onChange={(e) => setInternalDomainsText(e.target.value)}
-                style={{ resize: "vertical", fontFamily: "inherit" }}
-              />
-            </Field>
-            <div className="ck-kv-label" style={{ marginBottom: 16 }}>
-              Auto-detected from your team&apos;s logins:{" "}
-              {detectedDomains.length ? (
-                <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6, marginLeft: 4 }}>
-                  {detectedDomains.map((d) => (
-                    <CkBadge key={d} variant="ghost">
-                      {d}
-                    </CkBadge>
-                  ))}
-                </span>
-              ) : (
-                <span style={{ opacity: 0.7 }}>none</span>
-              )}
-            </div>
-            <button type="submit" className="ck-btn ck-btn-primary" disabled={savingDomains}>
-              {savingDomains ? "Saving…" : "Save internal domains"}
-            </button>
-          </form>
-
-          <div
-            style={{ marginTop: 20, borderTop: "1px solid var(--border, #333)", paddingTop: 16 }}
-          >
-            <div className="ck-kv-label" style={{ marginBottom: 8 }}>
-              Clean up noise companies
-            </div>
-            <p className="ck-kv-label" style={{ marginBottom: 12, opacity: 0.85 }}>
-              Remove already-synced internal and empty email-noise company records that have no
-              deals. Accounts with deals are never touched. You&apos;ll see a count to confirm first.
-            </p>
-            <button
-              type="button"
-              className="ck-btn"
-              onClick={onCleanupNoise}
-              disabled={cleaning}
-            >
-              {cleaning ? "Working…" : "Clean up noise companies"}
-            </button>
-          </div>
-        </CkCard>
-      </div>
-    </AssistShell>
+          <button type="button" className={ui.btnSecondary} onClick={onCleanupNoise} disabled={cleaning}>
+            {cleaning ? "Working…" : "Clean up noise companies"}
+          </button>
+        </div>
+      </SettingsSection>
+    </div>
   );
 }
 

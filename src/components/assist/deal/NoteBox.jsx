@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CkCard } from "../cockpit/primitives";
+import { AssistPanel } from "../ui/AssistPanel";
+import { ui } from "@/lib/brandUi";
 
-/** Free-text note → written back to the deal in HubSpot (cockpit). */
 export default function NoteBox({ dealId }) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,27 +42,19 @@ export default function NoteBox({ dealId }) {
   };
 
   return (
-    <CkCard title="Add a note">
-      <div style={{ padding: 18 }}>
-        <textarea
-          className="ck-textarea"
-          style={{ minHeight: 96 }}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Log a quick update on this deal…"
-          rows={4}
-        />
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-          <button
-            type="button"
-            className="ck-btn ck-btn-primary"
-            onClick={onSave}
-            disabled={saving || !body.trim()}
-          >
-            {saving ? "Saving…" : "Save to HubSpot"}
-          </button>
-        </div>
+    <AssistPanel title="Add a note" bodyClassName="px-4 pb-4">
+      <textarea
+        className={`${ui.inputSurface} resize-y min-h-[96px]`}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="Log a quick update on this deal…"
+        rows={4}
+      />
+      <div className="flex justify-end mt-3">
+        <button type="button" className={ui.btnPrimary} onClick={onSave} disabled={saving || !body.trim()}>
+          {saving ? "Saving…" : "Save to HubSpot"}
+        </button>
       </div>
-    </CkCard>
+    </AssistPanel>
   );
 }

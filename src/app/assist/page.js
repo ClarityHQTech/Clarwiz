@@ -68,7 +68,7 @@ export default async function DashboardPage({ searchParams }) {
 
   const [data, actions] = await Promise.all([
     getDashboardData(prisma, ctx.tenantId, { ownerId }),
-    recentAssistActions(prisma, ctx.tenantId, 12),
+    recentAssistActions(prisma, ctx.tenantId, 200),
   ]);
 
   return <DashboardClient data={data} actions={actions} view={view} ownerNote={ownerNote} />;

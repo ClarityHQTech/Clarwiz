@@ -3,21 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CkCard } from "../cockpit/primitives";
+import { AssistPanel } from "../ui/AssistPanel";
+import { ui } from "@/lib/brandUi";
 
-/**
- * POST-MEETING NOTES capture (cockpit).
- *
- * The AE pastes notes/transcript from a call or meeting; on save they are
- * written to the deal's HubSpot timeline AND fed into signal extraction
- * (recomputeSignals) so they produce new Signals. This is the primary way an AE
- * populates signals on a deal that has no call transcripts yet.
- *
- * POSTs /api/assist/deal/[dealId]/nba/post-meeting/post-meeting — nbaId is part
- * of the route path but unused for this deal-level capture, so we pass a literal.
- *
- * Props: { dealId }
- */
 export default function PostMeetingCard({ dealId }) {
   const router = useRouter();
   const [notes, setNotes] = useState("");
@@ -25,15 +13,6 @@ export default function PostMeetingCard({ dealId }) {
   const [fetching, setFetching] = useState(false);
   const autoFetched = useRef(false);
 
-  /**
-   * Pull the deal's meeting bodies + notes from HubSpot and pre-fill the
-   * textarea. If the textarea already has content we append below a divider
-   * rather than clobbering unsaved edits. `silent` suppresses the
-   * "nothing-to-fetch" toasts (used by the non-blocking auto-fetch on mount).
-   *
-   * NOTE: only meeting bodies + notes are fetched today; call transcripts can be
-   * added later once the crm.extensions_calling_transcripts scope is granted.
-   */
   const fetchFromHubspot = async (silent = false) => {
     setFetching(true);
     try {
@@ -67,7 +46,6 @@ export default function PostMeetingCard({ dealId }) {
     }
   };
 
-  // Non-blocking auto-fetch once on mount when the textarea is empty.
   useEffect(() => {
     if (autoFetched.current) return;
     autoFetched.current = true;
@@ -111,46 +89,25 @@ export default function PostMeetingCard({ dealId }) {
   };
 
   return (
-    <CkCard title="Post-meeting notes">
-      <div style={{ padding: 18 }}>
-        <div className="ck-risk-desc" style={{ marginBottom: 10, fontSize: 12 }}>
-          Paste call or meeting notes. They are saved to HubSpot and used to extract fresh signals.
-        </div>
-        <textarea
-          className="ck-textarea"
-          style={{ minHeight: 120 }}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="What was discussed, who said what, objections, next steps…"
-          rows={5}
-        />
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 12,
-          }}
-        >
-          <button
-            type="button"
-            className="ck-btn"
-            onClick={() => fetchFromHubspot(false)}
-            disabled={fetching}
-            title="Pull this deal's meeting bodies + notes from HubSpot"
-          >
-            {fetching ? "Fetching…" : "⟳ Fetch from HubSpot"}
-          </button>
-          <button
-            type="button"
-            className="ck-btn ck-btn-primary"
-            onClick={save}
-            disabled={saving || !notes.trim()}
-          >
-            {saving ? "Saving…" : "Save & extract signals"}
-          </button>
-        </div>
+    <AssistPanel title="Post-meeting notes" bodyClassName="px-4 pb-4">
+      <p className={`${ui.body} mb-3`}>
+        Paste call or meeting notes. They are saved to HubSpot and used to extract fresh signals.
+      </p>
+      <textarea
+        className={`${ui.inputSurface} resize-y min-h-[120px]`}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="What was discussed, who said what, objections, next steps…"
+        rows={5}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
+        <button type="button" className={ui.btnSecondarySurface} onClick={() => fetchFromHubspot(false)} disabled={fetching}>
+          {fetching ? "Fetching…" : "Fetch from HubSpot"}
+        </button>
+        <button type="button" className={ui.btnPrimary} onClick={save} disabled={saving || !notes.trim()}>
+          {saving ? "Saving…" : "Save & extract signals"}
+        </button>
       </div>
-    </CkCard>
+    </AssistPanel>
   );
 }

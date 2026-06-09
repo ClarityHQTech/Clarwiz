@@ -1,8 +1,7 @@
 "use client";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import AssistShell from "@/components/assist/AssistShell";
-
+import AssistWorkroomLayout from "@/components/assist/AssistWorkroomLayout";
 import DealHeader from "@/components/assist/deal/DealHeader";
 import BriefingCard from "@/components/assist/deal/BriefingCard";
 import GtmTaskbook from "@/components/assist/deal/GtmTaskbook";
@@ -24,15 +23,11 @@ function DealWorkroomClient({ id, vm }) {
   };
 
   return (
-    <AssistShell
-      active="dashboard"
+    <AssistWorkroomLayout
       crumbs={[accountName || "Deal", dealName]}
+      actions={<RecomputeButton dealId={id} label="Recompute" />}
       chatContext={chatContext}
     >
-      <div className="ck-page-actions" style={{ justifyContent: "flex-end", marginBottom: 16 }}>
-        <RecomputeButton dealId={id} variant="ghost" />
-      </div>
-
       <DealHeader
         deal={vm.deal}
         accountName={accountName}
@@ -43,11 +38,11 @@ function DealWorkroomClient({ id, vm }) {
       {!vm.hasInsight ? (
         <EmptyInsight dealId={id} />
       ) : (
-        <div className="ck-stack">
-          {vm.signals.length > 0 && <SignalsStrip signals={vm.signals} />}
+        <div className="space-y-4">
+          {vm.signals.length > 0 ? <SignalsStrip signals={vm.signals} /> : null}
 
-          <div className="ck-col-deal">
-            <div className="ck-stack">
+          <div className="grid lg:grid-cols-[1fr_340px] gap-4 items-start">
+            <div className="space-y-4">
               <BriefingCard vm={vm} />
               <GtmTaskbook dealId={id} gtmPaths={vm.gtmPaths} />
               <RisksCard
@@ -59,13 +54,13 @@ function DealWorkroomClient({ id, vm }) {
               <NoteBox dealId={id} />
             </div>
 
-            <div style={{ position: "sticky", top: 72 }}>
+            <div className="lg:sticky lg:top-6">
               <NbaRail dealId={id} nbas={vm.nbas} contacts={vm.contacts} />
             </div>
           </div>
         </div>
       )}
-    </AssistShell>
+    </AssistWorkroomLayout>
   );
 }
 

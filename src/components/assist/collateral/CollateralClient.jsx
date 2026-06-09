@@ -1,30 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { HiOutlineArrowLeft, HiOutlinePlus } from "react-icons/hi2";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import AssistShell from "@/components/assist/AssistShell";
 import FilterBar from "./FilterBar";
 import CollateralTile from "./CollateralTile";
 import CollateralEditorModal from "./CollateralEditorModal";
 import RegisterModal from "./RegisterModal";
+import { ui } from "@/lib/brandUi";
 
 const INITIAL_FILTERS = { q: "", type: "", funnelStage: "", tag: "" };
 
-/**
- * Collateral library client (cockpit grid). The directory reads as a library of
- * brand templates: register a template by pasting its HTML and categorizing it
- * Marketing/Sales, then open any tile in the live editor. Holds rows + filter
- * state, the Register modal, and the full-screen live editor.
- */
 function CollateralClient({ items: initialItems }) {
   const [items, setItems] = useState(initialItems ?? []);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [registerOpen, setRegisterOpen] = useState(false);
-  const [editor, setEditor] = useState(null); // { documentId, title }
+  const [editor, setEditor] = useState(null);
 
-  // Auto-open the live editor when arrived at via ?open=<documentId> (e.g. the
-  // "View / edit asset →" link appended to an NBA email). Match the title from
-  // the loaded directory rows when available.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const open = new URLSearchParams(window.location.search).get("open");
@@ -78,49 +71,46 @@ function CollateralClient({ items: initialItems }) {
   const openEditor = (documentId, item) => setEditor({ documentId, title: item?.title });
 
   return (
-    <AssistShell active="collaterals" crumbs={["Templates"]}>
-      <div className="ck-page-header">
-        <div className="ck-page-title-block">
-          <div className="ck-eyebrow">Brand Template Library · Marketing + Sales</div>
-          <h1 className="ck-page-title">
-            Collateral <em>Templates</em>
-          </h1>
-          <p className="ck-page-subtitle">
+    <div className={`${ui.page} ${ui.container} space-y-6`}>
+      <Link href="/assist" className={`inline-flex items-center gap-1 ${ui.link}`}>
+        <HiOutlineArrowLeft className="h-4 w-4" />
+        AE Assist
+      </Link>
+
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className={ui.title}>Collateral templates</h1>
+          <p className={ui.subtitle}>
             Your library of on-brand templates — one-pagers, battlecards, case studies and more.
-            Register a template by pasting its HTML, then open any tile in the live editor to
-            personalize it for a deal.
+            Register a template by pasting its HTML, then personalize it for a deal.
           </p>
         </div>
-        <div className="ck-page-actions">
-          <button type="button" className="ck-btn ck-btn-primary" onClick={() => setRegisterOpen(true)}>
-            + Register template
-          </button>
-        </div>
+        <button type="button" className={`${ui.btnPrimary} shrink-0`} onClick={() => setRegisterOpen(true)}>
+          <HiOutlinePlus className="h-4 w-4" />
+          Register template
+        </button>
       </div>
 
-      {hasAny && <FilterBar filters={filters} onChange={setFilters} tagOptions={tagOptions} />}
+      {hasAny ? <FilterBar filters={filters} onChange={setFilters} tagOptions={tagOptions} /> : null}
 
       {!hasAny ? (
-        <div className="ck-card" style={{ padding: 48, textAlign: "center" }}>
-          <div className="ck-page-title" style={{ fontSize: 24, marginBottom: 12 }}>
-            No templates <em>yet</em>
-          </div>
-          <p className="ck-page-subtitle" style={{ margin: "0 auto 20px" }}>
+        <div className={`${ui.cardSurface} p-10 text-center`}>
+          <h2 className={`${ui.titleSm} mb-2`}>No templates yet</h2>
+          <p className={`${ui.body} max-w-md mx-auto mb-5`}>
             Register your first brand template by pasting its HTML and categorizing it Marketing or
-            Sales. It becomes an editable, personalizable asset for any deal.
+            Sales.
           </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button type="button" className="ck-btn ck-btn-primary" onClick={() => setRegisterOpen(true)}>
-              + Register template
-            </button>
-          </div>
+          <button type="button" className={ui.btnPrimary} onClick={() => setRegisterOpen(true)}>
+            <HiOutlinePlus className="h-4 w-4" />
+            Register template
+          </button>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="ck-card">
-          <div className="ck-empty">No templates match these filters.</div>
+        <div className={`${ui.cardSurface} p-8 text-center`}>
+          <p className={ui.body}>No templates match these filters.</p>
         </div>
       ) : (
-        <div className="ck-collateral-grid">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((it) => (
             <CollateralTile key={it.id} item={it} onOpenEditor={openEditor} />
           ))}
@@ -129,14 +119,14 @@ function CollateralClient({ items: initialItems }) {
 
       <RegisterModal isOpen={registerOpen} onClose={() => setRegisterOpen(false)} onRegistered={onRegistered} />
 
-      {editor && (
+      {editor ? (
         <CollateralEditorModal
           documentId={editor.documentId}
           title={editor.title}
           onClose={() => setEditor(null)}
         />
-      )}
-    </AssistShell>
+      ) : null}
+    </div>
   );
 }
 

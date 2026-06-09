@@ -2,14 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CkCard } from "../cockpit/primitives";
+import { AssistPanel, AssistEmpty } from "../ui/AssistPanel";
+import { ui } from "@/lib/brandUi";
 
-/**
- * GTM paths rendered as a cockpit taskbook with checkable steps. Selected steps
- * are pushed to HubSpot as tasks via POST /api/assist/deal/[id]/tasks (unchanged).
- */
 export default function GtmTaskbook({ dealId, gtmPaths }) {
-  const [selected, setSelected] = useState({}); // `${pathIndex}:${stepIndex}` -> bool
+  const [selected, setSelected] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   const stepsByKey = useMemo(() => {
@@ -64,58 +61,73 @@ export default function GtmTaskbook({ dealId, gtmPaths }) {
 
   if (!gtmPaths.length) {
     return (
-      <CkCard title="GTM Taskbook">
-        <div className="ck-empty">No GTM paths suggested yet.</div>
-      </CkCard>
+      <AssistPanel title="GTM taskbook">
+        <AssistEmpty>No GTM paths suggested yet.</AssistEmpty>
+      </AssistPanel>
     );
   }
 
   const action = (
     <button
       type="button"
-      className="ck-card-action"
+      className={`${ui.btnGhost} disabled:opacity-50`}
       onClick={onCreate}
       disabled={!selectedKeys.length || submitting}
-      style={{ color: selectedKeys.length ? "var(--accent)" : undefined }}
     >
       {submitting ? "Creating…" : `Create ${selectedKeys.length || ""} task${selectedKeys.length === 1 ? "" : "s"}`}
     </button>
   );
 
   return (
-    <CkCard title="GTM Taskbook" action={action}>
-      {gtmPaths.map((path) => (
-        <div className="ck-task-path" key={path.index}>
-          <div className="ck-task-path-header">
-            <div className="ck-task-path-title">{path.title}</div>
-            {path.scoreImpact != null && <div className="ck-task-path-impact">+{path.scoreImpact} score</div>}
+    <AssistPanel title="GTM taskbook" action={action}>
+      <div className="divide-y divide-brand-secondary/15">
+        {gtmPaths.map((path) => (
+          <div key={path.index} className="px-4 py-4">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <p className="text-sm font-medium text-brand-ink">{path.title}</p>
+              {path.scoreImpact != null ? (
+                <span className="text-xs font-medium text-brand-terracotta shrink-0">+{path.scoreImpact} score</span>
+              ) : null}
+            </div>
+            {path.steps.length ? (
+              <ul className="space-y-2">
+                {path.steps.map((step, si) => {
+                  const key = `${path.index}:${si}`;
+                  const done = !!selected[key];
+                  return (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        className={`flex w-full items-start gap-2 text-left text-sm rounded-lg border px-3 py-2 transition-colors ${
+                          done
+                            ? "border-brand-sage/50 bg-brand-sage/15 text-brand-ink"
+                            : "border-brand-secondary/25 hover:bg-brand-bg text-brand-stone"
+                        }`}
+                        onClick={() => toggle(key)}
+                        aria-pressed={done}
+                      >
+                        <span
+                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs ${
+                            done ? "border-brand-sage bg-brand-sage text-white" : "border-brand-steel"
+                          }`}
+                        >
+                          {done ? "✓" : ""}
+                        </span>
+                        {step}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-brand-stone">No steps listed.</p>
+            )}
+            {path.whyThisWorks ? (
+              <p className="text-xs text-brand-stone mt-3">Why this works: {path.whyThisWorks}</p>
+            ) : null}
           </div>
-          {path.steps.length ? (
-            <ul className="ck-task-steps">
-              {path.steps.map((step, si) => {
-                const key = `${path.index}:${si}`;
-                const done = !!selected[key];
-                return (
-                  <li key={key}>
-                    <button
-                      type="button"
-                      className={`ck-task-step${done ? " done" : ""}`}
-                      onClick={() => toggle(key)}
-                      aria-pressed={done}
-                    >
-                      <span className="ck-task-checkbox">✓</span>
-                      {step}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className="ck-risk-desc">No steps listed.</div>
-          )}
-          {path.whyThisWorks && <div className="ck-task-why">Why this works: {path.whyThisWorks}</div>}
-        </div>
-      ))}
-    </CkCard>
+        ))}
+      </div>
+    </AssistPanel>
   );
 }

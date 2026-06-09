@@ -1,6 +1,7 @@
 "use client";
 
-import { CkCard, CkBadge } from "../cockpit/primitives";
+import AssistBadge from "../ui/AssistBadge";
+import { AssistPanel, AssistEmpty } from "../ui/AssistPanel";
 
 function formatTs(ts) {
   if (!ts) return "";
@@ -14,32 +15,36 @@ function formatTs(ts) {
   });
 }
 
-/**
- * TOFU outreach timeline (cockpit, Mode-3 enrichment). Newest-first from
- * getTofuTimeline. Empty → "No Clarwiz outreach history" (not an error).
- */
 export default function TofuTimeline({ entries = [] }) {
   return (
-    <CkCard title="Engagement Timeline · TOFU + Web" count={entries.length || undefined}>
+    <AssistPanel title="Engagement timeline" count={entries.length || undefined}>
       {entries.length === 0 ? (
-        <div className="ck-empty">No Clarwiz outreach history.</div>
+        <AssistEmpty>No Clarwiz outreach history.</AssistEmpty>
       ) : (
-        entries.map((e, i) => {
-          const inbound = e.direction === "inbound";
-          return (
-            <div className="ck-log-row" key={`${e.id}-${e.direction}-${i}`}>
-              <div className="ck-log-time">{formatTs(e.timestamp)}</div>
-              <div className={`ck-log-dot ${inbound ? "ok" : "accent"}`} />
-              <div className="ck-log-text">
-                <strong style={{ textTransform: "capitalize" }}>{e.channel || "activity"}</strong>{" "}
-                <CkBadge variant={inbound ? "ok" : "ghost"}>{inbound ? "Reply" : "Sent"}</CkBadge>
-                {e.subject ? ` — ${e.subject}` : ""}
-                {e.cta ? ` · CTA: ${e.cta}` : ""}
-              </div>
-            </div>
-          );
-        })
+        <ul className="divide-y divide-brand-secondary/15">
+          {entries.map((e, i) => {
+            const inbound = e.direction === "inbound";
+            return (
+              <li key={`${e.id}-${e.direction}-${i}`} className="flex gap-3 px-4 py-3">
+                <time className="text-xs text-brand-steel tabular-nums w-24 shrink-0 pt-0.5">
+                  {formatTs(e.timestamp)}
+                </time>
+                <span
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    inbound ? "bg-brand-sage" : "bg-brand-terracotta/70"
+                  }`}
+                />
+                <p className="text-sm text-brand-ink min-w-0">
+                  <span className="font-medium capitalize">{e.channel || "activity"}</span>{" "}
+                  <AssistBadge variant={inbound ? "ok" : "ghost"}>{inbound ? "Reply" : "Sent"}</AssistBadge>
+                  {e.subject ? ` — ${e.subject}` : ""}
+                  {e.cta ? ` · CTA: ${e.cta}` : ""}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
       )}
-    </CkCard>
+    </AssistPanel>
   );
 }

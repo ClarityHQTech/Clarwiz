@@ -1,7 +1,10 @@
 "use client";
 
-import { CkCard, CkBadge } from "../cockpit/primitives";
+import AssistBadge from "../ui/AssistBadge";
+import { AssistPanel, AssistEmpty } from "../ui/AssistPanel";
+import { BriefingBlock } from "../ui/AssistPrimitives";
 import { asScore } from "../cockpit/format";
+import { ui } from "@/lib/brandUi";
 
 function asString(v) {
   return typeof v === "string" && v.trim() ? v : null;
@@ -15,20 +18,15 @@ function pluck(rows, key) {
     .filter(Boolean);
 }
 
-/**
- * Company-level AURA insight panel (cockpit). Reads CompanyInsight.payload
- * defensively — every field is optional and the panel degrades to a compute
- * notice when no insight has been stored yet.
- */
 export default function CompanyInsightPanel({ insight, company, account }) {
   const payload = insight?.payload && typeof insight.payload === "object" ? insight.payload : null;
   const companyName = company?.name || account?.payload?.name || "Company";
 
   if (!payload) {
     return (
-      <CkCard title={`Account · ${companyName}`}>
-        <div className="ck-empty">No company insight computed yet.</div>
-      </CkCard>
+      <AssistPanel title={`Account · ${companyName}`}>
+        <AssistEmpty>No company insight computed yet.</AssistEmpty>
+      </AssistPanel>
     );
   }
 
@@ -46,44 +44,48 @@ export default function CompanyInsightPanel({ insight, company, account }) {
   const positives = pluck(payload.positive_outcomes_observed, "outcome");
   const warnings = pluck(payload.early_warning_signal, "warning_signal");
 
-  const action = score != null ? <CkBadge variant="accent">Score {score}</CkBadge> : null;
-
   return (
-    <CkCard title={`Account · ${companyName}`} action={action}>
-      <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-        {summary && <div className="ck-risk-desc" style={{ fontSize: 13 }}>{summary}</div>}
+    <AssistPanel
+      title={`Account · ${companyName}`}
+      action={score != null ? <AssistBadge variant="accent">Score {score}</AssistBadge> : null}
+      bodyClassName="px-4 pb-4 space-y-4"
+    >
+      {summary ? <p className="text-sm text-brand-ink leading-relaxed">{summary}</p> : null}
 
-        {(insightLabel || insightExplanation) && (
-          <div className="ck-insight-callout" style={{ marginTop: 0 }}>
-            {insightLabel && <div className="title">{insightLabel}</div>}
-            {insightExplanation && <div className="body">{insightExplanation}</div>}
-          </div>
-        )}
+      {(insightLabel || insightExplanation) && (
+        <BriefingBlock label="AURA insight">
+          {insightLabel ? <p className="font-medium mb-1">{insightLabel}</p> : null}
+          {insightExplanation}
+        </BriefingBlock>
+      )}
 
-        {positives.length > 0 && (
-          <div>
-            <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Positive signals</div>
+      {positives.length > 0 ? (
+        <div>
+          <p className={`${ui.label} mb-2 normal-case tracking-wide`}>Positive signals</p>
+          <ul className="space-y-1">
             {positives.map((p, i) => (
-              <div className="ck-risk-desc" key={i} style={{ marginBottom: 4 }}>
-                <span style={{ color: "var(--ok)" }}>✓ </span>
+              <li key={i} className="text-sm text-brand-ink">
+                <span className="text-brand-sage">✓ </span>
                 {p}
-              </div>
+              </li>
             ))}
-          </div>
-        )}
+          </ul>
+        </div>
+      ) : null}
 
-        {warnings.length > 0 && (
-          <div>
-            <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Watch-outs</div>
+      {warnings.length > 0 ? (
+        <div>
+          <p className={`${ui.label} mb-2 normal-case tracking-wide`}>Watch-outs</p>
+          <ul className="space-y-1">
             {warnings.map((w, i) => (
-              <div className="ck-risk-desc" key={i} style={{ marginBottom: 4 }}>
-                <span style={{ color: "var(--danger)" }}>⚠ </span>
+              <li key={i} className="text-sm text-brand-ink">
+                <span className="text-red-600">⚠ </span>
                 {w}
-              </div>
+              </li>
             ))}
-          </div>
-        )}
-      </div>
-    </CkCard>
+          </ul>
+        </div>
+      ) : null}
+    </AssistPanel>
   );
 }

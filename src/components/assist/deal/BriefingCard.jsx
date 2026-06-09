@@ -1,12 +1,11 @@
 "use client";
 
 import { fmtStaleness } from "../cockpit/format";
+import { AssistPanel } from "../ui/AssistPanel";
+import { AssistEmpty } from "../ui/AssistPanel";
+import { BriefingBlock } from "../ui/AssistPrimitives";
+import { ui } from "@/lib/brandUi";
 
-/**
- * Deal briefing (cockpit, W1): serif briefing text (summary + account briefing),
- * an AURA insight callout, the italic-serif "your coach speaks" block, and the
- * likelihood / follow-up meters. Renders from toDealViewModel output.
- */
 export default function BriefingCard({ vm }) {
   const { briefing, insightDetected, likelihoodToProgress, followUpEffort, insightComputedAt } = vm;
 
@@ -20,10 +19,9 @@ export default function BriefingCard({ vm }) {
 
   if (!hasAny) {
     return (
-      <div className="ck-briefing">
-        <div className="ck-briefing-label">Account Briefing</div>
-        <div className="ck-risk-desc">No briefing has been generated for this deal yet.</div>
-      </div>
+      <AssistPanel title="Account briefing">
+        <AssistEmpty>No briefing has been generated for this deal yet.</AssistEmpty>
+      </AssistPanel>
     );
   }
 
@@ -32,49 +30,48 @@ export default function BriefingCard({ vm }) {
     briefing.briefSummary && briefing.accountLevelBriefing ? briefing.accountLevelBriefing : null;
 
   return (
-    <div className="ck-briefing">
-      <div className="ck-briefing-label">
-        Account Briefing{insightComputedAt ? ` · Computed ${fmtStaleness(insightComputedAt)}` : ""}
+    <AssistPanel
+      title="Account briefing"
+      action={
+        insightComputedAt ? (
+          <span className="text-xs text-brand-stone">Computed {fmtStaleness(insightComputedAt)}</span>
+        ) : null
+      }
+    >
+      <div className="px-4 pb-4 space-y-4">
+        {lead ? <p className="text-sm text-brand-ink leading-relaxed">{lead}</p> : null}
+        {secondary ? <p className="text-sm text-brand-stone leading-relaxed">{secondary}</p> : null}
+
+        {(insightDetected.label || insightDetected.explanation) && (
+          <BriefingBlock label="AURA insight detected">
+            {insightDetected.label ? <p className="font-medium mb-1">{insightDetected.label}</p> : null}
+            {insightDetected.explanation}
+          </BriefingBlock>
+        )}
+
+        {briefing.coachSpeaks ? (
+          <BriefingBlock label="Your coach speaks">
+            <em>{briefing.coachSpeaks}</em>
+          </BriefingBlock>
+        ) : null}
+
+        {(likelihoodToProgress || followUpEffort) && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {likelihoodToProgress ? (
+              <div className={ui.miniStat}>
+                <p className="text-xs text-brand-stone">Likelihood to progress</p>
+                <p className="text-sm font-semibold text-brand-ink mt-0.5">{likelihoodToProgress}</p>
+              </div>
+            ) : null}
+            {followUpEffort ? (
+              <div className={ui.miniStat}>
+                <p className="text-xs text-brand-stone">Follow-up effort</p>
+                <p className="text-sm font-semibold text-brand-ink mt-0.5">{followUpEffort}</p>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
-
-      {lead && <div className="ck-briefing-text">{lead}</div>}
-      {secondary && (
-        <div className="ck-briefing-text" style={{ fontSize: 15, marginTop: 14, color: "var(--text-2)" }}>
-          {secondary}
-        </div>
-      )}
-
-      {(insightDetected.label || insightDetected.explanation) && (
-        <div className="ck-insight-callout">
-          <div className="lbl">AURA insight detected</div>
-          {insightDetected.label && <div className="title">{insightDetected.label}</div>}
-          {insightDetected.explanation && <div className="body">{insightDetected.explanation}</div>}
-        </div>
-      )}
-
-      {briefing.coachSpeaks && (
-        <div className="ck-coach">
-          <div className="lbl">Your coach speaks</div>
-          <div className="body">{briefing.coachSpeaks}</div>
-        </div>
-      )}
-
-      {(likelihoodToProgress || followUpEffort) && (
-        <div className="ck-meter-row">
-          {likelihoodToProgress && (
-            <div className="ck-meter">
-              <div className="lbl">Likelihood to progress</div>
-              <div className="val">{likelihoodToProgress}</div>
-            </div>
-          )}
-          {followUpEffort && (
-            <div className="ck-meter">
-              <div className="lbl">Follow-up effort</div>
-              <div className="val">{followUpEffort}</div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    </AssistPanel>
   );
 }

@@ -2,14 +2,10 @@
 
 import { useState } from "react";
 import CompanyDrawer from "../CompanyDrawer";
-import { CkCard, CkBadge } from "../cockpit/primitives";
+import AssistBadge from "../ui/AssistBadge";
 import { asScore } from "../cockpit/format";
+import { ui } from "@/lib/brandUi";
 
-/**
- * Companies rail (cockpit): account rows that open the 10-tab CompanyDrawer.
- * Owns the selected-account + drawer-open state (client side).
- * account = Account { id, company{name,domain,industry}, _count{deals}, payload? }
- */
 export default function CompaniesRail({ accounts = [] }) {
   const [selected, setSelected] = useState(null);
   const [open, setOpen] = useState(false);
@@ -21,39 +17,51 @@ export default function CompaniesRail({ accounts = [] }) {
 
   return (
     <>
-      <CkCard title="Companies" count={accounts.length}>
+      <div className={ui.cardSurface}>
+        <div className={`flex items-center justify-between px-4 py-3 ${ui.tableToolbar}`}>
+          <h2 className={`${ui.titleSm} text-base`}>
+            Companies
+            <span className="ml-2 text-sm font-sans font-normal text-brand-stone">({accounts.length})</span>
+          </h2>
+        </div>
         {accounts.length === 0 ? (
-          <div className="ck-empty">No companies yet. Sync from HubSpot to hydrate your accounts.</div>
+          <p className="px-4 py-8 text-center text-sm text-brand-stone">
+            No companies yet. Sync from HubSpot to hydrate your accounts.
+          </p>
         ) : (
-          <ul className="ck-list">
+          <ul className={ui.divider}>
             {accounts.map((a) => {
               const company = a.company ?? {};
               const dealCount = a._count?.deals ?? 0;
               const score = asScore(a.payload?.account_score ?? a.score);
               return (
                 <li key={a.id}>
-                  <button type="button" className="ck-list-item" onClick={() => onOpen(a)}>
-                    <div>
-                      <div className="ck-list-item-name">{company.name || "Unknown company"}</div>
-                      <div className="ck-list-item-meta">
-                        {company.industry && <span>{company.industry}</span>}
-                        {company.industry && company.domain && <span className="dot">·</span>}
-                        {company.domain && <span>{company.domain}</span>}
-                      </div>
-                      <div className="ck-chip-row">
-                        <CkBadge variant={dealCount > 0 ? "accent" : "ghost"}>
+                  <button
+                    type="button"
+                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left hover:bg-brand-sage/10 transition-colors"
+                    onClick={() => onOpen(a)}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-brand-ink truncate">
+                        {company.name || "Unknown company"}
+                      </p>
+                      <p className="text-xs text-brand-stone mt-0.5 truncate">
+                        {[company.industry, company.domain].filter(Boolean).join(" · ") || "—"}
+                      </p>
+                      <div className="mt-2">
+                        <AssistBadge variant={dealCount > 0 ? "accent" : "ghost"}>
                           {dealCount} {dealCount === 1 ? "deal" : "deals"}
-                        </CkBadge>
+                        </AssistBadge>
                       </div>
                     </div>
-                    <div className="ck-list-item-side">
+                    <div className="text-right shrink-0">
                       {score != null ? (
                         <>
-                          <div className="amount">{score}</div>
-                          <div className="activity">Health</div>
+                          <p className="text-sm font-semibold text-brand-ink tabular-nums">{score}</p>
+                          <p className="text-xs text-brand-stone mt-0.5">Health</p>
                         </>
                       ) : (
-                        <div className="activity">View</div>
+                        <p className="text-xs text-brand-stone">View</p>
                       )}
                     </div>
                   </button>
@@ -62,7 +70,7 @@ export default function CompaniesRail({ accounts = [] }) {
             })}
           </ul>
         )}
-      </CkCard>
+      </div>
 
       <CompanyDrawer accountId={selected?.id ?? null} isOpen={open} onClose={() => setOpen(false)} />
     </>

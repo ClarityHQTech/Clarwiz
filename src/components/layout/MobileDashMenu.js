@@ -13,7 +13,7 @@ import {
 import { RiMenuFill } from "react-icons/ri";
 import { FaUserCircle } from "react-icons/fa";
 import { IoPricetagOutline } from "react-icons/io5";
-import { HiOutlineChevronRight, HiOutlineLink, HiOutlineSparkles, HiOutlineUserGroup } from "react-icons/hi2";
+import { HiOutlineBriefcase, HiOutlineChevronRight, HiOutlineDocumentDuplicate, HiOutlineLink, HiOutlineSparkles, HiOutlineUserGroup } from "react-icons/hi2";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import ConfirmBox from "@/components/dialog/ConfirmBox";
@@ -29,6 +29,11 @@ const MobileDashMenu = () => {
   const pathname = usePathname();
   const params = pathname.split("/")[1];
   const campaignsActive = pathname.startsWith("/campaigns");
+  const assistActive =
+    pathname === "/assist" ||
+    pathname.startsWith("/assist/deal/") ||
+    pathname.startsWith("/assist/lead/");
+  const collateralsActive = pathname.startsWith("/assist/collaterals");
   const { isOpen, onClose, onOpen } = useDisclosure();
   const logout = useDisclosure();
 
@@ -90,6 +95,20 @@ const MobileDashMenu = () => {
                   title="Campaigns"
                 />
               )}
+              <LinkButton
+                icon={<HiOutlineBriefcase size={20} />}
+                active={assistActive}
+                onClose={onClose}
+                url="/assist"
+                title="AE Assist"
+              />
+              <LinkButton
+                icon={<HiOutlineDocumentDuplicate size={20} />}
+                active={collateralsActive}
+                onClose={onClose}
+                url="/assist/collaterals"
+                title="Collaterals"
+              />
               <LinkButton
                 icon={<HiOutlineLink size={20} />}
                 active={params === "integrations"}

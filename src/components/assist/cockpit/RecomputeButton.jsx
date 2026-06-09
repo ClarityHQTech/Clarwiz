@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { HiOutlineArrowPath } from "react-icons/hi2";
 import { toast } from "sonner";
+import { ui } from "@/lib/brandUi";
 
-/**
- * Cockpit-styled recompute button. Triggers F2 recompute for a deal or account,
- * then refreshes the server component. `scope`: "deal" | "account".
- */
-export default function RecomputeButton({ id, scope = "deal", label = "Recompute", variant = "ghost" }) {
+export default function RecomputeButton({ id, scope = "deal", label = "Recompute", primary = false }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -37,16 +35,11 @@ export default function RecomputeButton({ id, scope = "deal", label = "Recompute
   return (
     <button
       type="button"
-      className={`ck-btn ${variant === "primary" ? "ck-btn-primary" : "ck-btn-ghost"}`}
+      className={primary ? ui.btnPrimary : ui.btnSecondarySurface}
       onClick={onClick}
       disabled={loading}
     >
-      <span className={loading ? "ck-spin" : undefined} style={{ display: "grid" }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M21 12a9 9 0 0 0-15-6.7L3 8" />
-          <path d="M3 3v5h5" />
-        </svg>
-      </span>
+      <HiOutlineArrowPath className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
       {loading ? "Computing…" : label}
     </button>
   );

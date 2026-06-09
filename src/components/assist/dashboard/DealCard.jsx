@@ -1,7 +1,7 @@
 "use client";
 
-import NextLink from "next/link";
-import { CkBadge } from "../cockpit/primitives";
+import Link from "next/link";
+import AssistBadge from "../ui/AssistBadge";
 import { fmtAmountShort, fmtStaleness } from "../cockpit/format";
 
 function scoreVariant(score) {
@@ -11,36 +11,32 @@ function scoreVariant(score) {
   return "danger";
 }
 
-/**
- * One open-deal row (cockpit) → links to /assist/deal/[id]. Stage meta +
- * amount + score chip.
- * deal = Deal { id, name, stageLabel, stageBand, amount, score, lastActivityAt, account{company{name}} }
- */
 export default function DealCard({ deal }) {
   const company = deal.account?.company?.name;
   const score = typeof deal.score === "number" ? deal.score : null;
 
   return (
     <li>
-      <NextLink href={`/assist/deal/${deal.id}`} className="ck-list-item">
-        <div>
-          <div className="ck-list-item-name">{deal.name || "Untitled deal"}</div>
-          <div className="ck-list-item-meta">
-            {company && <span>{company}</span>}
-            {company && deal.stageLabel && <span className="dot">·</span>}
-            {deal.stageLabel && <span>{deal.stageLabel}</span>}
-          </div>
-          {score != null && (
-            <div className="ck-chip-row">
-              <CkBadge variant={scoreVariant(score)}>Score {score}</CkBadge>
+      <Link
+        href={`/assist/deal/${deal.id}`}
+        className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-brand-sage/10 transition-colors"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-brand-ink truncate">{deal.name || "Untitled deal"}</p>
+          <p className="text-xs text-brand-stone mt-0.5 truncate">
+            {[company, deal.stageLabel].filter(Boolean).join(" · ") || "—"}
+          </p>
+          {score != null ? (
+            <div className="mt-2">
+              <AssistBadge variant={scoreVariant(score)}>Score {score}</AssistBadge>
             </div>
-          )}
+          ) : null}
         </div>
-        <div className="ck-list-item-side">
-          <div className="amount">{fmtAmountShort(deal.amount)}</div>
-          <div className="activity">{fmtStaleness(deal.lastActivityAt)}</div>
+        <div className="text-right shrink-0">
+          <p className="text-sm font-semibold text-brand-ink tabular-nums">{fmtAmountShort(deal.amount)}</p>
+          <p className="text-xs text-brand-stone mt-0.5">{fmtStaleness(deal.lastActivityAt)}</p>
         </div>
-      </NextLink>
+      </Link>
     </li>
   );
 }

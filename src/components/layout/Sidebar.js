@@ -1,10 +1,9 @@
 "use client";
 import React from 'react'
 import { FaUserCircle } from 'react-icons/fa';
-import { IoPricetagOutline } from "react-icons/io5";
-import { HiOutlineChevronDoubleLeft, HiOutlineChevronDoubleRight, HiOutlineChevronRight, HiOutlineLink, HiOutlineSparkles, HiOutlineUserGroup } from "react-icons/hi2";
+import { IoPricetagOutline, IoSettingsOutline } from "react-icons/io5";
+import { HiOutlineBriefcase, HiOutlineChevronDoubleLeft, HiOutlineChevronDoubleRight, HiOutlineChevronRight, HiOutlineDocumentDuplicate, HiOutlineLink, HiOutlineSparkles, HiOutlineUserGroup } from "react-icons/hi2";
 import { MdDashboard, MdOutlineCampaign } from 'react-icons/md';
-import { HiOutlineSparkles } from "react-icons/hi2";
 import { IoIosLogOut } from "react-icons/io";
 import { useDisclosure } from '@chakra-ui/react';
 import { useUser } from '@/context/UserContext';
@@ -30,6 +29,11 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
 
     const params = pathname.split('/')[1];
     const campaignsActive = pathname.startsWith('/campaigns');
+    const assistActive =
+      pathname === '/assist' ||
+      pathname.startsWith('/assist/deal/') ||
+      pathname.startsWith('/assist/lead/');
+    const collateralsActive = pathname.startsWith('/assist/collaterals');
 
   return (
     <div className='h-full flex flex-col justify-between p-3 overflow-y-auto no-scrollbar'>
@@ -57,8 +61,8 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 {user?.canAccessCampaignOutreach !== false && (
                 <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={25}/>} active={campaignsActive} />
                 )}
-                <LinkButton collapsed={collapsed} url='/assist' title='AE Assist' icon={<HiOutlineSparkles size={20}/>} active={params === 'assist'} />
-                <LinkButton collapsed={collapsed} url='/settings' title='Settings' icon={<IoSettingsOutline size={20}/>} active={params === 'settings'} />
+                <LinkButton collapsed={collapsed} url='/assist' title='AE Assist' icon={<HiOutlineBriefcase size={20}/>} active={assistActive} />
+                <LinkButton collapsed={collapsed} url='/assist/collaterals' title='Collaterals' icon={<HiOutlineDocumentDuplicate size={20}/>} active={collateralsActive} />
                 <LinkButton collapsed={collapsed} url='/integrations' title='Integrations' icon={<HiOutlineLink size={20}/>} active={params === 'integrations'} />
                 <LinkButton collapsed={collapsed} url='/context' title='Context' icon={<HiOutlineSparkles size={20}/>} active={params === 'context'} />
                 {user?.canManageTeam ? (
@@ -71,8 +75,8 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 {user?.isSuperadmin ? (
                 <Link
                     href="/admin/dashboard"
-                    className={`flex items-center w-full rounded-lg bg-brand-sage text-brand-ink text-sm font-medium hover:bg-brand-sage/90 transition-colors mb-2 ${
-                      collapsed ? "justify-center p-2.5" : "justify-between px-4 py-2.5"
+                    className={`flex items-center w-fit ms-2 rounded-lg bg-brand-sage text-brand-ink text-sm font-medium hover:bg-brand-sage/90 transition-colors mb-2 ${
+                      collapsed ? "justify-center p-2.5" : "justify-between px-4 py-2"
                     }`}
                     title="Admin Panel"
                 >

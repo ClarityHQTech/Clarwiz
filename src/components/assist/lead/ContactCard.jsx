@@ -1,6 +1,8 @@
 "use client";
 
-import { CkBadge, initials } from "../cockpit/primitives";
+import AssistBadge from "../ui/AssistBadge";
+import { initials } from "../ui/AssistPrimitives";
+import { ui } from "@/lib/brandUi";
 
 const PERSONA_LABEL = {
   DECISION_MAKER: "Decision Maker",
@@ -11,10 +13,6 @@ const PERSONA_LABEL = {
   OTHER: "Contact",
 };
 
-/**
- * Lead identity card (cockpit): avatar, name, persona badge, title · company,
- * email/phone. Defensive — businessUser/company may be partially populated.
- */
 export default function ContactCard({ contact, businessUser, company }) {
   const bu = businessUser ?? contact?.businessUser ?? {};
   const co = company ?? bu.company ?? null;
@@ -22,36 +20,36 @@ export default function ContactCard({ contact, businessUser, company }) {
   const persona = PERSONA_LABEL[contact?.persona] ?? "Contact";
 
   return (
-    <div className="ck-card" style={{ padding: 18 }}>
-      <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 14 }}>
-        <div className="ck-sh-avatar" style={{ width: 48, height: 48, fontSize: 18 }}>
+    <div className={`${ui.cardSurface} p-4 sm:p-5`}>
+      <div className="flex gap-4 items-center mb-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-sage/25 text-sm font-semibold text-brand-ink">
           {initials(name)}
         </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ fontSize: 16, color: "var(--text)", fontWeight: 600 }}>{name}</div>
-            <CkBadge variant="accent">{persona}</CkBadge>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-base font-medium text-brand-ink">{name}</p>
+            <AssistBadge variant="accent">{persona}</AssistBadge>
           </div>
           {(bu.jobTitle || co?.name) && (
-            <div className="ck-sh-role" style={{ marginTop: 4 }}>
+            <p className="text-sm text-brand-stone mt-0.5">
               {bu.jobTitle}
               {bu.jobTitle && co?.name ? " · " : ""}
               {co?.name}
-            </div>
+            </p>
           )}
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {bu.email && (
-          <a href={`mailto:${bu.email}`} style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none" }}>
+      <div className="space-y-1 text-sm">
+        {bu.email ? (
+          <a href={`mailto:${bu.email}`} className="text-brand-terracotta hover:underline">
             {bu.email}
           </a>
-        )}
-        {bu.phone && <div style={{ fontSize: 13, color: "var(--text-2)" }}>{bu.phone}</div>}
-        {contact?.lifecycleStage && (
-          <div className="ck-eyebrow" style={{ margin: 0 }}>{contact.lifecycleStage}</div>
-        )}
+        ) : null}
+        {bu.phone ? <p className="text-brand-stone">{bu.phone}</p> : null}
+        {contact?.lifecycleStage ? (
+          <p className={`${ui.label} normal-case tracking-wide`}>{contact.lifecycleStage}</p>
+        ) : null}
       </div>
     </div>
   );

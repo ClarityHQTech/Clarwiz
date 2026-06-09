@@ -26,6 +26,209 @@ AI Calling -
 
 ---
 
+# Data Model
+
+Canonical schema: `prisma/schema.prisma`. The graph splits into a **shared identity layer** (global across tenants) and a **tenant-scoped GTM layer** (TOFU outreach + MOFU deal intelligence).
+
+## Entity hierarchy
+
+```txt
+Company (global)
+└── BusinessUser (global person profile)
+    └── Contact (tenant-scoped)
+        └── ContactCampaign (contact × campaign enrollment)
+            └── CommunicationLog
+
+Tenant
+├── Contact → BusinessUser → Company
+├── Campaign → ContactCampaign
+├── Account → Company          (MOFU: HubSpot company mirror)
+│   └── Deal                   (MOFU: HubSpot deal mirror)
+│       └── DealContact → Contact
+└── TenantIcpContext, integrations, …
+```
+
+---
+
+## Company
+
+Global company record. Shared across tenants; deduplicated by domain.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (cuid) | PK |
+| `name` | String | Company name |
+| `domain` | String? | Unique when set |
+| `industry` | String? | |
+| `createdAt` / `updatedAt` | DateTime | |
+
+**Relations:** `businessUsers[]`, `accounts[]` (tenant-scoped HubSpot mirrors)
+
+---
+
+## BusinessUser
+
+Global person profile — the enriched prospect identity. One BusinessUser can appear as a `Contact` in multiple tenants (different clients targeting the same person).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (cuid) | PK |
+| `companyId` | String? | FK → Company |
+| `name` | String | Display name |
+| `firstName` / `lastName` | String? | |
+| `jobTitle` / `department` / `seniority` | String? | |
+| `email` | String? | Indexed |
+| `phone` / `whatsapp` | String? | Outreach channels |
+| `linkedinUrl` | String? | Indexed |
+| `twitterId` / `location` | String? | |
+| `createdAt` / `updatedAt` | DateTime | |
+
+**Relations:** `company`, `contacts[]` (per-tenant), `signals[]` (TOFU `BusinessUserSignal`)
+
+**Related:** `BusinessUserSignal` — external signals (LinkedIn posts, job changes, etc.) keyed by `businessUserId`, optionally scoped to `tenantId` / `campaignId`.
+
+---
+
+## Tenant
+
+Client workspace. Root of all tenant-scoped data.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (cuid) | PK |
+| `name` | String | Client / org name |
+| `company_details` | Json? | Onboarding metadata |
+| `payment_status` | Boolean | Default `false` |
+| `createdAt` / `updatedAt` | DateTime | |
+
+**Relations:**
+
+| Relation | Purpose |
+|----------|---------|
+| `memberships` / `invitations` | User access (`TenantRole`: ADMIN, MEMBER) |
+| `campaigns` | Outreach campaigns |
+| `contacts` | Tenant-scoped people (→ BusinessUser) |
+| `commLogs` | Communication history |
+| `tenantIcpContext` | ICP workbook + GTM Core outputs |
+| `linkedInIntegration`, `emailIntegration`, `whatsappIntegration`, `calendlyIntegration` | Channel connectors |
+| `mofuIntegration` | HubSpot + MOFU LLM config |
+| `accounts` / `deals` | MOFU CRM mirror graph |
+| `dealInsights` / `companyInsights` / `nbas` / `signals` | Computed MOFU intelligence |
+| `collateralIndex` / `documents` / `assistActionLogs` | AE Assist artifacts |
+| `apiKeys` / `integrationWebhooks` | External API + webhook ingress |
+
+---
+
+## Contact
+
+Tenant-scoped view of a person. Links a `Tenant` to a global `BusinessUser`. This is the unit the execution layer operates on for TOFU outreach (formerly referred to as "prospect" in workflow docs).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (cuid) | PK |
+| `tenantId` | String | FK → Tenant |
+| `businessUserId` | String | FK → BusinessUser |
+| `persona` | ContactPersona | Default `OTHER` |
+| `hubspotContactId` | String? | HubSpot sync |
+| `lifecycleStage` | String? | |
+| `ownerId` | String? | HubSpot `hubspot_owner_id` — "my book" filtering |
+| `createdAt` / `updatedAt` | DateTime | |
+
+**Uniques:** `(tenantId, businessUserId)`, `(tenantId, hubspotContactId)`
+
+**Enum `ContactPersona`:** `DECISION_MAKER`, `INFLUENCER`, `CHAMPION`, `GATEKEEPER`, `ECONOMIC_BUYER`, `TECHNICAL_BUYER`, `END_USER`, `OTHER`
+
+**Relations:** `contactCampaigns[]`, `dealContacts[]` (MOFU stakeholders), `nbas[]`
+
+---
+
+## ContactCampaign
+
+Enrollment of a `Contact` in a `Campaign` — the outreach state machine for one person in one campaign.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (cuid) | PK |
+| `contactId` | String | FK → Contact |
+| `campaignId` | String | FK → Campaign |
+| `status` | ContactCampaignStatus | Default `PENDING` |
+| `qualifiedAt` / `qualifiedReason` | DateTime? / String? | Set when marked qualified |
+| `outreachDeliveryTime` | String? | Preferred send time (HH:mm) |
+| `nextScheduledOutreachAt` | DateTime? | Next execution slot |
+| `lastOutreachDate` | Date? | Last touch date |
+| `whatsapp24hWindowExpiresAt` | DateTime? | WhatsApp session window |
+| `createdAt` / `updatedAt` | DateTime | |
+
+**Unique:** `(contactId, campaignId)`
+
+**Enum `ContactCampaignStatus`:**
+
+| Status | Meaning |
+|--------|---------|
+| `PENDING` | Enrolled, not yet in active outreach |
+| `IN_OUTREACH` | Sequence running |
+| `REPLIED` | Prospect responded |
+| `QUALIFIED` | Demo booked / positive intent — stop sequence |
+| `NOT_QUALIFIED` | Evaluated, not a fit |
+| `DISQUALIFIED` | Removed from sequence |
+| `PAUSED` | Temporarily halted |
+
+**Relations:** `contact`, `campaign`, `commLogs[]`
+
+---
+
+## Deal (MOFU)
+
+Tenant-scoped mirror of a HubSpot deal. Anchor for deal intelligence, NBAs, and MOFU signals. SOR remains HubSpot; Clarwiz stores computed intelligence locally.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | String (cuid) | PK |
+| `tenantId` | String | FK → Tenant |
+| `accountId` | String? | FK → Account (HubSpot company mirror) |
+| `hubspotDealId` | String | HubSpot deal ID |
+| `name` | String | Deal name |
+| `stageLabel` | String? | Pipeline stage label |
+| `stageBand` | DealStageBand? | `LEAD`, `DEAL_EARLY`, `DEAL_LATE` |
+| `amount` | Float? | |
+| `status` | DealStatus | `OPEN` (default), `WON`, `LOST` |
+| `ownerId` | String? | HubSpot owner |
+| `score` | Int? | Computed deal score |
+| `lastActivityAt` | DateTime? | |
+| `payload` | Json? | Raw HubSpot snapshot |
+| `syncedAt` | DateTime | Last sync time |
+| `createdAt` / `updatedAt` | DateTime | |
+
+**Unique:** `(tenantId, hubspotDealId)`
+
+**Relations:** `account`, `insights[]` (DealInsight), `nbas[]`, `signals[]`, `dealContacts[]` (→ Contact stakeholders)
+
+**Bridge models:**
+
+- **Account** — tenant ↔ Company bridge with `hubspotCompanyId`, `ownerId`, `lifecycleStage`, `payload`
+- **DealContact** — many-to-many Deal ↔ Contact with optional `role`
+
+---
+
+## Campaign (reference)
+
+Named outreach program owned by a tenant. ContactCampaign links contacts into campaigns.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `name` / `description` / `targetSegment` / `goals` | String? | Campaign config |
+| `startDate` | DateTime? | |
+| `status` | String | Default `draft` |
+| `sentCount`, `openRate`, `replyRate`, `qualifiedLeads` | Int / Float | Aggregates |
+| `calendlyBookingUrl` | String? | Demo booking |
+| `smartleadCampaignId` | Int? | Smartlead sync |
+| `outreachTimezone` | String | Default `UTC` |
+| `defaultOutreachTime` | String | Default `11:00` |
+| `enabledChannels` | String[] | Default `["email", "linkedin", "whatsapp"]` |
+
+**Relations:** `contactCampaigns[]`, `templates[]`, `commLogs[]`
+
+---
 
 # WorkFlow and Details:
 
@@ -47,20 +250,19 @@ Client provides:
 * Tone preferences
 * Product context
 
-Stored per tenant.
+Stored per tenant in `TenantIcpContext` (linked 1:1 to `Tenant`).
 
 ---
 
 ### Enriched Prospect List
 
-Final account book containing:
+Final account book containing enriched people, stored as:
 
-* Enriched fields with:
-    whatsapp number, phone, linkedinUrl, Email
+* **`BusinessUser`** — global identity (email, phone, whatsapp, linkedinUrl, job title, company)
+* **`Company`** — global company record (name, domain, industry)
+* **`Contact`** — tenant-scoped enrollment linking the tenant to each BusinessUser
 
-Feeds into campaign engine.
-
----
+Feeds into campaign engine via **`ContactCampaign`** enrollment.
 
 
 
@@ -75,13 +277,14 @@ Named campaign example:
 
 * "Summer 2025"
 
-Contains:
+Maps to the `Campaign` model. Contains:
 
-* Description
-* Target segment
-* Start date
-* Goals
+* Description, target segment, start date, goals
+* Enabled channels (`email`, `linkedin`, `whatsapp`)
+* Outreach timezone and default send time
+* Calendly booking URL, Smartlead campaign ID
 
+Contacts are enrolled via **`ContactCampaign`** (one row per contact × campaign).
 
 ## Communication Templates
 
@@ -129,11 +332,10 @@ Picks or generates communication templates dynamically.
 
 ### Tenant Context
 
-Includes:
+Includes (from `Tenant` + `TenantIcpContext`):
 
-* ICP
-* Product information
-* Brand tone
+* ICP workbook, gap analysis, market research, value proposition
+* Product information and brand tone
 * Campaign goals
 
 Injected into every execution decision.
@@ -142,13 +344,12 @@ Injected into every execution decision.
 
 ### Communication Log History
 
-Stores:
+Stored in `CommunicationLog`, keyed to `ContactCampaign`:
 
-* commId
-* Timestamp
-* Channel
-* Message body
-* CTA used
+* commId (`id`)
+* Timestamp (`sentAt`, `deliveredAt`, `openedAt`)
+* Channel, message body, CTA used
+* Template and stage
 
 Purpose:
 
@@ -159,7 +360,7 @@ Purpose:
 
 ### Prospect Responses
 
-Tracks:
+Tracks per `ContactCampaign`:
 
 * Email replies
 * Open/no-open status
@@ -167,13 +368,13 @@ Tracks:
 * Website visits
 * CTA clicks
 
-Used to inform next action.
+Used to inform next action and update `ContactCampaignStatus` (e.g. `REPLIED`, `QUALIFIED`).
 
 ---
 
 ### Live Signals
 
-Real-time signals:
+Real-time signals on `BusinessUser` (via `BusinessUserSignal`) and MOFU entities (via `Signal` on deals/accounts):
 
 * LinkedIn posts
 * Comments
@@ -186,7 +387,7 @@ Used for hyper-personalized outreach.
 
 ## Decision Logic
 
-1. Load all prospect context
+1. Load all context for the `Contact` (via `BusinessUser` + `Company`) and its `ContactCampaign`
 2. Score templates by:
 
    * Relevance
@@ -196,8 +397,8 @@ Used for hyper-personalized outreach.
 4. Generate custom templates if needed
 5. for whatsapp just select from given templates
 6. for email select appropriate inbox (prospect db has info of all inboxes and it's usage to avoid spam)
-6. Select next-best-action
-7. Schedule optimal send time
+7. Select next-best-action
+8. Schedule optimal send time (updates `ContactCampaign.nextScheduledOutreachAt`)
 
 ---
 
@@ -232,7 +433,8 @@ Embeds:
 
 ### Qualified Lead Flag
 
-internal signal triggers
+Internal signal triggers when a `ContactCampaign` reaches `QUALIFIED` status.
+
 If prospect:
 
 * Books demo
@@ -240,9 +442,9 @@ If prospect:
 
 Then:
 
-* Mark as qualified lead
+* Set `ContactCampaign.status = QUALIFIED`, record `qualifiedAt` / `qualifiedReason`
 * Notify client
-* Stop outreach sequence for that particular prospect
+* Stop outreach sequence for that contact in that campaign
 
 ---
 
@@ -256,25 +458,39 @@ Responses feed back into execution engine.
 
 ## Communication Log Schema
 
+Maps to the `CommunicationLog` model. Each log belongs to a `ContactCampaign` (not directly to Contact or Campaign).
+
 ```json
 {
-  "commId": "UUID",
+  "id": "cuid",
   "tenantId": "",
-  "prospectId": "",
   "campaignId": "",
+  "contactCampaignId": "",
   "channel": "email | whatsapp | linkedin | call",
   "templateId": "",
-  "stage": "",
+  "stage": 1,
+  "subject": "",
   "message": "",
+  "ctaType": "",
+  "status": "planned | sent | delivered | …",
   "sentAt": "",
   "deliveredAt": "",
   "openedAt": "",
-  "ctaType": "",
   "ctaClickedAt": "",
   "responseType": "",
   "responseAt": "",
   "responseContent": "",
-  "signalRef": ""
+  "signalRef": "",
+  "decisionReason": "",
+  "modelUsed": "",
+  "providerUsage": {},
+  "providerCost": {},
+  "deliveryProvider": "",
+  "deliveryMeta": {},
+  "scheduledFor": "",
+  "retryCount": 0,
+  "lastRetryAt": "",
+  "nextRetryAt": ""
 }
 ```
 
@@ -301,7 +517,7 @@ When prospect visits:
 * Event logged as `website_visit`
 
 Creates passive intent tracking.
-gets updated in it prospect db
+Gets updated on the `Contact` / `ContactCampaign` record.
 
 ---
 
@@ -319,9 +535,9 @@ Triggered when:
 
 Actions:
 
-* Mark qualified lead
+* Set `ContactCampaign.status = QUALIFIED`
 * Notify client
-* Stop outreach for that prospect
+* Stop outreach for that contact in that campaign
 
 ---
 
@@ -348,11 +564,11 @@ Each signal contains:
 
 * Type
 * Source
-* prospectId
+* `businessUserId` (TOFU) or `dealId` / `accountId` (MOFU)
 * Content snippet
 * Timestamp
 
-new signal trigger execution layer, it decides whether to make instant communication or just save and store in context for next comm. 
+New signal triggers execution layer — decides whether to make instant communication or save in context for next comm.
 
 Creates a closed feedback loop.
 
@@ -446,19 +662,21 @@ Agency/admin capabilities:
 # Data Flow Summary
 
 ```txt
-Enriched Prospect
+Enriched BusinessUser + Company
     ↓
-Campaign assigns stage templates
+Contact created (tenant-scoped)
+    ↓
+ContactCampaign enrolls contact in Campaign
     ↓
 Execution layer selects next-best-action
     ↓
-Communication sent via channel
+Communication sent via channel → CommunicationLog
     ↓
-Tracking & response logging
+Tracking & response logging → ContactCampaign status updates
     ↓
-Signals update in real time
+Signals update in real time (BusinessUserSignal / Signal)
     ↓
 Execution adapts dynamically
     ↓
-Qualified lead delivered to client
+ContactCampaign → QUALIFIED → lead delivered to client
 ```
