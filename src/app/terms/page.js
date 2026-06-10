@@ -10,11 +10,11 @@ const TermsPage = () => (
   <LegalDocument title="Terms of Service" lastUpdated={LAST_UPDATED}>
     <LegalSection title="1. Agreement">
       <p>
-        These Terms of Service (&quot;Terms&quot;) govern your access to and use of Clarwiz
-        and related products and services offered by ClarityHQ (&quot;ClarityHQ,&quot;
-        &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) (collectively, the
-        &quot;Services&quot;). By accessing or using the Services, you agree to be bound by
-        these Terms and our Privacy Policy.
+        These Terms of Service (&quot;Terms&quot;) govern your access to and use of Clarwiz,
+        an application owned and operated by ClarityHQ (&quot;we,&quot; &quot;us,&quot; or
+        &quot;our&quot;), accessible via clarwiz.clarityhq.ai and clarityhq.ai (collectively,
+        the &quot;Services&quot;). By accessing or using the Services, you agree to be bound
+        by these Terms and our Privacy Policy.
       </p>
       <p>
         If you use the Services on behalf of a company or other legal entity, you represent

@@ -10,11 +10,13 @@ const PrivacyPage = () => (
   <LegalDocument title="Privacy Policy" lastUpdated={LAST_UPDATED}>
     <LegalSection title="1. Introduction">
       <p>
-        ClarityHQ (&quot;ClarityHQ,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates
-        Clarwiz and related services (collectively, the &quot;Services&quot;). This Privacy Policy
-        explains how we collect, use, disclose, and protect information when you access or
-        use the Services, including when you sign in, configure campaigns, connect
-        integrations, or interact with prospects through the platform.
+        This Privacy Policy governs the data collection and usage practices of Clarwiz, an
+        application owned and operated by ClarityHQ (&quot;we,&quot; &quot;us,&quot; or
+        &quot;our&quot;), accessible via clarwiz.clarityhq.ai and clarityhq.ai (collectively,
+        the &quot;Services&quot;). It explains how we collect, use, disclose, and protect
+        information when you access or use the Services, including when you sign in,
+        configure campaigns, connect integrations, or interact with prospects through the
+        platform.
       </p>
       <p>
         By using the Services, you agree to the collection and use of information in
