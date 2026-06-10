@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
     include: {
       _count: {
         select: {
-          contactCampaigns: true,
+          campaignContacts: true,
           commLogs: true,
         },
       },
@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
     campaignId: campaign.id,
     tenantId: campaign.tenantId,
     metrics: {
-      prospects: campaign._count.contactCampaigns,
+      prospects: campaign._count.campaignContacts,
       communicationLogs: campaign._count.commLogs,
       businessUserSignals,
       sentCount: campaign.sentCount,

@@ -33,7 +33,7 @@ async function safeEngagements(prisma, tenantId, contactIds = []) {
   try {
     const where = { tenantId };
     if (contactIds.length) {
-      where.contactCampaign = { is: { contactId: { in: contactIds } } };
+      where.campaignContact = { is: { contactId: { in: contactIds } } };
     }
     const rows = await prisma.communicationLog.findMany({
       where,
@@ -68,6 +68,38 @@ async function safeHubspotEngagements(token, hubspotDealId, fetchImpl) {
   }
 }
 
+/** Stored call/meeting transcripts from the last HubSpot recording sync. */
+async function safeDealRecordingEngagements(prisma, dealId) {
+  if (!dealId) return [];
+  try {
+    const rows = await prisma.dealRecording.findMany({
+      where: { dealId, transcriptAvailable: true },
+      orderBy: { occurredAt: "desc" },
+      take: 15,
+    });
+    return rows
+      .filter((r) => r.transcriptText?.trim())
+      .map((r) => {
+        const iso = r.occurredAt?.toISOString?.() ?? null;
+        return {
+          type: r.engagementType,
+          channel: r.engagementType,
+          subject: r.title,
+          text: r.transcriptText,
+          content: r.transcriptText,
+          message: r.transcriptText,
+          at: r.occurredAt ? r.occurredAt.getTime() : null,
+          sentAt: iso,
+          createdAt: iso,
+          source: "hubspot_recording",
+          transcriptSource: r.transcriptSource,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 /** Resolve a HubSpot object id from a deal/account payload, best-effort. */
 function hsObjectIdOf(entity) {
   const p = entity?.payload ?? {};
@@ -91,13 +123,15 @@ export async function assembleDealContext(prisma, tenantId, dealId, { token, fet
   const contactIds = contacts.map((c) => c?.id).filter(Boolean);
   const hubspotDealId = view.deal?.hubspotDealId ?? null;
 
-  const [tenant, commLogs, hsEngagements] = await Promise.all([
+  const [tenant, commLogs, hsEngagements, recordingEngagements] = await Promise.all([
     safeTenant(prisma, tenantId),
     safeEngagements(prisma, tenantId, contactIds),
     safeHubspotEngagements(token, hubspotDealId, fetchImpl),
+    safeDealRecordingEngagements(prisma, dealId),
   ]);
 
-  const engagements = [...hsEngagements, ...commLogs];
+  // Stored transcripts (post-sync) take priority over live HubSpot engagement snippets.
+  const engagements = [...recordingEngagements, ...hsEngagements, ...commLogs];
 
   const ownerId = view.deal?.ownerId ?? view.account?.ownerId ?? null;
 

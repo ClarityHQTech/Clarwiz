@@ -68,3 +68,10 @@ export function getCalendlyDisplayStatus(integration) {
   if (integration.status === "pending") return "pending";
   return "not_configured";
 }
+
+export function getHubSpotDisplayStatus(integration) {
+  if (!integration?.configured) return "not_configured";
+  if (integration.status === "connected") return "connected";
+  if (integration.status === "error") return "failed";
+  return "pending";
+}

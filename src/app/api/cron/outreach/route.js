@@ -5,7 +5,7 @@ import {
   retryCommLogPush,
 } from "@/lib/execution/runCampaignExecution";
 import { isCronRequestAuthorized, isOutreachCronEnabled } from "@/lib/cronAuth";
-import { TERMINAL_CONTACT_CAMPAIGN_STATUSES } from "@/lib/contactCampaignStatus";
+import { TERMINAL_CAMPAIGN_CONTACT_STATUSES } from "@/lib/campaignContactStatus";
 
 export async function GET(request) {
   return runOutreachCron(request);
@@ -37,10 +37,10 @@ async function runOutreachCron(request) {
     results: [],
   };
 
-  const dueContacts = await prisma.contactCampaign.findMany({
+  const dueContacts = await prisma.campaignContact.findMany({
     where: {
       campaign: { status: "active" },
-      status: { notIn: [...TERMINAL_CONTACT_CAMPAIGN_STATUSES] },
+      status: { notIn: [...TERMINAL_CAMPAIGN_CONTACT_STATUSES] },
       nextScheduledOutreachAt: { lte: now },
     },
     include: {

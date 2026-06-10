@@ -24,7 +24,7 @@ const Footer = () => {
           <p className="mt-8">{BRAND.lockup} powers human-led growth execution for ambitious D2C brands and agencies—unified brand context, one source of truth.</p>
           <p className="mt-16">
             For support, email us at <br />
-            <a href="mailto:nextscale.ai@gmail.com" className="text-brand-terracotta">nextscale.ai@gmail.com</a>
+            <a href="mailto:support@clarityhq.ai" className="text-brand-terracotta">support@clarityhq.ai</a>
           </p>
         </div>
 
@@ -35,8 +35,8 @@ const Footer = () => {
         </div>
 
         <div className="flex flex-col items-start gap-8 text-white">
-          <Link href={'/privacy-policy'}>Privacy policy</Link>
-          <Link href={'/terms-and-conditions'}>Terms and Conditions</Link>
+          <Link href={'/privacy'}>Privacy policy</Link>
+          <Link href={'/terms'}>Terms and Conditions</Link>
           <button onClick={contact.onOpen}>Contact Us</button>
         </div>
       </div>

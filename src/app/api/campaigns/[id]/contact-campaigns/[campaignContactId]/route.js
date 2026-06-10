@@ -1,8 +1,8 @@
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
-  patchContactCampaign,
-  removeContactCampaign,
+  patchCampaignContact,
+  removeCampaignContact,
 } from "@/lib/api/campaignContacts";
 
 export async function PATCH(request, { params }) {
@@ -10,11 +10,11 @@ export async function PATCH(request, { params }) {
   if (auth.error) return auth.error;
   const { ctx } = auth;
 
-  return patchContactCampaign(
+  return patchCampaignContact(
     request,
     params.id,
     ctx.tenantId,
-    params.contactCampaignId
+    params.campaignContactId
   );
 }
 
@@ -23,9 +23,9 @@ export async function DELETE(_request, { params }) {
   if (auth.error) return auth.error;
   const { ctx } = auth;
 
-  return removeContactCampaign(
+  return removeCampaignContact(
     params.id,
     ctx.tenantId,
-    params.contactCampaignId
+    params.campaignContactId
   );
 }

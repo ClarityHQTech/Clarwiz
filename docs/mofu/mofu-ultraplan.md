@@ -11,7 +11,7 @@
 ## 0. Conventions (read once)
 
 - **One app.** MOFU is a module *inside* Clarwiz (`Next.js 14 App Router`, Prisma 6, Postgres, Vercel, OpenAI). Routes: `src/app/assist/*` (pages), `src/app/api/assist/*` (server). No new repo, no fork.
-- **TOFU and MOFU are composable peer layers on a shared kernel.** The shared kernel/infra = identity & access (`Tenant`, `User`, `TenantMembership`, RBAC `permissions.js`, auth/session), the **CRM graph** (`Company`, `BusinessUser`, `Contact`, signals), and platform (`prisma.js`, `encryptSecret.js`, integration framework, settings UX). A tenant runs **TOFU-only, MOFU-only, or both** (§0.1). MOFU **never** requires a TOFU-outreach row (`Campaign`/`ContactCampaign`/`CommunicationLog`/`CommunicationTemplate`).
+- **TOFU and MOFU are composable peer layers on a shared kernel.** The shared kernel/infra = identity & access (`Tenant`, `User`, `TenantMembership`, RBAC `permissions.js`, auth/session), the **CRM graph** (`Company`, `BusinessUser`, `Contact`, signals), and platform (`prisma.js`, `encryptSecret.js`, integration framework, settings UX). A tenant runs **TOFU-only, MOFU-only, or both** (§0.1). MOFU **never** requires a TOFU-outreach row (`Campaign`/`CampaignContact`/`CommunicationLog`/`CommunicationTemplate`).
 - **Clarwiz MOFU is the intelligence layer — it holds all the context and computes over it.** Deal/company insights, NBAs, and signals are **computed inside Clarwiz** (context assembled from the shared CRM graph + HubSpot + optional TOFU history; run through OpenAI with the AURA-structured prompts, handed over later) and **persisted as first-class MOFU entities**. There is **no live external AURA backend** in this design — AURA is a *prompt & response-shape reference only* (`aura-frontend/AURA_SERVICES.md`).
 - **Identity:** CRM objects keyed by HubSpot id (`hubspotDealId`/`hubspotCompanyId`/`hubspotContactId`), resolved into the shared graph (`Account`/`Company`/`Contact`). Clarwiz masters nothing in HubSpot — it mirrors + enriches.
 - **Secrets server-side only.** Third-party tokens are AES-256-GCM encrypted at rest; the browser never sees them.
@@ -31,7 +31,7 @@
   ┌──────┴───────────┐                                   ┌──────────┴────────────────┐
   │  TOFU domain      │             HubSpot SOR           │  MOFU domain (INTELLIGENCE)│
   │ Campaign·         │   ←──── shared meeting point ──→  │ Account·Deal·DealInsight·  │
-  │ ContactCampaign·  │            (object ids)           │ CompanyInsight·            │
+  │ CampaignContact·  │            (object ids)           │ CompanyInsight·            │
   │ CommunicationLog· │                                   │ NbaRecommendation·Signal·  │
   │ CommunicationTmpl │                                   │ CollateralIndex·           │
   └───────────────────┘                                   │ AssistActionLog·MofuIntegr.│
@@ -48,7 +48,7 @@
 
 **Composability rules (enforced by the tasks below):**
 1. **MOFU builds on the shared CRM graph, not a disposable cache.** HubSpot sync hydrates `Account`/`Company`/`BusinessUser`/`Contact`; MOFU intelligence reads/writes that graph. A MOFU-only tenant gets a real normalized CRM, populated from HubSpot, with **zero** TOFU outreach rows.
-2. **No TOFU-outreach dependency.** MOFU models FK only to the shared kernel/CRM-graph — never to `Campaign`/`ContactCampaign`/`CommunicationLog`/`CommunicationTemplate`. The *only* cross-domain read is L1's `CommunicationLog` enrichment, degrading to "No Clarwiz outreach history" when absent.
+2. **No TOFU-outreach dependency.** MOFU models FK only to the shared kernel/CRM-graph — never to `Campaign`/`CampaignContact`/`CommunicationLog`/`CommunicationTemplate`. The *only* cross-domain read is L1's `CommunicationLog` enrichment, degrading to "No Clarwiz outreach history" when absent.
 3. **Independent gating.** Nav renders TOFU and MOFU sections separately per-layer gate. (Hackathon: implicit via scopes + integration presence. Productionization: explicit `Tenant.enabledLayers String[]`.)
 4. **HubSpot is the seam between layers; the shared graph is the join inside Clarwiz.** Layers never call each other's modules.
 5. **TOFU→MOFU handoff is an opt-in bridge** (Mode 3, task **B1**) in TOFU's `qualifyContact.js` behind a flag — not in the MOFU module.
@@ -101,7 +101,7 @@ MOFU adds models to `prisma/schema.prisma` in **one additive migration**, **buil
 | 4 | Tenant scoping + cascade | `tenant Tenant @relation(…, onDelete: Cascade)` | every tenant-scoped model + **back-relation on `Tenant`** |
 | 5 | Encrypted tokens, never plaintext | `encryptedAccessToken`, `encryptedMetaToken` | `encryptedHubspotToken` (no AURA token — intelligence is in-house) |
 | 6 | One-per-tenant integration shape | `LinkedInIntegration` (`tenantId @unique`, `status @default("pending")`, `connectedAt`) | `MofuIntegration` mirrors it |
-| 7 | Prisma enums (SCREAMING_SNAKE) | `ContactPersona`, `ContactCampaignStatus` | stage band / status / NBA status / signal type / collateral type+source+stage / action |
+| 7 | Prisma enums (SCREAMING_SNAKE) | `ContactPersona`, `CampaignContactStatus` | stage band / status / NBA status / signal type / collateral type+source+stage / action |
 | 8 | Explicit `@@index` / `@@unique` | `@@index([tenantId])`, `@@unique([contactId, campaignId])` | tenant + lookup indexes on each; composite uniques for HubSpot ids |
 | 9 | `Json` for flexible payloads | `providerMeta Json?`, `payload` | insight payloads, NBA draft, raw HS props |
 | 10 | Reuse the shared CRM graph | `Contact` = tenant↔`BusinessUser`+persona; `Company` global | `Account` = tenant↔`Company` (company-side mirror of `Contact`); MOFU FKs into the graph |
@@ -438,7 +438,7 @@ model AssistActionLog {
 
 | ID | Task | Files / area | Depends | Acceptance |
 |----|------|--------------|---------|------------|
-| **B1** | **MQL handoff** — on TOFU `ContactCampaignStatus = QUALIFIED`, optionally upsert contact/company to HubSpot as MQL so MOFU picks it up | extend `src/lib/execution/qualifyContact.js` (guard `process.env.CLARWIZ_TOFU_TO_MOFU_BRIDGE === "1"`); reuse `src/lib/assist/hubspot.js` | H1 + TOFU qualify | Flag off (default) → TOFU unchanged, zero MOFU coupling. Flag on + `MofuIntegration` → qualified contact appears as HubSpot MQL; next H2 sync surfaces it in Open Leads. No `MofuIntegration` → no-op + one `[MOFU] info` log (never breaks qualification). |
+| **B1** | **MQL handoff** — on TOFU `CampaignContactStatus = QUALIFIED`, optionally upsert contact/company to HubSpot as MQL so MOFU picks it up | extend `src/lib/execution/qualifyContact.js` (guard `process.env.CLARWIZ_TOFU_TO_MOFU_BRIDGE === "1"`); reuse `src/lib/assist/hubspot.js` | H1 + TOFU qualify | Flag off (default) → TOFU unchanged, zero MOFU coupling. Flag on + `MofuIntegration` → qualified contact appears as HubSpot MQL; next H2 sync surfaces it in Open Leads. No `MofuIntegration` → no-op + one `[MOFU] info` log (never breaks qualification). |
 
 ---
 

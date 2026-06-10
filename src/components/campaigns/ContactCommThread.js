@@ -154,7 +154,7 @@ export default function ContactCommThread({
   campaign,
   prospect,
   campaignId,
-  contactCampaignId,
+  campaignContactId,
   templates = [],
   enabledChannels = DEFAULT_ENABLED_CHANNELS,
   onSent,
@@ -174,7 +174,7 @@ export default function ContactCommThread({
 
   useEffect(() => {
     setActiveTab(CAMPAIGN_CHANNELS[0]);
-  }, [contactCampaignId]);
+  }, [campaignContactId]);
 
   const tabs = CAMPAIGN_CHANNELS;
   const activeLogs = byChannel[activeTab] ?? [];
@@ -246,7 +246,7 @@ export default function ContactCommThread({
 
       {copilotMode ? (
         <ContactCopilotComposer
-          key={contactCampaignId}
+          key={campaignContactId}
           channel={activeTab}
           channelEnabled={enabledChannels.includes(activeTab)}
           prospect={prospect}
@@ -254,7 +254,7 @@ export default function ContactCommThread({
           templates={templates}
           communications={communications ?? []}
           campaignId={campaignId}
-          contactCampaignId={contactCampaignId}
+          campaignContactId={campaignContactId}
           onSent={onSent}
         />
       ) : (

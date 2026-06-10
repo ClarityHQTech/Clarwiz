@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
       tenantId: params.tenantId,
     },
     include: {
-      _count: { select: { contactCampaigns: true, templates: true, commLogs: true } },
+      _count: { select: { campaignContacts: true, templates: true, commLogs: true } },
     },
   });
   if (!campaign) {
@@ -37,7 +37,7 @@ export async function GET(request, { params }) {
     qualifiedLeads: campaign.qualifiedLeads,
     calendlyBookingUrl: campaign.calendlyBookingUrl,
     counts: {
-      prospects: campaign._count.contactCampaigns,
+      prospects: campaign._count.campaignContacts,
       templates: campaign._count.templates,
       communicationLogs: campaign._count.commLogs,
     },

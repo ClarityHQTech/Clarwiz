@@ -3,7 +3,7 @@
  * through vite-node so the `@/` alias + ESM imports below resolve. Idempotent.
  */
 import { prisma } from "@/lib/prisma";
-import { upsertMofuIntegration } from "@/lib/assist/mofuIntegration";
+import { upsertHubspotOAuth } from "@/lib/assist/mofuIntegration";
 import { syncCrmGraph } from "@/lib/assist/syncGraph";
 import { recomputeDeal } from "@/lib/assist/intelligence/compute";
 
@@ -37,11 +37,15 @@ async function ensureTenant() {
 async function seedFromHubspot(tenant, token) {
   const portalId = process.env.HUBSPOT_TEST_PORTAL_ID?.trim() || null;
 
-  await upsertMofuIntegration(prisma, tenant.id, {
-    hubspotToken: token,
-    hubspotPortalId: portalId,
+  // Dev-only: store a long-lived bearer token as an OAuth access token for seeding.
+  await upsertHubspotOAuth(prisma, tenant.id, {
+    accessToken: token,
+    refreshToken: null,
+    expiresIn: 365 * 24 * 3600,
+    portalId,
+    scopes: [],
   });
-  log(`MofuIntegration upserted (portal ${portalId ?? "n/a"}, token encrypted)`);
+  log(`MofuIntegration upserted via OAuth store (portal ${portalId ?? "n/a"})`);
 
   log("syncing CRM graph from HubSpot sandbox…");
   const sync = await syncCrmGraph(prisma, tenant.id, token);
@@ -219,7 +223,9 @@ async function main() {
   log(`DB: ${process.env.DATABASE_URL ? "configured" : "MISSING DATABASE_URL"}`);
   const tenant = await ensureTenant();
 
-  const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim();
+  const token =
+    process.env.HUBSPOT_DEV_ACCESS_TOKEN?.trim() ||
+    process.env.HUBSPOT_PRIVATE_APP_TOKEN?.trim();
   const result = token
     ? await seedFromHubspot(tenant, token)
     : await seedSynthetic(tenant);

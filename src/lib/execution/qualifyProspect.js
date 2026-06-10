@@ -1,6 +1,6 @@
 export {
   QUALIFICATION_REASONS,
-  markContactCampaignQualified as markProspectQualified,
-  evaluateContactCampaignQualification as evaluateProspectQualification,
+  markCampaignContactQualified as markProspectQualified,
+  evaluateCampaignContactQualification as evaluateProspectQualification,
   runPostTrackQualification,
 } from "@/lib/execution/qualifyContact";

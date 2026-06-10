@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
-import { contactCampaignInclude } from "@/lib/campaignDetail";
+import { campaignContactInclude } from "@/lib/campaignDetail";
 import {
   normalizeOutreachTimezone,
   utcHHmmToLocal,
@@ -10,12 +10,12 @@ const DEFAULT_OUTREACH_TIME = "11:00";
 const DEFAULT_TIMEZONE = "UTC";
 
 function resolveRow(row, campaign) {
-  const cc = row?.contactCampaign ?? row;
+  const cc = row?.campaignContact ?? row;
   return cc?.outreachDeliveryTime?.trim() || campaign.defaultOutreachTime?.trim() || DEFAULT_OUTREACH_TIME;
 }
 
-export function resolveDeliveryTime(contactCampaign, campaign) {
-  return resolveRow(contactCampaign, campaign);
+export function resolveDeliveryTime(campaignContact, campaign) {
+  return resolveRow(campaignContact, campaign);
 }
 
 export function resolveTimezone(campaign) {
@@ -34,11 +34,11 @@ function parseTimeParts(timeStr) {
 /** Stored delivery times are UTC HH:mm; nextScheduledOutreachAt is UTC. */
 export function computeNextOutreachAt({
   campaign,
-  contactCampaign,
+  campaignContact,
   prospect,
   fromDate = new Date(),
 }) {
-  const row = contactCampaign ?? prospect;
+  const row = campaignContact ?? prospect;
   const { hour, minute } = parseTimeParts(resolveRow(row, campaign));
   const base = DateTime.fromJSDate(fromDate, { zone: "utc" });
   let candidate = base.set({ hour, minute, second: 0, millisecond: 0 });
@@ -48,8 +48,8 @@ export function computeNextOutreachAt({
   return candidate.toUTC().toJSDate();
 }
 
-export function resolveDeliveryTimeLocal(contactCampaign, campaign) {
-  const utc = resolveDeliveryTime(contactCampaign, campaign);
+export function resolveDeliveryTimeLocal(campaignContact, campaign) {
+  const utc = resolveDeliveryTime(campaignContact, campaign);
   return utcHHmmToLocal(utc, resolveTimezone(campaign));
 }
 
@@ -57,8 +57,8 @@ export function todayInCampaignTz(campaign, ref = new Date()) {
   return DateTime.fromJSDate(ref, { zone: "utc" }).toISODate();
 }
 
-export function hasOutreachToday({ campaign, contactCampaign, prospect, commLogs = [] }) {
-  const row = contactCampaign ?? prospect;
+export function hasOutreachToday({ campaign, campaignContact, prospect, commLogs = [] }) {
+  const row = campaignContact ?? prospect;
   const today = todayInCampaignTz(campaign);
   if (row.lastOutreachDate) {
     const last = DateTime.fromJSDate(row.lastOutreachDate, { zone: "utc" }).toISODate();
@@ -67,7 +67,7 @@ export function hasOutreachToday({ campaign, contactCampaign, prospect, commLogs
 
   const rowId = row.id;
   for (const log of commLogs) {
-    const logCcId = log.contactCampaignId ?? log.prospectId;
+    const logCcId = log.campaignContactId ?? log.prospectId;
     if (logCcId !== rowId) continue;
     if (!["sent", "delivered", "queued"].includes(log.status)) continue;
     const at = log.deliveredAt ?? log.sentAt;
@@ -81,13 +81,13 @@ export function hasOutreachToday({ campaign, contactCampaign, prospect, commLogs
 export async function seedCampaignContactSchedules(campaignId) {
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
-    include: { contactCampaigns: true },
+    include: { campaignContacts: true },
   });
   if (!campaign) return;
 
-  for (const cc of campaign.contactCampaigns) {
-    const nextAt = computeNextOutreachAt({ campaign, contactCampaign: cc });
-    await prisma.contactCampaign.update({
+  for (const cc of campaign.campaignContacts) {
+    const nextAt = computeNextOutreachAt({ campaign, campaignContact: cc });
+    await prisma.campaignContact.update({
       where: { id: cc.id },
       data: { nextScheduledOutreachAt: nextAt },
     });
@@ -97,9 +97,9 @@ export async function seedCampaignContactSchedules(campaignId) {
 /** @deprecated use seedCampaignContactSchedules */
 export const seedCampaignProspectSchedules = seedCampaignContactSchedules;
 
-export async function planNextScheduledOutreach(contactCampaignId, campaign) {
-  const cc = await prisma.contactCampaign.findUnique({
-    where: { id: contactCampaignId },
+export async function planNextScheduledOutreach(campaignContactId, campaign) {
+  const cc = await prisma.campaignContact.findUnique({
+    where: { id: campaignContactId },
   });
   if (!cc) return;
 
@@ -107,7 +107,7 @@ export async function planNextScheduledOutreach(contactCampaignId, campaign) {
 
   const nextAt = computeNextOutreachAt({
     campaign,
-    contactCampaign: cc,
+    campaignContact: cc,
     fromDate: DateTime.now()
       .setZone("utc")
       .plus({ days: 1 })
@@ -120,8 +120,8 @@ export async function planNextScheduledOutreach(contactCampaignId, campaign) {
     .toUTC()
     .toJSDate();
 
-  await prisma.contactCampaign.update({
-    where: { id: contactCampaignId },
+  await prisma.campaignContact.update({
+    where: { id: campaignContactId },
     data: {
       lastOutreachDate: lastDate,
       nextScheduledOutreachAt: nextAt,
@@ -150,9 +150,9 @@ export function buildProspectSmartleadSchedule({ timezone, deliveryTime }) {
 
 export const campaignExecutionInclude = {
   templates: { orderBy: [{ channel: "asc" }, { stage: "asc" }] },
-  contactCampaigns: {
+  campaignContacts: {
     include: {
-      ...contactCampaignInclude,
+      ...campaignContactInclude,
       contact: {
         include: {
           businessUser: {

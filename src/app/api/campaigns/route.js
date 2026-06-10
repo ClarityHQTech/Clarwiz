@@ -26,7 +26,7 @@ function serializeCampaign(campaign) {
     goals: campaign.goals,
     status: campaign.status,
     startDate: campaign.startDate?.toISOString() ?? null,
-    prospects: campaign._count?.contactCampaigns ?? 0,
+    prospects: campaign._count?.campaignContacts ?? 0,
     sent: campaign.sentCount,
     openRate: campaign.openRate,
     replyRate: campaign.replyRate,
@@ -43,7 +43,7 @@ export async function GET() {
   const campaigns = await prisma.campaign.findMany({
     where: { tenantId: ctx.tenantId },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { contactCampaigns: true } } },
+    include: { _count: { select: { campaignContacts: true } } },
   });
 
   return NextResponse.json(campaigns.map(serializeCampaign));
@@ -173,7 +173,7 @@ export async function POST(request) {
 
         const nextAt = computeNextOutreachAt({
           campaign: created,
-          contactCampaign: { outreachDeliveryTime: null },
+          campaignContact: { outreachDeliveryTime: null },
         });
 
         await enrollContactInCampaign(tx, {
@@ -204,7 +204,7 @@ export async function POST(request) {
 
       return tx.campaign.findUnique({
         where: { id: created.id },
-        include: { _count: { select: { contactCampaigns: true } } },
+        include: { _count: { select: { campaignContacts: true } } },
       });
     });
 

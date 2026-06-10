@@ -6,7 +6,9 @@ export function AssistPanel({ title, count, action, children, className = "", bo
   return (
     <section className={`${ui.cardSurface} ${className}`}>
       {(title || action) && (
-        <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 ${ui.tableToolbar}`}>
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 shrink-0 ${ui.tableToolbar}`}
+        >
           {title ? (
             <h2 className={`${ui.titleSm} text-base`}>
               {title}

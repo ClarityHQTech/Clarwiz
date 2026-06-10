@@ -7,7 +7,7 @@ import {
 } from "@/lib/smartleadOutreach";
 import { getDecryptedSmartleadAccountId } from "@/lib/emailIntegration";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
-import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 
 export async function checkEmailEngagementForProspect({
   campaignId,
@@ -26,7 +26,7 @@ export async function checkEmailEngagementForProspect({
     throw new Error("Campaign not found");
   }
 
-  const cc = await prisma.contactCampaign.findFirst({
+  const cc = await prisma.campaignContact.findFirst({
     where: { id: prospectId, campaignId },
     include: { contact: { include: { businessUser: true } } },
   });
@@ -44,7 +44,7 @@ export async function checkEmailEngagementForProspect({
   const pendingLog = await prisma.communicationLog.findFirst({
     where: {
       campaignId,
-      contactCampaignId: prospectId,
+      campaignContactId: prospectId,
       channel: "email",
       responseType: null,
       status: { in: ["planned", "queued", "sent", "delivered"] },
@@ -91,7 +91,7 @@ export async function checkEmailEngagementForProspect({
         },
       });
       if (resolved.status === "sent" || resolved.status === "delivered") {
-        await syncContactCampaignStatus(prisma, prospectId);
+        await syncCampaignContactStatus(prisma, prospectId);
       }
     }
   }

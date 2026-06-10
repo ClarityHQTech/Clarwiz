@@ -146,7 +146,7 @@ export async function findWhatsAppCommLogByPhone({
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
-  const rows = await prisma.contactCampaign.findMany({
+  const rows = await prisma.campaignContact.findMany({
     where: campaignId
       ? { campaignId }
       : { campaign: { tenantId } },
@@ -163,7 +163,7 @@ export async function findWhatsAppCommLogByPhone({
   return prisma.communicationLog.findFirst({
     where: {
       tenantId,
-      contactCampaignId: match.id,
+      campaignContactId: match.id,
       campaignId: campaignId ?? match.campaignId,
       channel: "whatsapp",
       responseType: null,

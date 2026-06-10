@@ -24,14 +24,14 @@ import {
 import { getTenantIcpContextForExecution } from "@/lib/tenantIcpContext";
 import { setCampaignSchedule } from "@/lib/smartleadApi";
 import { ensureSmartleadCampaignForClarwiz } from "@/lib/smartleadOutreach";
-import { flattenContactCampaign } from "@/lib/resolveBusinessUser";
+import { flattenCampaignContact } from "@/lib/resolveBusinessUser";
 import { resolveCommLogOutboundContent } from "@/lib/execution/renderCommLogContent";
 import {
   hasWhatsAppProspectReply,
   resolveWhatsAppSendMode,
 } from "@/lib/whatsappSessionWindow";
-import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
-import { TERMINAL_CONTACT_CAMPAIGN_STATUSES } from "@/lib/contactCampaignStatus";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
+import { TERMINAL_CAMPAIGN_CONTACT_STATUSES } from "@/lib/campaignContactStatus";
 
 async function loadCampaignExecutionContext(campaignId) {
   return prisma.campaign.findUnique({
@@ -40,14 +40,14 @@ async function loadCampaignExecutionContext(campaignId) {
   });
 }
 
-function logsForContactCampaign(commLogs, contactCampaignId) {
+function logsForCampaignContact(commLogs, campaignContactId) {
   return commLogs.filter(
-    (l) => (l.contactCampaignId ?? l.prospectId) === contactCampaignId
+    (l) => (l.campaignContactId ?? l.prospectId) === campaignContactId
   );
 }
 
 function flattenCc(cc) {
-  const flat = flattenContactCampaign(cc);
+  const flat = flattenCampaignContact(cc);
   flat.signals =
     cc.contact?.businessUser?.signals?.filter(
       (s) => !s.campaignId || s.campaignId === cc.campaignId
@@ -55,15 +55,15 @@ function flattenCc(cc) {
   return flat;
 }
 
-async function loadFreshCommHistory(campaignId, contactCampaignId) {
+async function loadFreshCommHistory(campaignId, campaignContactId) {
   return prisma.communicationLog.findMany({
-    where: { campaignId, contactCampaignId },
+    where: { campaignId, campaignContactId },
     orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],
   });
 }
 
 async function hydrateProspectWhatsAppWindow(prospect) {
-  const cc = await prisma.contactCampaign.findUnique({
+  const cc = await prisma.campaignContact.findUnique({
     where: { id: prospect.id },
     select: { whatsapp24hWindowExpiresAt: true },
   });
@@ -99,7 +99,7 @@ async function applyPushResultToCommLog(logId, pushResult) {
   const existing = await prisma.communicationLog.findUnique({
     where: { id: logId },
     select: {
-      contactCampaignId: true,
+      campaignContactId: true,
       retryCount: true,
       deliveryMeta: true,
       ctaType: true,
@@ -143,8 +143,8 @@ async function applyPushResultToCommLog(logId, pushResult) {
     },
   });
 
-  if (isSuccess && existing?.contactCampaignId) {
-    await syncContactCampaignStatus(prisma, existing.contactCampaignId);
+  if (isSuccess && existing?.campaignContactId) {
+    await syncCampaignContactStatus(prisma, existing.campaignContactId);
   }
 
   if (!isSuccess && pushResult.status === "failed") {
@@ -211,7 +211,7 @@ async function maybePushOutboundMessage({
   if (decision.channel === "whatsapp") {
     const historyForSend = await loadFreshCommHistory(
       campaign.id,
-      prospect.id ?? prospect.contactCampaignId
+      prospect.id ?? prospect.campaignContactId
     );
     const hasReply = hasWhatsAppProspectReply(historyForSend);
     const hasMessage = Boolean(decision.message?.trim());
@@ -279,7 +279,7 @@ async function maybePushOutboundMessage({
 function buildResultPayload(prospect, refreshed, decision, channelDelivery) {
   return {
     prospectId: prospect.id,
-    contactCampaignId: prospect.id,
+    campaignContactId: prospect.id,
     prospectName: prospect.name,
     skipped: false,
     commLogId: refreshed.id,
@@ -316,7 +316,7 @@ function buildResultPayload(prospect, refreshed, decision, channelDelivery) {
 export async function executeAndPushForProspect({
   campaign,
   prospect,
-  contactCampaign,
+  campaignContact,
   commHistory,
   tenantIcp,
   triggerSignalId,
@@ -324,19 +324,19 @@ export async function executeAndPushForProspect({
   skipDailyLimit = false,
   forceWhatsAppFreeform = false,
 }) {
-  const flat = prospect ?? flattenCc(contactCampaign);
+  const flat = prospect ?? flattenCc(campaignContact);
   await hydrateProspectWhatsAppWindow(flat);
 
   const liveCommHistory =
     (await loadFreshCommHistory(campaign.id, flat.id)) ??
     commHistory ??
-    logsForContactCampaign(campaign.commLogs, flat.id);
+    logsForCampaignContact(campaign.commLogs, flat.id);
 
   if (flat.status === "QUALIFIED" || flat.qualifiedAt) {
     const skipLog = await createCommLog({
       tenantId: campaign.tenantId,
       campaignId: campaign.id,
-      contactCampaignId: flat.id,
+      campaignContactId: flat.id,
       channel: "email",
       stage: null,
       message: "Contact qualified — outreach stopped",
@@ -352,7 +352,7 @@ export async function executeAndPushForProspect({
     };
   }
 
-  if (TERMINAL_CONTACT_CAMPAIGN_STATUSES.has(flat.status) && flat.status !== "QUALIFIED") {
+  if (TERMINAL_CAMPAIGN_CONTACT_STATUSES.has(flat.status) && flat.status !== "QUALIFIED") {
     return {
       prospectId: flat.id,
       prospectName: flat.name,
@@ -419,7 +419,7 @@ export async function executeAndPushForProspect({
     const skipLog = await createCommLog({
       tenantId: campaign.tenantId,
       campaignId: campaign.id,
-      contactCampaignId: flat.id,
+      campaignContactId: flat.id,
       channel: "whatsapp",
       stage: normalizedDecision.stage ?? null,
       message:
@@ -444,7 +444,7 @@ export async function executeAndPushForProspect({
     const skipLog = await createCommLog({
       tenantId: campaign.tenantId,
       campaignId: campaign.id,
-      contactCampaignId: flat.id,
+      campaignContactId: flat.id,
       channel: normalizedDecision.channel || "email",
       stage: normalizedDecision.stage ?? null,
       message: normalizedDecision.skipReason || "No action taken",
@@ -479,7 +479,7 @@ export async function executeAndPushForProspect({
   const log = await createCommLog({
     tenantId: campaign.tenantId,
     campaignId: campaign.id,
-    contactCampaignId: flat.id,
+    campaignContactId: flat.id,
     channel: normalizedDecision.channel,
     templateId:
       normalizedDecision.channel === "whatsapp" &&
@@ -538,8 +538,8 @@ export async function retryCommLogPush(log) {
     where: { id: log.campaignId },
     include: { templates: true },
   });
-  const cc = await prisma.contactCampaign.findUnique({
-    where: { id: log.contactCampaignId },
+  const cc = await prisma.campaignContact.findUnique({
+    where: { id: log.campaignContactId },
     include: {
       contact: { include: { businessUser: { include: { company: true } } } },
     },
@@ -622,13 +622,13 @@ export async function retryCommLogPush(log) {
   return channelDelivery;
 }
 
-export async function runScheduledOutreachForProspect(campaignId, contactCampaignId) {
+export async function runScheduledOutreachForProspect(campaignId, campaignContactId) {
   const campaign = await loadCampaignExecutionContext(campaignId);
   if (!campaign || campaign.status !== "active") {
     return { skipped: true, reason: "Campaign not active" };
   }
 
-  const cc = campaign.contactCampaigns.find((c) => c.id === contactCampaignId);
+  const cc = campaign.campaignContacts.find((c) => c.id === campaignContactId);
   if (!cc) return { skipped: true, reason: "Contact not found" };
 
   const now = new Date();
@@ -639,7 +639,7 @@ export async function runScheduledOutreachForProspect(campaignId, contactCampaig
   const flat = flattenCc(cc);
   const freshHistory =
     (await loadFreshCommHistory(campaign.id, cc.id)) ??
-    logsForContactCampaign(campaign.commLogs, cc.id);
+    logsForCampaignContact(campaign.commLogs, cc.id);
   const hasInboundReply = hasWhatsAppProspectReply(freshHistory);
 
   if (!hasInboundReply && hasOutreachToday({ campaign, prospect: flat, commLogs: freshHistory })) {
@@ -651,7 +651,7 @@ export async function runScheduledOutreachForProspect(campaignId, contactCampaig
   try {
     const result = await executeAndPushForProspect({
       campaign,
-      contactCampaign: cc,
+      campaignContact: cc,
       commHistory: freshHistory,
       tenantIcp,
       useProspectSchedule: true,
@@ -664,7 +664,7 @@ export async function runScheduledOutreachForProspect(campaignId, contactCampaig
     return result;
   } catch (err) {
     return {
-      prospectId: contactCampaignId,
+      prospectId: campaignContactId,
       skipped: true,
       error: err.message,
     };
@@ -675,7 +675,7 @@ export async function runExecutionForCampaign(
   campaignId,
   {
     prospectIds,
-    contactCampaignIds,
+    campaignContactIds,
     triggerSignalId,
     skipDailyLimit = false,
     useProspectSchedule = false,
@@ -687,10 +687,10 @@ export async function runExecutionForCampaign(
     throw new Error("Campaign not found");
   }
 
-  const ids = contactCampaignIds ?? prospectIds;
+  const ids = campaignContactIds ?? prospectIds;
   const targets = ids?.length
-    ? campaign.contactCampaigns.filter((cc) => ids.includes(cc.id))
-    : campaign.contactCampaigns;
+    ? campaign.campaignContacts.filter((cc) => ids.includes(cc.id))
+    : campaign.campaignContacts;
 
   const tenantIcp = await getTenantIcpContextForExecution(campaign.tenantId);
 
@@ -698,12 +698,12 @@ export async function runExecutionForCampaign(
   let plannedCount = 0;
 
   for (const cc of targets) {
-    const commHistory = logsForContactCampaign(campaign.commLogs, cc.id);
+    const commHistory = logsForCampaignContact(campaign.commLogs, cc.id);
 
     try {
       const result = await executeAndPushForProspect({
         campaign,
-        contactCampaign: cc,
+        campaignContact: cc,
         commHistory,
         tenantIcp,
         triggerSignalId: triggerSignalId && ids?.length === 1 ? triggerSignalId : null,
@@ -735,8 +735,8 @@ export function serializeCommLog(log) {
   return {
     id: log.id,
     tenantId: log.tenantId,
-    contactCampaignId: log.contactCampaignId,
-    prospectId: log.contactCampaignId,
+    campaignContactId: log.campaignContactId,
+    prospectId: log.campaignContactId,
     channel: log.channel,
     stage: log.stage,
     subject: log.subject,

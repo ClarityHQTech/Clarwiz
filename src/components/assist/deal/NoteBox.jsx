@@ -21,7 +21,7 @@ export default function NoteBox({ dealId }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 412) {
-        toast.error("Connect HubSpot in Settings to add notes.");
+        toast.error("Connect HubSpot in Integrations to add notes.");
         return;
       }
       if (!res.ok || data.ok === false) {

@@ -1926,7 +1926,232 @@ export async function assembleCollateralVars(
 }
 
 /** Prompt revision for the "pick a template + hyper-personalize it" path. */
-export const COLLATERAL_PERSONALIZE_VERSION = "aura-personalize-v1";
+export const COLLATERAL_PERSONALIZE_VERSION = "aura-personalize-v2-salesready";
+
+/** Matches template placeholders like [ProspectCompany] or [KeyMetric]. */
+const BRACKET_PLACEHOLDER_RE = /\[[^\]]+\]/g;
+
+/** Strip unfilled bracket placeholders and collapse extra whitespace. */
+export function stripBracketPlaceholders(text) {
+  if (typeof text !== "string") return "";
+  return text
+    .replace(BRACKET_PLACEHOLDER_RE, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/(\*\*)\s+/g, "$1")
+    .replace(/\s+(\*\*)/g, "$1")
+    .trim();
+}
+
+/** True when a string has enough real content left after placeholder removal. */
+export function isSubstantiveText(text, minLen = 3) {
+  return stripBracketPlaceholders(text).length >= minLen;
+}
+
+/**
+ * Clean markdown body text: drop bullet/numbered lines that become empty after
+ * placeholder removal; strip brackets from surviving lines.
+ */
+export function sanitizeMarkdownBody(body) {
+  if (typeof body !== "string" || !body.trim()) return "";
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  const out = [];
+
+  for (const line of lines) {
+    const bullet = line.match(/^(\s*[-*+]\s+)(.*)$/);
+    const numbered = line.match(/^(\s*\d+[.)]\s+)(.*)$/);
+    if (bullet || numbered) {
+      const prefix = (bullet || numbered)[1];
+      const content = stripBracketPlaceholders((bullet || numbered)[2]);
+      if (isSubstantiveText(content)) out.push(`${prefix}${content}`);
+      continue;
+    }
+    const tableRow = line.trim().startsWith("|");
+    if (tableRow) {
+      const cells = line.split("|").map((c) => stripBracketPlaceholders(c));
+      if (cells.some((c) => isSubstantiveText(c))) out.push(cells.join("|"));
+      continue;
+    }
+    const cleaned = stripBracketPlaceholders(line);
+    if (isSubstantiveText(cleaned)) out.push(cleaned);
+  }
+
+  return out.join("\n").trim();
+}
+
+/**
+ * Deterministic post-pass: remove unfilled template placeholders and drop
+ * sections/metrics/rows that have no support in the output. Produces
+ * prospect-facing collateral with no [Bracket] tokens left behind.
+ */
+export function sanitizeSalesCollateralDoc(doc, context = {}) {
+  const d = doc && typeof doc === "object" ? { ...doc } : {};
+  const seller = context.seller?.name ?? null;
+  const prospect = context.prospect?.name ?? null;
+
+  d.title = stripBracketPlaceholders(d.title);
+  d.headline = stripBracketPlaceholders(d.headline);
+  if (!isSubstantiveText(d.headline) && seller && prospect) {
+    d.headline = `${seller} for ${prospect}`;
+  }
+  d.subhead = stripBracketPlaceholders(d.subhead);
+  if (!isSubstantiveText(d.subhead)) delete d.subhead;
+
+  d.audience = stripBracketPlaceholders(d.audience);
+  if (!isSubstantiveText(d.audience)) delete d.audience;
+
+  if (Array.isArray(d.sections)) {
+    d.sections = d.sections
+      .map((s) => ({
+        ...s,
+        title: stripBracketPlaceholders(s?.title),
+        body: sanitizeMarkdownBody(s?.body),
+      }))
+      .filter((s) => isSubstantiveText(s.title) || isSubstantiveText(s.body));
+  }
+
+  if (Array.isArray(d.metrics)) {
+    d.metrics = d.metrics
+      .map((m) => ({
+        label: stripBracketPlaceholders(m?.label),
+        value: stripBracketPlaceholders(m?.value),
+        detail: stripBracketPlaceholders(m?.detail),
+      }))
+      .filter((m) => isSubstantiveText(m.label) && isSubstantiveText(m.value))
+      .map((m) => {
+        if (!isSubstantiveText(m.detail)) delete m.detail;
+        return m;
+      });
+    if (d.metrics.length === 0) delete d.metrics;
+  }
+
+  if (d.cta && typeof d.cta === "object") {
+    d.cta = {
+      label: stripBracketPlaceholders(d.cta.label),
+      detail: stripBracketPlaceholders(d.cta.detail),
+    };
+    if (!isSubstantiveText(d.cta.label)) {
+      delete d.cta;
+    } else if (!isSubstantiveText(d.cta.detail)) {
+      delete d.cta.detail;
+    }
+  }
+
+  d.competitor = stripBracketPlaceholders(d.competitor);
+  if (!isSubstantiveText(d.competitor)) delete d.competitor;
+
+  if (Array.isArray(d.capabilities)) {
+    d.capabilities = d.capabilities
+      .map((c) => ({
+        name: stripBracketPlaceholders(c?.name),
+        us: stripBracketPlaceholders(c?.us),
+        them: stripBracketPlaceholders(c?.them),
+      }))
+      .filter((c) => isSubstantiveText(c.name) && (isSubstantiveText(c.us) || isSubstantiveText(c.them)));
+    if (d.capabilities.length === 0) delete d.capabilities;
+  }
+
+  if (Array.isArray(d.objections)) {
+    d.objections = d.objections
+      .map((o) => ({
+        objection: stripBracketPlaceholders(o?.objection),
+        rebuttal: stripBracketPlaceholders(o?.rebuttal),
+      }))
+      .filter((o) => isSubstantiveText(o.objection) && isSubstantiveText(o.rebuttal));
+    if (d.objections.length === 0) delete d.objections;
+  }
+
+  for (const key of ["challenge", "solution"]) {
+    if (d[key]) {
+      d[key] = sanitizeMarkdownBody(String(d[key]));
+      if (!isSubstantiveText(d[key])) delete d[key];
+    }
+  }
+
+  if (d.quote && typeof d.quote === "object") {
+    d.quote = {
+      text: stripBracketPlaceholders(d.quote.text),
+      attribution: stripBracketPlaceholders(d.quote.attribution),
+    };
+    if (!isSubstantiveText(d.quote.text)) {
+      delete d.quote;
+    } else if (!isSubstantiveText(d.quote.attribution)) {
+      delete d.quote.attribution;
+    }
+  }
+
+  if (d.payback && typeof d.payback === "object") {
+    d.payback = { summary: stripBracketPlaceholders(d.payback.summary) };
+    if (!isSubstantiveText(d.payback.summary)) delete d.payback;
+  }
+
+  return d;
+}
+
+/**
+ * Condensed fact sheet from assembleProspectContext — tells the model what it
+ * may use and what is genuinely missing (so it omits rather than guesses).
+ */
+export function summarizeAvailableFacts(context = {}) {
+  const lines = [];
+  const push = (label, value) => {
+    if (value === null || value === undefined || value === "") return;
+    if (typeof value === "object") {
+      const s = JSON.stringify(value);
+      if (s && s !== "{}" && s !== "[]") lines.push(`${label}: ${s}`);
+      return;
+    }
+    lines.push(`${label}: ${value}`);
+  };
+
+  push("Seller", context.seller?.name);
+  const cd = context.seller?.company_details;
+  if (cd && typeof cd === "object") {
+    push("Product / positioning", cd.product ?? cd.description ?? cd.overview);
+    if (cd.value_props) push("Value props", cd.value_props);
+    if (cd.icp) push("ICP", cd.icp);
+  }
+
+  push("Prospect company", context.prospect?.name);
+  push("Prospect domain", context.prospect?.domain);
+  push("Industry", context.prospect?.industry);
+  push("Lifecycle stage", context.prospect?.lifecycleStage);
+
+  if (Array.isArray(context.contacts) && context.contacts.length) {
+    push(
+      "Key contacts",
+      context.contacts.map((c) =>
+        [c.name, c.title, c.role, c.email].filter(Boolean).join(" · "),
+      ),
+    );
+  }
+
+  if (context.deal) {
+    push("Deal", [context.deal.name, context.deal.stage, context.deal.amount].filter(Boolean).join(" · "));
+  }
+
+  if (context.insights?.company?.summary) {
+    push("Company insight", context.insights.company.summary);
+  }
+  if (context.insights?.deal?.briefing || context.insights?.deal?.summary) {
+    push("Deal insight", context.insights.deal.briefing ?? context.insights.deal.summary);
+  }
+
+  if (Array.isArray(context.signals) && context.signals.length) {
+    push(
+      "Signals",
+      context.signals.map((s) => s.headline || s.suggestedAngle).filter(Boolean),
+    );
+  }
+
+  if (context.assetBrief) {
+    push("NBA asset need", context.assetBrief.asset ?? context.assetBrief.title);
+    push("NBA rationale", context.assetBrief.rationale);
+    if (context.assetBrief.emailDetail) push("Email theme", context.assetBrief.emailDetail);
+  }
+
+  return lines.length ? lines.join("\n") : "No structured context beyond seller + prospect names.";
+}
 
 /** Default brand (warm amber) — matches renderDocument's ACCENT. */
 export const DEFAULT_BRAND = {
@@ -2136,26 +2361,36 @@ export async function assembleProspectContext(
 
 /**
  * System prompt for hyper-personalizing an EXISTING brand template to a specific
- * prospect. Claude rewrites ONLY the content (names, pains, value props, metrics
- * drawn from the provided context); it keeps the template's structure + brand,
- * and grounds everything — unknown → [bracket_placeholder], never invented.
+ * prospect. Output is prospect-facing sales collateral — no template tokens, no
+ * invented facts, no internal AE instructions.
  */
 export const COLLATERAL_PERSONALIZE_SYSTEM = `You are Tailspin, a senior B2B SaaS collateral engine.
-You are given an EXISTING, on-brand TEMPLATE (a structured DOC MODEL) and a rich
-PROSPECT CONTEXT (seller, prospect company, key contacts, the deal, insights, and
-signals). Your job is to HYPER-PERSONALIZE the template to THIS prospect.
+You are given an EXISTING brand TEMPLATE (structured DOC MODEL) and PROSPECT CONTEXT.
+Your job: produce SALES-READY collateral this account executive can send to the prospect.
 
-RULES:
-- Keep the template's STRUCTURE and BRAND. Do not change assetType, the section
-  ordering/shape, or the overall layout. Preserve every field you are not rewriting.
-- Rewrite ONLY the CONTENT to speak to this prospect: their company name, industry,
-  the contacts and their titles, the pains/value props/metrics, and the deal stage —
-  all drawn from the PROSPECT CONTEXT.
-- GROUNDING (NON-NEGOTIABLE): use ONLY facts present in the context. If a specific
-  value is unknown, leave a [bracket_placeholder] (e.g. [KeyMetric], [ChampionName]).
-  NEVER invent company names, metrics, logos, customers, quotes, or compliance certs.
-- Keep copy sharp; no fluff. Re-score "compliance" (0-100) for source-faithfulness.
-Return the FULL personalized doc by calling the provided tool exactly once.`;
+AUDIENCE: the prospect and their buying committee — NOT the AE. Never include
+internal notes ("confidential", "landmines", "do not forward"), template scaffolding,
+or instructions to the seller.
+
+STRUCTURE:
+- Keep assetType and the overall section shape when possible.
+- DROP any section, bullet, metric, table row, capability row, objection, or quote
+  you cannot fill from the provided context.
+- Do NOT leave [bracket_placeholders] or {{tokens}} in the output — omit instead.
+
+CONTENT RULES:
+- Use ONLY facts in AVAILABLE FACTS and PROSPECT CONTEXT (seller positioning,
+  prospect company, contacts, deal stage, insights, signals, NBA brief).
+- Weave in real names: prospect company, champion/contact, industry, deal stage.
+- Pull value props and product claims from seller company_details when present.
+- Use signals and insights to sharpen pains and outcomes when available.
+- NEVER invent customer logos, revenue numbers, compliance certs, quotes, or
+  competitor facts not supported by the context.
+- When a metric or ROI figure is unknown, remove that metric — do not guess.
+- Keep copy sharp and short; every line should earn its place for this prospect.
+
+Return the FULL personalized doc by calling the provided tool exactly once.
+Re-score compliance (0-100) for how faithfully the output uses only provided facts.`;
 
 /**
  * Hyper-personalize a chosen brand template to a prospect. Takes the template's
@@ -2194,10 +2429,16 @@ export async function personalizeTemplate({
   const baseHtml = typeof templateDoc?.html === "string" ? templateDoc.html : "";
 
   const parts = [
-    "TEMPLATE (structured doc model to personalize — keep its structure + brand):",
+    "OUTPUT: prospect-facing sales collateral. Remove unfilled template placeholders.",
+    "Omit sections you cannot support from context. Do not invent facts.",
+    "",
+    "AVAILABLE FACTS (use these; if a fact is absent here, do not fabricate it):",
+    summarizeAvailableFacts(context),
+    "",
+    "TEMPLATE (personalize — drop unsupported sections, keep assetType + shape):",
     JSON.stringify(baseDoc ?? { title: templateDoc?.title ?? "", note: "html-only template" }),
     "",
-    "PROSPECT CONTEXT (the only facts you may use — never invent beyond this):",
+    "FULL PROSPECT CONTEXT (JSON):",
     JSON.stringify(context ?? {}),
   ];
   if (instruction && String(instruction).trim()) {
@@ -2216,15 +2457,13 @@ export async function personalizeTemplate({
   });
 
   const parsed = parseCollateralJson(extractDoc(res));
-  // Re-render deterministically with the tenant brand. parseCollateralJson
-  // already rendered with default brand; re-render with the resolved brand so
-  // the personalized instance carries the tenant's accent/fonts.
-  const html = renderDocumentHtml(parsed.data, brand);
+  const data = sanitizeSalesCollateralDoc(parsed.data, context);
+  const html = renderDocumentHtml(data, brand);
 
   return {
-    title: parsed.title || templateDoc?.title || "",
-    data: parsed.data,
-    template: parsed.template,
+    title: stripBracketPlaceholders(parsed.title) || templateDoc?.title || "",
+    data,
+    template: JSON.stringify(data),
     html,
     compliance: parsed.compliance,
     model,

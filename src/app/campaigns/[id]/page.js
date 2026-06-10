@@ -26,6 +26,7 @@ import {
   HiOutlineClipboardDocumentList,
   HiOutlineTrash,
   HiOutlineCog6Tooth,
+  HiOutlineArrowPath,
 } from "react-icons/hi2";
 import { STATUS_STYLES, ui } from "@/lib/brandUi";
 import {
@@ -119,6 +120,35 @@ function ProgressBar({ percent, label }) {
   );
 }
 
+function scoreBarColor(score, threshold) {
+  if (score >= threshold) return "bg-emerald-500";
+  if (score >= Math.round(threshold * 0.5)) return "bg-amber-500";
+  return "bg-brand-stone/60";
+}
+
+function ScoreCell({ score = 0, threshold = 90 }) {
+  const pct = Math.max(0, Math.min(100, Number(score) || 0));
+  const qualified = pct >= threshold;
+  return (
+    <div className="flex items-center gap-2 min-w-[120px]">
+      <div className="flex-1 h-1.5 rounded-full bg-brand-bg overflow-hidden">
+        <div
+          className={`h-full rounded-full ${scoreBarColor(pct, threshold)}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span
+        className={`tabular-nums text-xs font-semibold ${
+          qualified ? "text-emerald-700" : "text-brand-dark"
+        }`}
+        title={qualified ? `Qualified (>= ${threshold})` : `Threshold ${threshold}`}
+      >
+        {pct}
+      </span>
+    </div>
+  );
+}
+
 const Page = () => {
   const params = useParams();
   const id = params?.id;
@@ -151,6 +181,7 @@ const Page = () => {
   const [deleteProspectLoading, setDeleteProspectLoading] = useState(false);
   const [prospectDeliveryTime, setProspectDeliveryTime] = useState("");
   const [savingProspectTime, setSavingProspectTime] = useState(false);
+  const [syncCrmLoading, setSyncCrmLoading] = useState(false);
 
   const fetchCampaign = useCallback(async () => {
     if (!id) return;
@@ -205,6 +236,30 @@ const Page = () => {
       toast.error(err.message);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const syncDealsWithCrm = async () => {
+    if (!id) return;
+    setSyncCrmLoading(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/sync-crm`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "CRM sync failed");
+      if (data.synced > 0) {
+        toast.success(data.message || `Synced ${data.synced} deal(s) to HubSpot.`);
+      } else if (data.total === 0) {
+        toast.info(data.message || "All qualified contacts are already in HubSpot.");
+      } else if (data.failed > 0) {
+        toast.error(data.message || "Some contacts could not be synced to HubSpot.");
+      } else {
+        toast.info(data.message || "Nothing new to sync.");
+      }
+      await fetchCampaign();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSyncCrmLoading(false);
     }
   };
 
@@ -295,6 +350,7 @@ const Page = () => {
   const enabledChannels =
     campaign.enabledChannels ?? DEFAULT_ENABLED_CHANNELS;
   const outreachTimezoneName = outreachTimezoneLabel(campaign.outreachTimezone);
+  const crmPendingCount = metrics.crmPendingCount ?? 0;
 
   return (
     <div className={`${ui.page} ${ui.container} space-y-6`}>
@@ -363,6 +419,24 @@ const Page = () => {
             <HiOutlineClipboardDocumentList className="h-4 w-4" />
             Activity log
           </button>
+          {(metrics.qualifiedLeads > 0 || crmPendingCount > 0) && (
+            <button
+              type="button"
+              disabled={syncCrmLoading}
+              onClick={syncDealsWithCrm}
+              className={`${ui.btnSecondarySurface} disabled:opacity-50`}
+              title="Push qualified contacts to HubSpot as deals for AE Assist"
+            >
+              <HiOutlineArrowPath
+                className={`h-4 w-4 ${syncCrmLoading ? "animate-spin" : ""}`}
+              />
+              {syncCrmLoading
+                ? "Syncing…"
+                : crmPendingCount > 0
+                  ? `Sync deals with CRM (${crmPendingCount})`
+                  : "Sync deals with CRM"}
+            </button>
+          )}
           {canStart && metrics.prospectCount > 0 && (
             <button
               type="button"
@@ -541,6 +615,7 @@ const Page = () => {
                 <th className={`${ui.tableHeadCell} py-2.5`}>Email</th>
                 <th className={`${ui.tableHeadCell} text-center py-2.5`}>Msgs</th>
                 <th className={`${ui.tableHeadCell} text-center py-2.5`}>Reply</th>
+                <th className={`${ui.tableHeadCell} py-2.5`}>Score</th>
                 <th className={`${ui.tableHeadCell} text-center py-2.5`}>Status</th>
               </tr>
             </thead>
@@ -548,7 +623,7 @@ const Page = () => {
               {filteredContacts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-4 py-8 text-center text-sm text-brand-stone"
                   >
                     {search ? "No contacts match your search." : "No contacts."}
@@ -595,6 +670,12 @@ const Page = () => {
                       ) : (
                         <span className="text-xs text-brand-steel">—</span>
                       )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <ScoreCell
+                        score={p.score}
+                        threshold={p.scoreThreshold ?? 90}
+                      />
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       <span
@@ -715,6 +796,47 @@ const Page = () => {
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-brand-sand/50">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`${ui.label} normal-case tracking-normal`}>
+                        Engagement score
+                      </span>
+                      <span className="text-xs text-brand-stone tabular-nums">
+                        Qualifies at {selectedProspect.scoreThreshold ?? 90}
+                      </span>
+                    </div>
+                    <ScoreCell
+                      score={selectedProspect.score}
+                      threshold={selectedProspect.scoreThreshold ?? 90}
+                    />
+                    {Array.isArray(selectedProspect.scoreBreakdown) &&
+                    selectedProspect.scoreBreakdown.length > 0 ? (
+                      <ul className="mt-2 space-y-1">
+                        {selectedProspect.scoreBreakdown.map((item, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-center justify-between text-xs text-brand-stone"
+                          >
+                            <span className="truncate">{item.label}</span>
+                            <span
+                              className={`tabular-nums font-medium ml-2 ${
+                                item.points < 0
+                                  ? "text-red-700"
+                                  : "text-brand-dark"
+                              }`}
+                            >
+                              {item.points > 0 ? `+${item.points}` : item.points}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-brand-stone">
+                        No engagement signals yet.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-brand-sand/50">
                     <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
                       Delivery time override ({outreachTimezoneName})
                     </label>
@@ -783,7 +905,7 @@ const Page = () => {
                     campaign={campaign}
                     prospect={selectedProspect}
                     campaignId={id}
-                    contactCampaignId={selectedProspect.id}
+                    campaignContactId={selectedProspect.id}
                     templates={campaign.templates}
                     enabledChannels={
                       campaign.enabledChannels ?? DEFAULT_ENABLED_CHANNELS

@@ -9,9 +9,9 @@ import {
   serializeCommLogDetail,
 } from "@/lib/campaignMetrics";
 import { getCalendlyIntegration } from "@/lib/calendlyIntegration";
-import { CONTACT_CAMPAIGN_STATUS_LABELS } from "@/lib/contactCampaignStatus";
+import { CAMPAIGN_CONTACT_STATUS_LABELS } from "@/lib/campaignContactStatus";
 import { CONTACT_PERSONA_LABELS } from "@/lib/contactPersona";
-import { flattenContactCampaign } from "@/lib/resolveBusinessUser";
+import { flattenCampaignContact } from "@/lib/resolveBusinessUser";
 import { resolveCommLogDisplayContent } from "@/lib/execution/renderCommLogContent";
 import {
   normalizeOutreachTimezone,
@@ -21,15 +21,15 @@ import { resolveCampaignEnabledChannels } from "@/lib/campaignChannels";
 import { isProspectReply } from "@/lib/commLogEngagement";
 import { getWhatsAppCopilotUiState } from "@/lib/whatsappSessionWindow";
 import {
-  reconcileContactCampaignStatusesForCampaign,
-  resolveContactCampaignDisplayStatus,
-} from "@/lib/syncContactCampaignStatus";
+  reconcileCampaignContactStatusesForCampaign,
+  resolveCampaignContactDisplayStatus,
+} from "@/lib/syncCampaignContactStatus";
 
 function ctaLabel(value) {
   return CTA_OPTIONS.find((c) => c.value === value)?.label ?? value;
 }
 
-export const contactCampaignInclude = {
+export const campaignContactInclude = {
   contact: {
     include: {
       businessUser: { include: { company: true } },
@@ -38,8 +38,8 @@ export const contactCampaignInclude = {
 };
 
 export const campaignDetailInclude = {
-  contactCampaigns: {
-    include: contactCampaignInclude,
+  campaignContacts: {
+    include: campaignContactInclude,
     orderBy: { createdAt: "asc" },
   },
   templates: { orderBy: [{ channel: "asc" }, { stage: "asc" }] },
@@ -47,47 +47,53 @@ export const campaignDetailInclude = {
 };
 
 export async function serializeCampaignDetail(campaign, { calendlyConnected = null } = {}) {
-  const contactCampaigns = campaign.contactCampaigns ?? [];
-  const prospectCount = contactCampaigns.length;
-  const qualifiedCount = contactCampaigns.filter(
+  const campaignContacts = campaign.campaignContacts ?? [];
+  const prospectCount = campaignContacts.length;
+  const qualifiedCount = campaignContacts.filter(
     (cc) => cc.status === "QUALIFIED"
   ).length;
+  const crmPendingCount = campaignContacts.filter(
+    (cc) => cc.status === "QUALIFIED" && !cc.hubspotDealId
+  ).length;
   const commLogs = campaign.commLogs ?? [];
-  const metrics = computeCampaignMetrics(commLogs, prospectCount, qualifiedCount);
+  const metrics = {
+    ...computeCampaignMetrics(commLogs, prospectCount, qualifiedCount),
+    crmPendingCount,
+  };
 
-  const nameByContactCampaignId = Object.fromEntries(
-    contactCampaigns.map((cc) => [
+  const nameByCampaignContactId = Object.fromEntries(
+    campaignContacts.map((cc) => [
       cc.id,
       cc.contact?.businessUser?.name ?? "Contact",
     ])
   );
 
-  const prospectByContactCampaignId = Object.fromEntries(
-    contactCampaigns.map((cc) => [cc.id, flattenContactCampaign(cc)])
+  const prospectByCampaignContactId = Object.fromEntries(
+    campaignContacts.map((cc) => [cc.id, flattenCampaignContact(cc)])
   );
 
-  const serializeLog = (log, contactCampaignId) => {
-    const prospect = prospectByContactCampaignId[contactCampaignId];
+  const serializeLog = (log, campaignContactId) => {
+    const prospect = prospectByCampaignContactId[campaignContactId];
     const display = resolveCommLogDisplayContent(log, {
       prospect,
       campaign,
       templates: campaign.templates,
     });
     return serializeCommLogDetail(log, {
-      contactName: nameByContactCampaignId[contactCampaignId],
+      contactName: nameByCampaignContactId[campaignContactId],
       message: display.message,
       subject: display.subject,
     });
   };
 
-  const logsByContactCampaign = {};
-  const rawLogsByContactCampaign = {};
+  const logsByCampaignContact = {};
+  const rawLogsByCampaignContact = {};
   for (const log of commLogs) {
-    const key = log.contactCampaignId;
-    if (!logsByContactCampaign[key]) logsByContactCampaign[key] = [];
-    if (!rawLogsByContactCampaign[key]) rawLogsByContactCampaign[key] = [];
-    rawLogsByContactCampaign[key].push(log);
-    logsByContactCampaign[key].push(serializeLog(log, key));
+    const key = log.campaignContactId;
+    if (!logsByCampaignContact[key]) logsByCampaignContact[key] = [];
+    if (!rawLogsByCampaignContact[key]) rawLogsByCampaignContact[key] = [];
+    rawLogsByCampaignContact[key].push(log);
+    logsByCampaignContact[key].push(serializeLog(log, key));
   }
 
   const maxStage =
@@ -106,6 +112,7 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
 
   const outreachTimezone = normalizeOutreachTimezone(campaign.outreachTimezone);
   const enabledChannels = resolveCampaignEnabledChannels(campaign);
+  const scoreThreshold = campaign.qualificationThreshold ?? 90;
 
   return {
     id: campaign.id,
@@ -144,7 +151,7 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
         (ch) => CHANNEL_LABELS[ch] ?? ch
       ),
     },
-    commLogs: commLogs.map((log) => serializeLog(log, log.contactCampaignId)),
+    commLogs: commLogs.map((log) => serializeLog(log, log.campaignContactId)),
     templates: campaign.templates
       .sort((a, b) => a.channel.localeCompare(b.channel) || a.stage - b.stage)
       .map((t) => ({
@@ -171,45 +178,48 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
             ? countWhatsAppNumberedVariables(t.body)
             : 0,
       })),
-    contacts: serializeContactCampaignRows(
-      contactCampaigns,
-      logsByContactCampaign,
-      rawLogsByContactCampaign,
-      outreachTimezone
+    contacts: serializeCampaignContactRows(
+      campaignContacts,
+      logsByCampaignContact,
+      rawLogsByCampaignContact,
+      outreachTimezone,
+      scoreThreshold
     ),
-    prospects: serializeContactCampaignRows(
-      contactCampaigns,
-      logsByContactCampaign,
-      rawLogsByContactCampaign,
-      outreachTimezone
+    prospects: serializeCampaignContactRows(
+      campaignContacts,
+      logsByCampaignContact,
+      rawLogsByCampaignContact,
+      outreachTimezone,
+      scoreThreshold
     ),
   };
 }
 
-function serializeContactCampaignRows(
-  contactCampaigns,
-  logsByContactCampaign,
-  rawLogsByContactCampaign,
-  outreachTimezone
+function serializeCampaignContactRows(
+  campaignContacts,
+  logsByCampaignContact,
+  rawLogsByCampaignContact,
+  outreachTimezone,
+  scoreThreshold
 ) {
-  return [...contactCampaigns]
+  return [...campaignContacts]
     .sort((a, b) =>
       (a.contact?.businessUser?.name ?? "").localeCompare(
         b.contact?.businessUser?.name ?? ""
       )
     )
     .map((cc) => {
-      const flat = flattenContactCampaign(cc);
-      const communications = logsByContactCampaign[cc.id] ?? [];
-      const rawCommunications = rawLogsByContactCampaign[cc.id] ?? [];
+      const flat = flattenCampaignContact(cc);
+      const communications = logsByCampaignContact[cc.id] ?? [];
+      const rawCommunications = rawLogsByCampaignContact[cc.id] ?? [];
       const whatsappWindow = getWhatsAppCopilotUiState(cc, rawCommunications);
       const hasReply = communications.some(isProspectReply);
-      const status = resolveContactCampaignDisplayStatus(cc, rawCommunications);
+      const status = resolveCampaignContactDisplayStatus(cc, rawCommunications);
       return {
         id: cc.id,
         contactId: cc.contactId,
         status,
-        statusLabel: CONTACT_CAMPAIGN_STATUS_LABELS[status] ?? status,
+        statusLabel: CAMPAIGN_CONTACT_STATUS_LABELS[status] ?? status,
         persona: flat.persona,
         personaLabel: CONTACT_PERSONA_LABELS[flat.persona] ?? flat.persona,
         name: flat.name,
@@ -224,7 +234,13 @@ function serializeContactCampaignRows(
         twitterId: flat.twitterId,
         qualifiedAt: cc.qualifiedAt?.toISOString?.() ?? null,
         qualifiedReason: cc.qualifiedReason ?? null,
+        hubspotDealId: cc.hubspotDealId ?? null,
+        crmSyncedAt: cc.crmSyncedAt?.toISOString?.() ?? null,
+        crmSynced: Boolean(cc.hubspotDealId),
         isQualified: status === "QUALIFIED",
+        score: cc.score ?? 0,
+        scoreThreshold,
+        scoreBreakdown: Array.isArray(cc.scoreBreakdown) ? cc.scoreBreakdown : [],
         outreachDeliveryTime: cc.outreachDeliveryTime
           ? utcHHmmToLocal(cc.outreachDeliveryTime, outreachTimezone)
           : null,
@@ -253,7 +269,7 @@ export async function fetchSerializedCampaign(id, tenantId) {
   let campaign = await getOwnedCampaignDetail(id, tenantId);
   if (!campaign) return null;
 
-  const { updated } = await reconcileContactCampaignStatusesForCampaign(
+  const { updated } = await reconcileCampaignContactStatusesForCampaign(
     prisma,
     id
   );

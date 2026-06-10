@@ -9,7 +9,7 @@ import {
   personNameMatches,
 } from "@/lib/linkedinProfileUrl";
 
-const contactCampaignInclude = {
+const campaignContactInclude = {
   contact: { include: { businessUser: true } },
 };
 
@@ -65,9 +65,9 @@ async function matchRowsByCommLogs(tenantId, rows, memberIds) {
     where: {
       tenantId,
       channel: "linkedin",
-      contactCampaignId: { in: [...rowById.keys()] },
+      campaignContactId: { in: [...rowById.keys()] },
     },
-    select: { contactCampaignId: true, deliveryMeta: true },
+    select: { campaignContactId: true, deliveryMeta: true },
     orderBy: { sentAt: "desc" },
     take: 500,
   });
@@ -76,7 +76,7 @@ async function matchRowsByCommLogs(tenantId, rows, memberIds) {
   for (const log of logs) {
     const metaIds = memberIdFromDeliveryMeta(log.deliveryMeta ?? {});
     if (metaIds.some((id) => memberIds.has(id))) {
-      matchedIds.add(log.contactCampaignId);
+      matchedIds.add(log.campaignContactId);
     }
   }
 
@@ -120,13 +120,13 @@ async function resolveViaLinkupProfile(rows, { accountId, profileUrl }) {
  * Find contact-campaign rows for an inbound LinkedIn sender (webhook).
  * Linkup often sends URN-style profile URLs; contacts usually store vanity URLs.
  */
-export async function findContactCampaignsForLinkedInSender(
+export async function findCampaignContactsForLinkedInSender(
   tenantId,
   { profileUrl, senderName, entityUrn, linkupAccountId }
 ) {
-  const rows = await prisma.contactCampaign.findMany({
+  const rows = await prisma.campaignContact.findMany({
     where: { contact: { tenantId } },
-    include: contactCampaignInclude,
+    include: campaignContactInclude,
   });
 
   if (!rows.length) return [];

@@ -14,7 +14,7 @@ function formatActionLabel(log) {
 }
 
 function contactFromLog(log) {
-  const bu = log.contactCampaign?.contact?.businessUser;
+  const bu = log.campaignContact?.contact?.businessUser;
   return {
     name: bu?.name ?? "Contact",
     company: bu?.company?.name ?? null,
@@ -28,7 +28,7 @@ export async function GET() {
 
   const logInclude = {
     campaign: { select: { id: true, name: true } },
-    contactCampaign: {
+    campaignContact: {
       include: {
         contact: {
           include: {
@@ -42,7 +42,7 @@ export async function GET() {
   const [campaigns, recentLogs, replyLogs] = await Promise.all([
     prisma.campaign.findMany({
       where: { tenantId: ctx.tenantId },
-      include: { commLogs: true, _count: { select: { contactCampaigns: true } } },
+      include: { commLogs: true, _count: { select: { campaignContacts: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.communicationLog.findMany({
@@ -68,7 +68,7 @@ export async function GET() {
   const activeCampaigns = campaigns.filter((c) => c.status === "active").length;
 
   for (const c of campaigns) {
-    const m = computeCampaignMetrics(c.commLogs, c._count.contactCampaigns);
+    const m = computeCampaignMetrics(c.commLogs, c._count.campaignContacts);
     totalReplies += m.replyCount;
     totalSent += m.sent;
   }
@@ -79,7 +79,7 @@ export async function GET() {
       id: log.id,
       campaignId: log.campaignId,
       campaignName: log.campaign.name,
-      prospectId: log.contactCampaignId,
+      prospectId: log.campaignContactId,
       prospectName: contact.name,
       company: contact.company,
       channel: log.channel,
@@ -104,7 +104,7 @@ export async function GET() {
       label: formatActionLabel(log),
       campaignId: log.campaignId,
       campaignName: log.campaign.name,
-      prospectId: log.contactCampaignId,
+      prospectId: log.campaignContactId,
       prospectName: contact.name,
       channel: log.channel,
       channelLabel: CHANNEL_LABELS[log.channel] ?? log.channel,

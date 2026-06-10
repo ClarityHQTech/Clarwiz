@@ -1,27 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ui } from "@/lib/brandUi";
 
-/**
- * CollateralLiveEditor — live, chat-editable collateral.
- *
- * CONTRACT (imported by the UI agent):
- *   default export, props { documentId, onClose }.
- *
- * Layout: left = live preview in a sandboxed <iframe> whose src is
- * /api/assist/document/[id]/html (the stored self-contained HTML); right = a
- * chat box. Sending an instruction POSTs /api/assist/document/[id]/edit, then
- * cache-busts + reloads the iframe and shows the new compliance score, a
- * "saved" indicator, and the version count. Includes "Download HTML" + title.
- *
- * Styling is intentionally minimal/neutral (inline styles) so it reads well on a
- * dark modal surface — the UI agent owns global cockpit theming.
- */
 export default function CollateralLiveEditor({ documentId, onClose }) {
   const [title, setTitle] = useState("");
   const [compliance, setCompliance] = useState(null);
   const [versionCount, setVersionCount] = useState(0);
-  const [messages, setMessages] = useState([]); // { role, text }
+  const [messages, setMessages] = useState([]);
   const [instruction, setInstruction] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -30,12 +16,11 @@ export default function CollateralLiveEditor({ documentId, onClose }) {
 
   const iframeSrc = useMemo(
     () => `/api/assist/document/${documentId}/html?v=${bust}`,
-    [documentId, bust],
+    [documentId, bust]
   );
 
   const scrollRef = useRef(null);
 
-  // Load document meta (title, current compliance, version count) on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -91,7 +76,7 @@ export default function CollateralLiveEditor({ documentId, onClose }) {
       setCompliance(data.compliance || null);
       if (typeof data.versionCount === "number") setVersionCount(data.versionCount);
       setSaved(true);
-      setBust(Date.now()); // cache-bust → iframe reloads the new HTML
+      setBust(Date.now());
       setMessages((m) => [...m, { role: "assistant", text: "Applied and saved." }]);
     } catch {
       const msg = "Could not apply the edit.";
@@ -129,91 +114,103 @@ export default function CollateralLiveEditor({ documentId, onClose }) {
   }, [documentId, title]);
 
   const score = compliance?.score ?? null;
-  const scoreColor =
-    score == null ? "#94a3b8" : Number(score) >= 80 ? "#34d399" : Number(score) >= 50 ? "#fbbf24" : "#f87171";
+  const scoreClass =
+    score == null
+      ? "text-brand-stone"
+      : Number(score) >= 80
+        ? "text-brand-ink"
+        : Number(score) >= 50
+          ? "text-brand-terracotta"
+          : "text-red-700";
 
   return (
-    <div style={S.root}>
-      {/* Header */}
-      <div style={S.header}>
-        <div style={{ minWidth: 0 }}>
-          <div style={S.title} title={title}>
-            {title || "Collateral"}
-          </div>
-          <div style={S.subtitle}>Live preview · chat to edit</div>
+    <div className="flex flex-col h-full min-h-[480px] bg-brand-surface text-brand-ink">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-brand-secondary/25 shrink-0">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-brand-ink truncate">{title || "Collateral"}</p>
+          <p className="text-xs text-brand-stone">Live preview · chat to edit</p>
         </div>
-        <div style={S.headerActions}>
-          <button type="button" style={S.secondaryBtn} onClick={downloadHtml}>
+        <div className="flex gap-2 shrink-0">
+          <button type="button" className={ui.btnSecondarySurface} onClick={downloadHtml}>
             Download HTML
           </button>
-          {onClose && (
-            <button type="button" style={S.secondaryBtn} onClick={onClose}>
+          {onClose ? (
+            <button type="button" className={ui.btnSecondary} onClick={onClose}>
               Close
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Body: preview | chat */}
-      <div style={S.body}>
-        <div style={S.previewPane}>
+      <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
+        <div className="flex-[1.5] min-h-[280px] lg:min-h-0 bg-white border-b lg:border-b-0 lg:border-r border-brand-secondary/25">
           <iframe
             key={iframeSrc}
             src={iframeSrc}
             title="Collateral preview"
             sandbox="allow-same-origin"
-            style={S.iframe}
+            className="w-full h-full min-h-[280px] border-0 bg-white"
           />
         </div>
 
-        <div style={S.chatPane}>
-          <div style={S.statusRow}>
-            <span style={S.statusItem}>
-              <span style={{ ...S.dot, background: scoreColor }} />
-              Compliance: <strong style={{ color: scoreColor }}>{score ?? "—"}</strong>
+        <div className="flex-1 min-w-0 flex flex-col bg-brand-bg/40 min-h-[320px]">
+          <div className="flex flex-wrap gap-4 px-4 py-2.5 text-xs text-brand-stone border-b border-brand-secondary/20">
+            <span className="inline-flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${score == null ? "bg-brand-steel" : Number(score) >= 80 ? "bg-brand-sage" : Number(score) >= 50 ? "bg-brand-gold" : "bg-red-500"}`} />
+              Compliance: <strong className={scoreClass}>{score ?? "—"}</strong>
             </span>
-            <span style={S.statusItem}>Versions: {versionCount}</span>
-            {saved && <span style={{ ...S.statusItem, color: "#34d399" }}>✓ Saved</span>}
+            <span>Versions: {versionCount}</span>
+            {saved ? <span className="text-brand-sage font-medium">✓ Saved</span> : null}
           </div>
-          {compliance?.note && <div style={S.note}>{compliance.note}</div>}
+          {compliance?.note ? (
+            <p className="px-4 py-2 text-xs text-brand-stone border-b border-brand-secondary/20">{compliance.note}</p>
+          ) : null}
 
-          <div ref={scrollRef} style={S.messages}>
-            {messages.length === 0 && (
-              <div style={S.placeholder}>
-                {`Describe a change — e.g. "make the headline punchier", "add a security section", "use a teal accent". The preview updates and saves automatically.`}
-              </div>
-            )}
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-2">
+            {messages.length === 0 ? (
+              <p className="text-sm text-brand-stone leading-relaxed">
+                Describe a change — e.g. &quot;make the headline punchier&quot;, &quot;add a security section&quot;.
+                The preview updates and saves automatically.
+              </p>
+            ) : null}
             {messages.map((m, i) => (
               <div
                 key={i}
-                style={{
-                  ...S.msg,
-                  ...(m.role === "user" ? S.msgUser : m.role === "system" ? S.msgSystem : S.msgAssistant),
-                }}
+                className={`text-sm leading-relaxed px-3 py-2 rounded-lg max-w-[92%] whitespace-pre-wrap ${
+                  m.role === "user"
+                    ? "self-end bg-brand-dark text-white"
+                    : m.role === "system"
+                      ? "self-start bg-red-50 text-red-800 border border-red-200/60"
+                      : "self-start bg-brand-surface border border-brand-secondary/30 text-brand-ink"
+                }`}
               >
                 {m.text}
               </div>
             ))}
-            {sending && <div style={{ ...S.msg, ...S.msgAssistant }}>Applying edit…</div>}
+            {sending ? (
+              <div className="self-start text-sm text-brand-stone px-3 py-2">Applying edit…</div>
+            ) : null}
           </div>
 
-          {error && <div style={S.error}>{error}</div>}
+          {error ? (
+            <p className="px-4 py-2 text-xs text-red-700 bg-red-50 border-t border-red-200/60">{error}</p>
+          ) : null}
 
-          <div style={S.composer}>
+          <div className="flex gap-2 p-3 border-t border-brand-secondary/25 shrink-0">
             <textarea
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Tell the AI how to change this collateral…"
               rows={2}
-              style={S.textarea}
+              className={`flex-1 ${ui.inputSurface} resize-none text-sm`}
               disabled={sending}
             />
             <button
               type="button"
               onClick={send}
               disabled={sending || !instruction.trim()}
-              style={{ ...S.sendBtn, opacity: sending || !instruction.trim() ? 0.5 : 1 }}
+              className={`${ui.btnPrimary} self-stretch disabled:opacity-50`}
             >
               {sending ? "…" : "Send"}
             </button>
@@ -223,91 +220,3 @@ export default function CollateralLiveEditor({ documentId, onClose }) {
     </div>
   );
 }
-
-const S = {
-  root: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100%",
-    minHeight: 480,
-    background: "#0f172a",
-    color: "#e2e8f0",
-    borderRadius: 12,
-    overflow: "hidden",
-    fontFamily: "Inter, system-ui, -apple-system, sans-serif",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "14px 18px",
-    borderBottom: "1px solid #1e293b",
-  },
-  title: { fontSize: 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  subtitle: { fontSize: 12, color: "#94a3b8", marginTop: 2 },
-  headerActions: { display: "flex", gap: 8, flexShrink: 0 },
-  secondaryBtn: {
-    background: "#1e293b",
-    color: "#e2e8f0",
-    border: "1px solid #334155",
-    borderRadius: 8,
-    padding: "6px 12px",
-    fontSize: 13,
-    cursor: "pointer",
-  },
-  body: { display: "flex", flex: 1, minHeight: 0 },
-  previewPane: { flex: "1 1 60%", minWidth: 0, background: "#ffffff", overflow: "hidden" },
-  iframe: { width: "100%", height: "100%", border: "none", background: "#ffffff" },
-  chatPane: {
-    flex: "1 1 40%",
-    minWidth: 300,
-    display: "flex",
-    flexDirection: "column",
-    borderLeft: "1px solid #1e293b",
-    background: "#0b1220",
-  },
-  statusRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 14,
-    padding: "10px 14px",
-    fontSize: 12.5,
-    color: "#cbd5e1",
-    borderBottom: "1px solid #1e293b",
-  },
-  statusItem: { display: "inline-flex", alignItems: "center", gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: "50%", display: "inline-block" },
-  note: { padding: "8px 14px", fontSize: 12, color: "#94a3b8", borderBottom: "1px solid #1e293b" },
-  messages: { flex: 1, minHeight: 0, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 8 },
-  placeholder: { fontSize: 13, color: "#64748b", lineHeight: 1.5 },
-  msg: { fontSize: 13, lineHeight: 1.45, padding: "8px 11px", borderRadius: 9, maxWidth: "92%", whiteSpace: "pre-wrap" },
-  msgUser: { alignSelf: "flex-end", background: "#2563eb", color: "#fff" },
-  msgAssistant: { alignSelf: "flex-start", background: "#1e293b", color: "#e2e8f0" },
-  msgSystem: { alignSelf: "flex-start", background: "#3f1d1d", color: "#fecaca" },
-  error: { padding: "8px 14px", fontSize: 12.5, color: "#fecaca", background: "#3f1d1d" },
-  composer: { display: "flex", gap: 8, padding: 12, borderTop: "1px solid #1e293b" },
-  textarea: {
-    flex: 1,
-    resize: "none",
-    background: "#0f172a",
-    color: "#e2e8f0",
-    border: "1px solid #334155",
-    borderRadius: 8,
-    padding: "8px 10px",
-    fontSize: 13,
-    fontFamily: "inherit",
-    outline: "none",
-  },
-  sendBtn: {
-    alignSelf: "stretch",
-    background: "#2563eb",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "0 16px",
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-};

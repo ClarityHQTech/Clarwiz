@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getAuthContext } from "@/lib/authContext";
+import { ensureDefaultCollateralTemplates } from "@/lib/assist/defaultCollateralTemplates";
 import CollateralClient from "@/components/assist/collateral/CollateralClient";
 
 /**
@@ -12,6 +13,8 @@ export default async function CollateralsPage() {
   const ctx = await getAuthContext();
   const tenantId = ctx?.tenantId ?? null;
   if (!tenantId) notFound();
+
+  await ensureDefaultCollateralTemplates(prisma, tenantId);
 
   const rows = await prisma.collateralIndex.findMany({
     where: { tenantId },

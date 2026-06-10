@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisclosure } from "@chakra-ui/react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AssistWorkroomLayout from "@/components/assist/AssistWorkroomLayout";
 import DealHeader from "@/components/assist/deal/DealHeader";
@@ -12,8 +13,10 @@ import NoteBox from "@/components/assist/deal/NoteBox";
 import PostMeetingCard from "@/components/assist/deal/PostMeetingCard";
 import RecomputeButton from "@/components/assist/deal/RecomputeButton";
 import EmptyInsight from "@/components/assist/deal/EmptyInsight";
+import { ui } from "@/lib/brandUi";
 
 function DealWorkroomClient({ id, vm }) {
+  const { isOpen: nbaOpen, onOpen: openNba, onClose: closeNba } = useDisclosure();
   const accountName = vm.account?.company?.name ?? vm.company?.name ?? null;
   const dealName = vm.deal?.name ?? "Deal";
   const chatContext = {
@@ -25,7 +28,21 @@ function DealWorkroomClient({ id, vm }) {
   return (
     <AssistWorkroomLayout
       crumbs={[accountName || "Deal", dealName]}
-      actions={<RecomputeButton dealId={id} label="Recompute" />}
+      actions={
+        <>
+          {vm.hasInsight ? (
+            <button type="button" className={ui.btnPrimary} onClick={openNba}>
+              Next best actions
+              {vm.nbas?.length ? (
+                <span className="ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-white/25 px-1.5 text-xs font-semibold tabular-nums">
+                  {vm.nbas.length}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
+          <RecomputeButton dealId={id} label="Recompute" />
+        </>
+      }
       chatContext={chatContext}
     >
       <DealHeader
@@ -40,26 +57,27 @@ function DealWorkroomClient({ id, vm }) {
       ) : (
         <div className="space-y-4">
           {vm.signals.length > 0 ? <SignalsStrip signals={vm.signals} /> : null}
-
-          <div className="grid lg:grid-cols-[1fr_340px] gap-4 items-start">
-            <div className="space-y-4">
-              <BriefingCard vm={vm} />
-              <GtmTaskbook dealId={id} gtmPaths={vm.gtmPaths} />
-              <RisksCard
-                earlyWarnings={vm.earlyWarnings}
-                positiveOutcomes={vm.positiveOutcomes}
-                coachingTip={vm.coachingTip}
-              />
-              <PostMeetingCard dealId={id} />
-              <NoteBox dealId={id} />
-            </div>
-
-            <div className="lg:sticky lg:top-6">
-              <NbaRail dealId={id} nbas={vm.nbas} contacts={vm.contacts} />
-            </div>
-          </div>
+          <BriefingCard vm={vm} />
+          <GtmTaskbook dealId={id} gtmPaths={vm.gtmPaths} />
+          <RisksCard
+            earlyWarnings={vm.earlyWarnings}
+            positiveOutcomes={vm.positiveOutcomes}
+            coachingTip={vm.coachingTip}
+          />
+          <PostMeetingCard dealId={id} />
+          <NoteBox dealId={id} />
         </div>
       )}
+
+      {vm.hasInsight ? (
+        <NbaRail
+          dealId={id}
+          nbas={vm.nbas}
+          contacts={vm.contacts}
+          isOpen={nbaOpen}
+          onClose={closeNba}
+        />
+      ) : null}
     </AssistWorkroomLayout>
   );
 }

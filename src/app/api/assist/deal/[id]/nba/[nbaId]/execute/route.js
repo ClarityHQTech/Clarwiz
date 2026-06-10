@@ -291,6 +291,9 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
               data: templateDoc.data,
             },
             context,
+            instruction:
+              "This collateral will be sent to the prospect. Remove any template scaffolding, " +
+              "internal AE notes, and unsupported claims. Use only facts from context; omit anything unknown.",
           });
           stored = await storePersonalizedInstance(prisma, {
             tenantId: ctx.tenantId,

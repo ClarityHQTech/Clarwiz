@@ -8,9 +8,10 @@ import { computeNextOutreachAt } from "@/lib/execution/outreachSchedule";
 import { localTimeToUtcHHmm } from "@/lib/outreachTimezones";
 import {
   enrollContactInCampaign,
-  flattenContactCampaign,
+  flattenCampaignContact,
   resolveOrCreateContact,
 } from "@/lib/resolveBusinessUser";
+import { enqueueQualifiedCrmPush } from "@/lib/crm/pushQualifiedToHubspot";
 
 export async function addContactToCampaign(request, campaignId, tenantId) {
   const campaign = await getOwnedCampaignDetail(campaignId, tenantId);
@@ -53,7 +54,7 @@ export async function addContactToCampaign(request, campaignId, tenantId) {
 
     const nextAt = computeNextOutreachAt({
       campaign,
-      contactCampaign: { outreachDeliveryTime: deliveryUtc },
+      campaignContact: { outreachDeliveryTime: deliveryUtc },
     });
 
     await enrollContactInCampaign(tx, {
@@ -68,21 +69,21 @@ export async function addContactToCampaign(request, campaignId, tenantId) {
   return NextResponse.json(serialized, { status: 201 });
 }
 
-export async function patchContactCampaign(
+export async function patchCampaignContact(
   request,
   campaignId,
   tenantId,
-  contactCampaignId
+  campaignContactId
 ) {
   const campaign = await getOwnedCampaignDetail(campaignId, tenantId);
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  const contactCampaign = campaign.contactCampaigns.find(
-    (cc) => cc.id === contactCampaignId
+  const campaignContact = campaign.campaignContacts.find(
+    (cc) => cc.id === campaignContactId
   );
-  if (!contactCampaign) {
+  if (!campaignContact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
@@ -121,7 +122,7 @@ export async function patchContactCampaign(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
     data.status = body.status;
-    if (body.status === "QUALIFIED" && !contactCampaign.qualifiedAt) {
+    if (body.status === "QUALIFIED" && !campaignContact.qualifiedAt) {
       data.qualifiedAt = new Date();
       data.qualifiedReason = body.qualifiedReason ?? "manual";
     }
@@ -131,39 +132,46 @@ export async function patchContactCampaign(
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
-  const flat = flattenContactCampaign(contactCampaign);
+  const flat = flattenCampaignContact(campaignContact);
   data.nextScheduledOutreachAt = computeNextOutreachAt({
     campaign,
-    contactCampaign: { ...flat, ...data },
+    campaignContact: { ...flat, ...data },
   });
 
-  await prisma.contactCampaign.update({
-    where: { id: contactCampaignId },
+  const becameQualified =
+    data.status === "QUALIFIED" && campaignContact.status !== "QUALIFIED";
+
+  await prisma.campaignContact.update({
+    where: { id: campaignContactId },
     data,
   });
+
+  if (becameQualified) {
+    enqueueQualifiedCrmPush(prisma, campaignContactId);
+  }
 
   const serialized = await fetchSerializedCampaign(campaignId, tenantId);
   return NextResponse.json(serialized);
 }
 
-export async function removeContactCampaign(
+export async function removeCampaignContact(
   campaignId,
   tenantId,
-  contactCampaignId
+  campaignContactId
 ) {
   const campaign = await getOwnedCampaignDetail(campaignId, tenantId);
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  const contactCampaign = campaign.contactCampaigns.find(
-    (cc) => cc.id === contactCampaignId
+  const campaignContact = campaign.campaignContacts.find(
+    (cc) => cc.id === campaignContactId
   );
-  if (!contactCampaign) {
+  if (!campaignContact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
-  await prisma.contactCampaign.delete({ where: { id: contactCampaignId } });
+  await prisma.campaignContact.delete({ where: { id: campaignContactId } });
 
   const serialized = await fetchSerializedCampaign(campaignId, tenantId);
   return NextResponse.json(serialized);

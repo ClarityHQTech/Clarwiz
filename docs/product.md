@@ -36,12 +36,12 @@ Canonical schema: `prisma/schema.prisma`. The graph splits into a **shared ident
 Company (global)
 └── BusinessUser (global person profile)
     └── Contact (tenant-scoped)
-        └── ContactCampaign (contact × campaign enrollment)
+        └── CampaignContact (contact × campaign enrollment)
             └── CommunicationLog
 
 Tenant
 ├── Contact → BusinessUser → Company
-├── Campaign → ContactCampaign
+├── Campaign → CampaignContact
 ├── Account → Company          (MOFU: HubSpot company mirror)
 │   └── Deal                   (MOFU: HubSpot deal mirror)
 │       └── DealContact → Contact
@@ -138,11 +138,11 @@ Tenant-scoped view of a person. Links a `Tenant` to a global `BusinessUser`. Thi
 
 **Enum `ContactPersona`:** `DECISION_MAKER`, `INFLUENCER`, `CHAMPION`, `GATEKEEPER`, `ECONOMIC_BUYER`, `TECHNICAL_BUYER`, `END_USER`, `OTHER`
 
-**Relations:** `contactCampaigns[]`, `dealContacts[]` (MOFU stakeholders), `nbas[]`
+**Relations:** `campaignContacts[]`, `dealContacts[]` (MOFU stakeholders), `nbas[]`
 
 ---
 
-## ContactCampaign
+## CampaignContact
 
 Enrollment of a `Contact` in a `Campaign` — the outreach state machine for one person in one campaign.
 
@@ -151,7 +151,7 @@ Enrollment of a `Contact` in a `Campaign` — the outreach state machine for one
 | `id` | String (cuid) | PK |
 | `contactId` | String | FK → Contact |
 | `campaignId` | String | FK → Campaign |
-| `status` | ContactCampaignStatus | Default `PENDING` |
+| `status` | CampaignContactStatus | Default `PENDING` |
 | `qualifiedAt` / `qualifiedReason` | DateTime? / String? | Set when marked qualified |
 | `outreachDeliveryTime` | String? | Preferred send time (HH:mm) |
 | `nextScheduledOutreachAt` | DateTime? | Next execution slot |
@@ -161,7 +161,7 @@ Enrollment of a `Contact` in a `Campaign` — the outreach state machine for one
 
 **Unique:** `(contactId, campaignId)`
 
-**Enum `ContactCampaignStatus`:**
+**Enum `CampaignContactStatus`:**
 
 | Status | Meaning |
 |--------|---------|
@@ -212,7 +212,7 @@ Tenant-scoped mirror of a HubSpot deal. Anchor for deal intelligence, NBAs, and 
 
 ## Campaign (reference)
 
-Named outreach program owned by a tenant. ContactCampaign links contacts into campaigns.
+Named outreach program owned by a tenant. CampaignContact links contacts into campaigns.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -226,7 +226,7 @@ Named outreach program owned by a tenant. ContactCampaign links contacts into ca
 | `defaultOutreachTime` | String | Default `11:00` |
 | `enabledChannels` | String[] | Default `["email", "linkedin", "whatsapp"]` |
 
-**Relations:** `contactCampaigns[]`, `templates[]`, `commLogs[]`
+**Relations:** `campaignContacts[]`, `templates[]`, `commLogs[]`
 
 ---
 
@@ -262,7 +262,7 @@ Final account book containing enriched people, stored as:
 * **`Company`** — global company record (name, domain, industry)
 * **`Contact`** — tenant-scoped enrollment linking the tenant to each BusinessUser
 
-Feeds into campaign engine via **`ContactCampaign`** enrollment.
+Feeds into campaign engine via **`CampaignContact`** enrollment.
 
 
 
@@ -284,7 +284,7 @@ Maps to the `Campaign` model. Contains:
 * Outreach timezone and default send time
 * Calendly booking URL, Smartlead campaign ID
 
-Contacts are enrolled via **`ContactCampaign`** (one row per contact × campaign).
+Contacts are enrolled via **`CampaignContact`** (one row per contact × campaign).
 
 ## Communication Templates
 
@@ -344,7 +344,7 @@ Injected into every execution decision.
 
 ### Communication Log History
 
-Stored in `CommunicationLog`, keyed to `ContactCampaign`:
+Stored in `CommunicationLog`, keyed to `CampaignContact`:
 
 * commId (`id`)
 * Timestamp (`sentAt`, `deliveredAt`, `openedAt`)
@@ -360,7 +360,7 @@ Purpose:
 
 ### Prospect Responses
 
-Tracks per `ContactCampaign`:
+Tracks per `CampaignContact`:
 
 * Email replies
 * Open/no-open status
@@ -368,7 +368,7 @@ Tracks per `ContactCampaign`:
 * Website visits
 * CTA clicks
 
-Used to inform next action and update `ContactCampaignStatus` (e.g. `REPLIED`, `QUALIFIED`).
+Used to inform next action and update `CampaignContactStatus` (e.g. `REPLIED`, `QUALIFIED`).
 
 ---
 
@@ -387,7 +387,7 @@ Used for hyper-personalized outreach.
 
 ## Decision Logic
 
-1. Load all context for the `Contact` (via `BusinessUser` + `Company`) and its `ContactCampaign`
+1. Load all context for the `Contact` (via `BusinessUser` + `Company`) and its `CampaignContact`
 2. Score templates by:
 
    * Relevance
@@ -398,7 +398,7 @@ Used for hyper-personalized outreach.
 5. for whatsapp just select from given templates
 6. for email select appropriate inbox (prospect db has info of all inboxes and it's usage to avoid spam)
 7. Select next-best-action
-8. Schedule optimal send time (updates `ContactCampaign.nextScheduledOutreachAt`)
+8. Schedule optimal send time (updates `CampaignContact.nextScheduledOutreachAt`)
 
 ---
 
@@ -433,7 +433,7 @@ Embeds:
 
 ### Qualified Lead Flag
 
-Internal signal triggers when a `ContactCampaign` reaches `QUALIFIED` status.
+Internal signal triggers when a `CampaignContact` reaches `QUALIFIED` status.
 
 If prospect:
 
@@ -442,7 +442,7 @@ If prospect:
 
 Then:
 
-* Set `ContactCampaign.status = QUALIFIED`, record `qualifiedAt` / `qualifiedReason`
+* Set `CampaignContact.status = QUALIFIED`, record `qualifiedAt` / `qualifiedReason`
 * Notify client
 * Stop outreach sequence for that contact in that campaign
 
@@ -458,14 +458,14 @@ Responses feed back into execution engine.
 
 ## Communication Log Schema
 
-Maps to the `CommunicationLog` model. Each log belongs to a `ContactCampaign` (not directly to Contact or Campaign).
+Maps to the `CommunicationLog` model. Each log belongs to a `CampaignContact` (not directly to Contact or Campaign).
 
 ```json
 {
   "id": "cuid",
   "tenantId": "",
   "campaignId": "",
-  "contactCampaignId": "",
+  "campaignContactId": "",
   "channel": "email | whatsapp | linkedin | call",
   "templateId": "",
   "stage": 1,
@@ -517,7 +517,7 @@ When prospect visits:
 * Event logged as `website_visit`
 
 Creates passive intent tracking.
-Gets updated on the `Contact` / `ContactCampaign` record.
+Gets updated on the `Contact` / `CampaignContact` record.
 
 ---
 
@@ -535,7 +535,7 @@ Triggered when:
 
 Actions:
 
-* Set `ContactCampaign.status = QUALIFIED`
+* Set `CampaignContact.status = QUALIFIED`
 * Notify client
 * Stop outreach for that contact in that campaign
 
@@ -666,17 +666,17 @@ Enriched BusinessUser + Company
     ↓
 Contact created (tenant-scoped)
     ↓
-ContactCampaign enrolls contact in Campaign
+CampaignContact enrolls contact in Campaign
     ↓
 Execution layer selects next-best-action
     ↓
 Communication sent via channel → CommunicationLog
     ↓
-Tracking & response logging → ContactCampaign status updates
+Tracking & response logging → CampaignContact status updates
     ↓
 Signals update in real time (BusinessUserSignal / Signal)
     ↓
 Execution adapts dynamically
     ↓
-ContactCampaign → QUALIFIED → lead delivered to client
+CampaignContact → QUALIFIED → lead delivered to client
 ```

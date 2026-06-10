@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ui } from "@/lib/brandUi";
 
 const ERROR_COPY = {
-  mofu_not_configured: "Connect HubSpot in Settings first.",
+  mofu_not_configured: "Connect HubSpot in Integrations first.",
   hubspot_auth: "HubSpot rejected the saved token — re-check it in Settings.",
   sync_failed: "Sync failed. Please try again.",
 };

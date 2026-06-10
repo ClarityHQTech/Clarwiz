@@ -291,14 +291,14 @@ export async function enrollContactInCampaign(
   tx,
   { contactId, campaignId, outreachDeliveryTime = null, nextScheduledOutreachAt = null }
 ) {
-  const existing = await tx.contactCampaign.findUnique({
+  const existing = await tx.campaignContact.findUnique({
     where: {
       contactId_campaignId: { contactId, campaignId },
     },
   });
   if (existing) return existing;
 
-  return tx.contactCampaign.create({
+  return tx.campaignContact.create({
     data: {
       contactId,
       campaignId,
@@ -308,13 +308,13 @@ export async function enrollContactInCampaign(
   });
 }
 
-/** Flatten contactCampaign + nested contact/businessUser for templates and UI. */
-export function flattenContactCampaign(cc) {
+/** Flatten campaignContact + nested contact/businessUser for templates and UI. */
+export function flattenCampaignContact(cc) {
   const bu = cc.contact?.businessUser;
   return {
     id: cc.id,
     contactId: cc.contactId,
-    contactCampaignId: cc.id,
+    campaignContactId: cc.id,
     status: cc.status,
     persona: cc.contact?.persona ?? "OTHER",
     name: bu?.name ?? "",
@@ -332,6 +332,8 @@ export function flattenContactCampaign(cc) {
     qualifiedAt: cc.qualifiedAt,
     qualifiedReason: cc.qualifiedReason,
     isQualified: cc.status === "QUALIFIED",
+    score: cc.score ?? 0,
+    scoreBreakdown: Array.isArray(cc.scoreBreakdown) ? cc.scoreBreakdown : [],
     outreachDeliveryTime: cc.outreachDeliveryTime,
     nextScheduledOutreachAt: cc.nextScheduledOutreachAt,
     lastOutreachDate: cc.lastOutreachDate,

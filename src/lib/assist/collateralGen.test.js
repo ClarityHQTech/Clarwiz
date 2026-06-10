@@ -17,6 +17,9 @@ import {
   personalizeTemplate,
   COLLATERAL_PERSONALIZE_SYSTEM,
   COLLATERAL_PERSONALIZE_VERSION,
+  sanitizeSalesCollateralDoc,
+  stripBracketPlaceholders,
+  summarizeAvailableFacts,
 } from "./collateralGen.js";
 
 /** A doc-model object the way the structured-output tool returns it. */
@@ -484,14 +487,83 @@ describe("personalizeTemplate", () => {
     // The user message carries BOTH the template and the prospect context.
     const content = req.messages[0].content;
     expect(content).toContain("Cut costs with [Product]"); // the template
+    expect(content).toContain("AVAILABLE FACTS");
     expect(content).toContain("Acme"); // the prospect context
     expect(content).toContain("Dana Lee");
+    expect(content).toContain("prospect-facing sales collateral");
   });
 
   it("includes an extra instruction when provided", async () => {
     const client = fakeClient(PERSONALIZED);
     await personalizeTemplate({ client, templateDoc: TEMPLATE, context: CONTEXT, instruction: "Lead with payback." });
     expect(client.seen[0].messages[0].content).toContain("Lead with payback.");
+  });
+});
+
+describe("sanitizeSalesCollateralDoc", () => {
+  const CONTEXT = {
+    seller: { name: "Clarwiz" },
+    prospect: { name: "Acme", industry: "fintech" },
+  };
+
+  it("strips bracket placeholders and drops empty metrics", () => {
+    const out = sanitizeSalesCollateralDoc(
+      {
+        assetType: "one_pager",
+        headline: "How Clarwiz helps [ProspectCompany]",
+        subhead: "[Unknown subhead]",
+        sections: [
+          { id: "a", title: "Real section", body: "Acme needs faster close." },
+          { id: "b", title: "[Empty]", body: "- [Benefit1]\n- Still real" },
+        ],
+        metrics: [
+          { label: "ROI", value: "[ROI%]", detail: "unknown" },
+          { label: "Stage", value: "Proposal", detail: "current deal" },
+        ],
+        cta: { label: "Book a call", detail: "[ChampionName]" },
+      },
+      CONTEXT,
+    );
+
+    expect(out.headline).toBe("How Clarwiz helps");
+    expect(out.subhead).toBeUndefined();
+    expect(out.sections).toHaveLength(2);
+    expect(out.sections[1].body).not.toContain("[");
+    expect(out.metrics).toHaveLength(1);
+    expect(out.metrics[0].value).toBe("Proposal");
+    expect(out.cta.label).toBe("Book a call");
+    expect(out.cta.detail).toBeUndefined();
+  });
+
+  it("falls back headline from seller + prospect when template headline is empty", () => {
+    const out = sanitizeSalesCollateralDoc(
+      { assetType: "one_pager", headline: "[ProspectCompany] overview" },
+      CONTEXT,
+    );
+    expect(out.headline).toBe("overview");
+  });
+});
+
+describe("stripBracketPlaceholders", () => {
+  it("removes bracket tokens and tidies spacing", () => {
+    expect(stripBracketPlaceholders("For [ProspectCompany] in [Industry]")).toBe("For in");
+    expect(stripBracketPlaceholders("Payback in [PaybackMonths] mo")).toBe("Payback in mo");
+  });
+});
+
+describe("summarizeAvailableFacts", () => {
+  it("lists grounded facts from prospect context", () => {
+    const summary = summarizeAvailableFacts({
+      seller: { name: "Clarwiz", company_details: { product: "AI GTM" } },
+      prospect: { name: "Acme", industry: "fintech" },
+      contacts: [{ name: "Dana", title: "CFO" }],
+      deal: { name: "Expansion", stage: "Proposal" },
+      signals: [{ headline: "Opened deck" }],
+    });
+    expect(summary).toContain("Clarwiz");
+    expect(summary).toContain("Acme");
+    expect(summary).toContain("Dana");
+    expect(summary).toContain("Opened deck");
   });
 });
 

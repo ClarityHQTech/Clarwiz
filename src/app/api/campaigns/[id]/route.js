@@ -46,7 +46,7 @@ export async function PATCH(request, { params }) {
   }
 
   if (body.action === "start") {
-    if (campaign.contactCampaigns.length === 0) {
+    if (campaign.campaignContacts.length === 0) {
       return NextResponse.json(
         { error: "Add prospects before starting the drip campaign" },
         { status: 400 }

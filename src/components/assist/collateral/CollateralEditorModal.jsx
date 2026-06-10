@@ -1,38 +1,36 @@
 "use client";
 
-import { useEffect } from "react";
+import {
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
+} from "@chakra-ui/react";
 import CollateralLiveEditor from "@/components/assist/collateral/CollateralLiveEditor";
+import { modalUi, ui } from "@/lib/brandUi";
 
-/**
- * Full-screen dark modal hosting the live collateral editor (built by another
- * agent). Mounts CollateralLiveEditor with the backing Document id; closing is
- * delegated up through onClose.
- */
 export default function CollateralEditorModal({ documentId, title, onClose }) {
-  useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose?.();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   if (!documentId) return null;
 
   return (
-    <div className="cockpit">
-      <div className="ck-editor-modal" role="dialog" aria-label="Collateral editor">
-        <div className="ck-editor-topbar">
-          <div className="ck-card-title">
-            Live editor
-            {title ? <span className="ck-card-title-count">{title}</span> : null}
+    <Modal isOpen onClose={onClose} size="full" motionPreset="slideInBottom">
+      <ModalOverlay className={modalUi.overlayClass} />
+      <ModalContent className={`${modalUi.contentClass} !m-0 !rounded-none !max-h-full !h-full flex flex-col`}>
+        <ModalHeader
+          className={`${modalUi.headerClass} !border-b shrink-0 flex items-center justify-between py-3`}
+        >
+          <div className="min-w-0 pr-8">
+            <p className={`${ui.label} mb-0.5 normal-case tracking-wide font-sans`}>Live editor</p>
+            <span className="font-serif text-lg truncate block">{title || "Collateral"}</span>
           </div>
-          <button type="button" className="ck-btn ck-btn-ghost" onClick={onClose}>
-            Close ✕
-          </button>
-        </div>
-        <div className="ck-editor-body">
+        </ModalHeader>
+        <ModalCloseButton className={modalUi.closeButtonClass} />
+        <ModalBody className={`${modalUi.bodyClass} !p-0 flex-1 min-h-0 overflow-hidden`}>
           <CollateralLiveEditor documentId={documentId} onClose={onClose} />
-        </div>
-      </div>
-    </div>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
   );
 }

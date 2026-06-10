@@ -1,4 +1,4 @@
-export const CONTACT_CAMPAIGN_STATUS_LABELS = {
+export const CAMPAIGN_CONTACT_STATUS_LABELS = {
   PENDING: "Pending",
   IN_OUTREACH: "In outreach",
   REPLIED: "Replied",
@@ -8,7 +8,7 @@ export const CONTACT_CAMPAIGN_STATUS_LABELS = {
   PAUSED: "Paused",
 };
 
-export const CONTACT_CAMPAIGN_STATUS_BADGE = {
+export const CAMPAIGN_CONTACT_STATUS_BADGE = {
   PENDING: "text-brand-steel",
   IN_OUTREACH: "text-amber-700",
   REPLIED: "text-amber-700",
@@ -18,7 +18,7 @@ export const CONTACT_CAMPAIGN_STATUS_BADGE = {
   PAUSED: "text-brand-steel",
 };
 
-export const TERMINAL_CONTACT_CAMPAIGN_STATUSES = new Set([
+export const TERMINAL_CAMPAIGN_CONTACT_STATUSES = new Set([
   "QUALIFIED",
   "NOT_QUALIFIED",
   "DISQUALIFIED",

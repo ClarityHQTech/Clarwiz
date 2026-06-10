@@ -53,6 +53,40 @@ export function buildNoteBody({ body, timestamp }) {
   return { properties: { hs_note_body: body, hs_timestamp: timestamp ?? Date.now() } };
 }
 
+export function buildContactCreateBody({ email, firstName, lastName, jobTitle, phone, companyName }) {
+  const properties = {};
+  if (email) properties.email = email;
+  if (firstName) properties.firstname = firstName;
+  if (lastName) properties.lastname = lastName;
+  if (jobTitle) properties.jobtitle = jobTitle;
+  if (phone) properties.phone = phone;
+  if (companyName) properties.company = companyName;
+  return { properties };
+}
+
+export function buildCompanyCreateBody({ name, domain, industry }) {
+  const properties = { name: name || domain || "(unnamed company)" };
+  if (domain) properties.domain = domain;
+  if (industry) properties.industry = industry;
+  return { properties };
+}
+
+export function buildContactSearchByEmail(email) {
+  return {
+    filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: email }] }],
+    properties: ["email", "firstname", "lastname"],
+    limit: 1,
+  };
+}
+
+export function buildCompanySearchByDomain(domain) {
+  return {
+    filterGroups: [{ filters: [{ propertyName: "domain", operator: "EQ", value: domain }] }],
+    properties: ["name", "domain"],
+    limit: 1,
+  };
+}
+
 /**
  * Build the body for a HubSpot meeting engagement object.
  *
@@ -162,11 +196,61 @@ export async function createDeal(token, input, { fetchImpl = fetch } = {}) {
   return { ok: res.ok, status: res.status, id: res.json?.id ?? null, json: res.json };
 }
 
+export async function createContact(token, input, { fetchImpl = fetch } = {}) {
+  const res = await hsWrite(token, "/crm/v3/objects/contacts", {
+    body: buildContactCreateBody(input),
+    fetchImpl,
+  });
+  return { ok: res.ok, status: res.status, id: res.json?.id ?? null, json: res.json };
+}
+
+export async function createCompany(token, input, { fetchImpl = fetch } = {}) {
+  const res = await hsWrite(token, "/crm/v3/objects/companies", {
+    body: buildCompanyCreateBody(input),
+    fetchImpl,
+  });
+  return { ok: res.ok, status: res.status, id: res.json?.id ?? null, json: res.json };
+}
+
+/** Find a HubSpot contact id by email, or null. Never throws. */
+export async function searchContactByEmail(token, email, { fetchImpl = fetch } = {}) {
+  if (!email) return null;
+  const res = await hsWrite(token, "/crm/v3/objects/contacts/search", {
+    method: "POST",
+    body: buildContactSearchByEmail(email),
+    fetchImpl,
+  });
+  if (!res.ok) return null;
+  return res.json?.results?.[0]?.id ?? null;
+}
+
+/** Find a HubSpot company id by domain, or null. Never throws. */
+export async function searchCompanyByDomain(token, domain, { fetchImpl = fetch } = {}) {
+  if (!domain) return null;
+  const res = await hsWrite(token, "/crm/v3/objects/companies/search", {
+    method: "POST",
+    body: buildCompanySearchByDomain(domain),
+    fetchImpl,
+  });
+  if (!res.ok) return null;
+  return res.json?.results?.[0]?.id ?? null;
+}
+
 /** Associate a deal with a contact or company using the default v4 association. */
 export async function associate(token, dealId, toObjectType, toObjectId, { fetchImpl = fetch } = {}) {
   const res = await hsWrite(
     token,
     `/crm/v4/objects/deals/${dealId}/associations/default/${toObjectType}/${toObjectId}`,
+    { method: "PUT", body: {}, fetchImpl }
+  );
+  return { ok: res.ok, status: res.status };
+}
+
+/** Associate a contact with a company using the default v4 association. */
+export async function associateContactToCompany(token, contactId, companyId, { fetchImpl = fetch } = {}) {
+  const res = await hsWrite(
+    token,
+    `/crm/v4/objects/contacts/${contactId}/associations/default/companies/${companyId}`,
     { method: "PUT", body: {}, fetchImpl }
   );
   return { ok: res.ok, status: res.status };

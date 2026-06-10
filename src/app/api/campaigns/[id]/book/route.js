@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
 import { isLinkPreviewBotRequest } from "@/lib/execution/bookingLinkClick";
 import {
-  markContactCampaignQualified,
+  markCampaignContactQualified,
   QUALIFICATION_REASONS,
 } from "@/lib/execution/qualifyContact";
 
@@ -36,7 +36,7 @@ export async function GET(request, { params }) {
     );
   }
 
-  const cc = await prisma.contactCampaign.findFirst({
+  const cc = await prisma.campaignContact.findFirst({
     where: { id: prospectId, campaignId },
   });
 
@@ -55,7 +55,7 @@ export async function GET(request, { params }) {
   }
 
   const latestLog = await prisma.communicationLog.findFirst({
-    where: { campaignId, contactCampaignId: prospectId },
+    where: { campaignId, campaignContactId: prospectId },
     orderBy: { sentAt: "desc" },
   });
 
@@ -66,8 +66,8 @@ export async function GET(request, { params }) {
     });
   }
 
-  const qualifyResult = await markContactCampaignQualified(prisma, {
-    contactCampaignId: prospectId,
+  const qualifyResult = await markCampaignContactQualified(prisma, {
+    campaignContactId: prospectId,
     campaignId,
     reason: QUALIFICATION_REASONS.CALENDLY_LINK_CLICKED,
     sourceMeta: { trackedLink: true },

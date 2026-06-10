@@ -28,10 +28,10 @@ const PricingPage = () => {
             <p className="mt-6 text-xs text-brand-steel">
               Need access now? Contact your workspace admin or reach out to{" "}
               <a
-                href="mailto:sales@clarwiz.com?subject=Clarwiz%20pricing%20inquiry"
+                href="mailto:support@clarityhq.ai?subject=Clarwiz%20pricing%20inquiry"
                 className="font-medium text-brand-terracotta hover:text-brand-ink transition-colors"
               >
-                sales@clarwiz.com
+                support@clarityhq.ai
               </a>
               .
             </p>

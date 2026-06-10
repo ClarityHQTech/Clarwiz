@@ -12,7 +12,7 @@ export async function GET(_request, { params }) {
     where: { tenantId: params.id },
     orderBy: { createdAt: "desc" },
     include: {
-      _count: { select: { contactCampaigns: true } },
+      _count: { select: { campaignContacts: true } },
     },
   });
 
@@ -25,7 +25,7 @@ export async function GET(_request, { params }) {
       replyRate: campaign.replyRate,
       openRate: campaign.openRate,
       qualifiedLeads: campaign.qualifiedLeads,
-      prospectCount: campaign._count.contactCampaigns,
+      prospectCount: campaign._count.campaignContacts,
       createdAt: campaign.createdAt.toISOString(),
     })),
   });

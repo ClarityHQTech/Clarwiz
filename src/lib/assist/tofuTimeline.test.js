@@ -30,7 +30,7 @@ describe("getTofuTimeline", () => {
     const prisma = fakePrisma([], capture);
     await getTofuTimeline(prisma, "t1", "Jane.Doe@ACME.com");
     expect(capture.args.where.tenantId).toBe("t1");
-    expect(capture.args.where.contactCampaign.contact.businessUser.email).toBe("jane.doe@acme.com");
+    expect(capture.args.where.campaignContact.contact.businessUser.email).toBe("jane.doe@acme.com");
     expect(capture.args.orderBy).toEqual({ sentAt: "desc" });
   });
 

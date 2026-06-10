@@ -16,30 +16,52 @@ const PIPELINE_STEPS = [
   { id: "icp", label: "ICP workbook" },
 ];
 
+/** Previous step id required before this step can run (null = only inputs required). */
+const STEP_REQUIRES = {
+  icp_gap_analysis: null,
+  market_research: "icp_gap_analysis",
+  value_proposition: "market_research",
+  icp: "value_proposition",
+};
+
 const TOAST_ID = "icp-analysis";
 
-function getStepsToRun(context) {
-  const done = {
-    icp_gap_analysis: context?.hasIcpGapAnalysis,
-    market_research: context?.hasMarketResearch,
-    value_proposition: context?.hasValueProposition,
-    icp: context?.hasIcpWorkbook,
-  };
-  const remaining = PIPELINE_STEPS.filter((s) => !done[s.id]);
-  return remaining.length > 0 ? remaining : PIPELINE_STEPS;
-}
-
-function StepStatus({ context, stepId, activeStepId }) {
+function isStepDone(context, stepId) {
   const map = {
     icp_gap_analysis: context?.hasIcpGapAnalysis,
     market_research: context?.hasMarketResearch,
     value_proposition: context?.hasValueProposition,
     icp: context?.hasIcpWorkbook,
   };
-  const done = map[stepId];
-  const active =
-    activeStepId === stepId ||
-    (context?.status === "analyzing" && context?.currentStep === stepId);
+  return Boolean(map[stepId]);
+}
+
+function hasRequiredInputs({ companyName, companyDomain, relevantData }) {
+  return Boolean(
+    companyName?.trim() && companyDomain?.trim() && relevantData?.trim()
+  );
+}
+
+function getStepRunState(stepId, context, inputs) {
+  if (!hasRequiredInputs(inputs)) {
+    return {
+      canRun: false,
+      reason: "Fill in company name, domain, and knowledge first",
+    };
+  }
+
+  const prevId = STEP_REQUIRES[stepId];
+  if (prevId && !isStepDone(context, prevId)) {
+    const prevLabel = PIPELINE_STEPS.find((s) => s.id === prevId)?.label;
+    return { canRun: false, reason: `Complete "${prevLabel}" first` };
+  }
+
+  return { canRun: true, reason: null };
+}
+
+function StepStatus({ context, stepId, activeStepId }) {
+  const done = isStepDone(context, stepId);
+  const active = !done && activeStepId === stepId;
 
   if (active) {
     return (
@@ -109,7 +131,7 @@ async function runAnalyzeStep(stepId) {
   } catch {
     throw new Error(
       res.status === 504
-        ? "This step took too long. Click Run again to resume from the last completed step."
+        ? "This step took too long. Click Run again to retry."
         : `Analysis request failed (${res.status})`
     );
   }
@@ -131,6 +153,8 @@ export default function IcpContextSection() {
   const [relevantData, setRelevantData] = useState("");
   const [userQuery, setUserQuery] = useState("");
   const [accountData, setAccountData] = useState("");
+
+  const inputValues = { companyName, companyDomain, relevantData };
 
   const fetchContext = useCallback(async () => {
     try {
@@ -183,44 +207,34 @@ export default function IcpContextSection() {
     }
   };
 
-  const runPipeline = async () => {
+  const runStep = async (stepId) => {
+    const step = PIPELINE_STEPS.find((s) => s.id === stepId);
+    if (!step) return;
+
+    const { canRun, reason } = getStepRunState(stepId, context, inputValues);
+    if (!canRun) {
+      toast.error(reason);
+      return;
+    }
+
     setAnalyzing(true);
-    toast.loading("Saving company context…", { id: TOAST_ID, duration: Infinity });
+    setActiveStepId(stepId);
+    toast.loading(
+      `${step.label} — calling GTM Core (up to ~5 min per step, auto-retries on disconnect)…`,
+      { id: TOAST_ID, duration: Infinity }
+    );
 
     try {
-      const saved = await saveInputs({ silent: true });
-      const steps = getStepsToRun(saved);
-      const total = steps.length;
-
-      for (let i = 0; i < steps.length; i++) {
-        const { id, label } = steps[i];
-        setActiveStepId(id);
-
-        toast.loading(
-          `${label} (${i + 1}/${total}) — calling GTM Core (up to ~5 min per step, auto-retries on disconnect)…`,
-          { id: TOAST_ID, duration: Infinity }
-        );
-
-        const updated = await runAnalyzeStep(id);
-        setContext(updated);
-
-        toast.loading(`Finished ${label} (${i + 1}/${total})`, {
-          id: TOAST_ID,
-          duration: 2000,
-        });
-      }
-
-      setActiveStepId(null);
-      toast.success("ICP analysis complete — execution layer will use this context", {
-        id: TOAST_ID,
-        duration: 5000,
-      });
+      await saveInputs({ silent: true });
+      const updated = await runAnalyzeStep(stepId);
+      setContext(updated);
+      toast.success(`${step.label} complete`, { id: TOAST_ID, duration: 5000 });
     } catch (err) {
-      setActiveStepId(null);
       toast.error(err.message, { id: TOAST_ID, duration: 8000 });
       await fetchContext();
     } finally {
       setAnalyzing(false);
+      setActiveStepId(null);
     }
   };
 
@@ -252,7 +266,12 @@ export default function IcpContextSection() {
     return <p className="text-sm text-brand-stone">Loading ICP context…</p>;
   }
 
-  const isAnalyzing = context?.status === "analyzing" || analyzing;
+  const isAnalyzing = analyzing;
+  const anyOutput =
+    context?.hasIcpGapAnalysis ||
+    context?.hasMarketResearch ||
+    context?.hasValueProposition ||
+    context?.hasIcpWorkbook;
 
   return (
     <div className="space-y-6">
@@ -328,37 +347,57 @@ export default function IcpContextSection() {
         >
           {saving ? "Saving…" : "Save inputs"}
         </button>
-        <button
-          type="button"
-          onClick={runPipeline}
-          disabled={isAnalyzing || extractingSignals || !companyName || !companyDomain || !relevantData}
-          className="rounded-lg bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
-        >
-          {isAnalyzing ? "Running analysis…" : "Run full ICP analysis"}
-        </button>
       </div>
 
-      <p className="text-xs text-brand-stone">
-        Full pipeline: ICP gap analysis → market research → value proposition → ICP workbook.
-        Each step runs separately and can take up to 10 minutes (market research is often the
-        slowest). If a step fails, click again to resume from where it stopped.
-      </p>
+      <div className="space-y-3">
+        <div>
+          <h4 className="text-sm font-semibold text-brand-ink">Analysis pipeline</h4>
+          <p className="mt-1 text-xs text-brand-stone">
+            Run each step separately in order. Each step can take up to 10 minutes
+            (market research is often the slowest). Save your inputs first, then click
+            Run on each step when you are ready.
+          </p>
+        </div>
 
-      <ul className="space-y-2">
-        {PIPELINE_STEPS.map((step) => (
-          <li
-            key={step.id}
-            className="flex items-center justify-between rounded-lg border border-brand-secondary/15 bg-brand-bg/50 px-3 py-2"
-          >
-            <span className="text-sm text-brand-stone">{step.label}</span>
-            <StepStatus
-              context={context}
-              stepId={step.id}
-              activeStepId={activeStepId}
-            />
-          </li>
-        ))}
-      </ul>
+        <ul className="space-y-2">
+          {PIPELINE_STEPS.map((step) => {
+            const { canRun, reason } = getStepRunState(step.id, context, inputValues);
+            const done = isStepDone(context, step.id);
+            const isActive = activeStepId === step.id;
+            const disabled = isAnalyzing || extractingSignals || !canRun;
+
+            return (
+              <li
+                key={step.id}
+                className="rounded-lg border border-brand-secondary/15 bg-brand-bg/50 px-3 py-2 space-y-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm text-brand-stone">{step.label}</span>
+                  <div className="flex items-center gap-2">
+                    <StepStatus
+                      context={context}
+                      stepId={step.id}
+                      activeStepId={activeStepId}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => runStep(step.id)}
+                      disabled={disabled}
+                      title={!canRun ? reason : undefined}
+                      className="rounded-lg bg-brand-dark px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-ink disabled:opacity-50"
+                    >
+                      {isActive ? "Running…" : done ? "Re-run" : "Run"}
+                    </button>
+                  </div>
+                </div>
+                {!canRun && reason ? (
+                  <p className="text-xs text-brand-steel">{reason}</p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
       {context?.status === "complete" ? (
         <p className="text-xs text-brand-ink">
@@ -402,13 +441,24 @@ export default function IcpContextSection() {
         ) : null}
       </div>
 
-      {context?.hasIcpWorkbook ? (
+      {anyOutput ? (
         <div className="space-y-2 border-t border-brand-secondary/15 pt-4">
           <h4 className="text-sm font-semibold text-brand-ink">Stored outputs</h4>
-          <OutputPreview title="ICP gap analysis" preview={context.icpGapAnalysisPreview} />
-          <OutputPreview title="Market research" preview={context.marketResearchPreview} />
-          <OutputPreview title="Value proposition" preview={context.valuePropositionPreview} />
-          <OutputPreview title="ICP workbook" preview={context.icpWorkbookPreview} />
+          {context?.hasIcpGapAnalysis ? (
+            <OutputPreview title="ICP gap analysis" preview={context.icpGapAnalysisPreview} />
+          ) : null}
+          {context?.hasMarketResearch ? (
+            <OutputPreview title="Market research" preview={context.marketResearchPreview} />
+          ) : null}
+          {context?.hasValueProposition ? (
+            <OutputPreview
+              title="Value proposition"
+              preview={context.valuePropositionPreview}
+            />
+          ) : null}
+          {context?.hasIcpWorkbook ? (
+            <OutputPreview title="ICP workbook" preview={context.icpWorkbookPreview} />
+          ) : null}
         </div>
       ) : null}
     </div>

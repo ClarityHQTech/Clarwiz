@@ -66,14 +66,14 @@ export function hasWhatsAppProspectReply(commHistory = []) {
  * Comm logs win over contact_campaign.whatsapp24hWindowExpiresAt (which can stay stale
  * after logs are deleted or when the DB field was not refreshed yet).
  */
-export function resolveWhatsAppWindowExpiresAt(contactCampaign, commHistory = []) {
+export function resolveWhatsAppWindowExpiresAt(campaignContact, commHistory = []) {
   const latestInbound = latestWhatsAppInboundAt(commHistory);
   const fromHistory = latestInbound
     ? computeWhatsAppWindowExpiry(latestInbound)
     : null;
 
-  const stored = contactCampaign?.whatsapp24hWindowExpiresAt
-    ? new Date(contactCampaign.whatsapp24hWindowExpiresAt)
+  const stored = campaignContact?.whatsapp24hWindowExpiresAt
+    ? new Date(campaignContact.whatsapp24hWindowExpiresAt)
     : null;
   const storedValid =
     stored && !Number.isNaN(stored.getTime()) ? stored : null;
@@ -106,8 +106,8 @@ export function getWhatsAppSessionWindowState({
 }
 
 /** Co-pilot / UI eligibility for WhatsApp free-form vs template-only sends. */
-export function getWhatsAppCopilotUiState(contactCampaign, commHistory = []) {
-  const expiresAt = resolveWhatsAppWindowExpiresAt(contactCampaign, commHistory);
+export function getWhatsAppCopilotUiState(campaignContact, commHistory = []) {
+  const expiresAt = resolveWhatsAppWindowExpiresAt(campaignContact, commHistory);
   const windowState = getWhatsAppSessionWindowState({ expiresAt });
 
   return {

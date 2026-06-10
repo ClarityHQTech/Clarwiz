@@ -1,5 +1,5 @@
 /**
- * HubSpot client for the MOFU layer (private-app token, server-side only).
+ * HubSpot client for the MOFU layer (OAuth bearer token, server-side only).
  * Pure request-shaping + mapping live in hubspotMap.js; this module performs
  * the authenticated HTTP calls (injectable fetch for tests).
  */
@@ -30,7 +30,7 @@ async function hsRequest(token, path, { method = "GET", body, fetchImpl = fetch 
   return { ok: res.ok, status: res.status, json };
 }
 
-/** One lightweight authenticated call to confirm a private-app token works. Never throws. */
+/** One lightweight authenticated call to confirm a HubSpot bearer token works. Never throws. */
 export async function verifyHubspotToken(token, { fetchImpl = fetch } = {}) {
   try {
     const { ok, status } = await hsRequest(token, "/crm/v3/objects/contacts?limit=1", { fetchImpl });

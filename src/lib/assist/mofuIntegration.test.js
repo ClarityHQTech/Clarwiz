@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  maskToken,
-  buildMofuIntegrationData,
-  upsertMofuIntegration,
+  isHubspotOAuthConnected,
   toDisplayConfig,
   getDecryptedHubspotToken,
   buildTokenExchangeBody,
@@ -12,65 +10,25 @@ import {
 } from "./mofuIntegration.js";
 import { encryptMofuToken, decryptMofuToken } from "@/lib/encryptSecret";
 
-describe("maskToken", () => {
-  it("masks all but the last 4 characters", () => {
-    expect(maskToken("pat-na2-secretWXYZ")).toBe("••••WXYZ");
+describe("isHubspotOAuthConnected", () => {
+  it("returns false for null or non-oauth rows", () => {
+    expect(isHubspotOAuthConnected(null)).toBe(false);
+    expect(isHubspotOAuthConnected({ connectionMode: "pat" })).toBe(false);
+    expect(isHubspotOAuthConnected({ connectionMode: "oauth" })).toBe(false);
   });
-  it("returns null for a missing token", () => {
-    expect(maskToken(null)).toBeNull();
-    expect(maskToken("")).toBeNull();
-  });
-});
-
-describe("buildMofuIntegrationData", () => {
-  it("encrypts the HubSpot token (never plaintext) and round-trips", () => {
-    const data = buildMofuIntegrationData({ hubspotToken: "pat-na2-raw" });
-    expect(data.encryptedHubspotToken).not.toBe("pat-na2-raw");
-    expect(decryptMofuToken(data.encryptedHubspotToken)).toBe("pat-na2-raw");
-  });
-  it("passes optional config through and defaults the rest to null", () => {
-    const full = buildMofuIntegrationData({
-      hubspotToken: "t",
-      hubspotPortalId: "12345",
-      defaultOwnerId: "67",
-      insightModel: "gpt-4o",
-    });
-    expect(full.hubspotPortalId).toBe("12345");
-    expect(full.defaultOwnerId).toBe("67");
-    expect(full.insightModel).toBe("gpt-4o");
-
-    const bare = buildMofuIntegrationData({ hubspotToken: "t" });
-    expect(bare.hubspotPortalId).toBeNull();
-    expect(bare.defaultOwnerId).toBeNull();
-    expect(bare.insightModel).toBeNull();
-  });
-  it("throws when hubspotToken is missing", () => {
-    expect(() => buildMofuIntegrationData({})).toThrow();
-  });
-  it("passes singleSendEmailId through, defaulting to null", () => {
-    expect(buildMofuIntegrationData({ hubspotToken: "t", singleSendEmailId: "123" }).hubspotSingleSendEmailId).toBe("123");
-    expect(buildMofuIntegrationData({ hubspotToken: "t" }).hubspotSingleSendEmailId).toBeNull();
-    // blank string normalizes to null
-    expect(buildMofuIntegrationData({ hubspotToken: "t", singleSendEmailId: "" }).hubspotSingleSendEmailId).toBeNull();
-  });
-});
-
-describe("upsertMofuIntegration", () => {
-  it("upserts by tenantId with encrypted data on both create and update", async () => {
-    let captured;
-    const prisma = {
-      mofuIntegration: {
-        upsert: async (args) => {
-          captured = args;
-          return { id: "1" };
-        },
-      },
-    };
-    await upsertMofuIntegration(prisma, "tenant-1", { hubspotToken: "pat-na2-raw" });
-    expect(captured.where).toEqual({ tenantId: "tenant-1" });
-    expect(captured.create.tenantId).toBe("tenant-1");
-    expect(decryptMofuToken(captured.create.encryptedHubspotToken)).toBe("pat-na2-raw");
-    expect(decryptMofuToken(captured.update.encryptedHubspotToken)).toBe("pat-na2-raw");
+  it("returns true when oauth access or refresh token is stored", () => {
+    expect(
+      isHubspotOAuthConnected({
+        connectionMode: "oauth",
+        encryptedHubspotAccessToken: encryptMofuToken("acc"),
+      })
+    ).toBe(true);
+    expect(
+      isHubspotOAuthConnected({
+        connectionMode: "oauth",
+        encryptedHubspotRefreshToken: encryptMofuToken("ref"),
+      })
+    ).toBe(true);
   });
 });
 
@@ -78,47 +36,40 @@ describe("toDisplayConfig", () => {
   it("returns not-configured for a null row", () => {
     expect(toDisplayConfig(null)).toEqual({ configured: false });
   });
-  it("masks the token and never exposes plaintext or ciphertext", () => {
-    const row = {
-      encryptedHubspotToken: encryptMofuToken("pat-na2-secretWXYZ"),
-      hubspotPortalId: "123",
-      defaultOwnerId: null,
-      insightModel: "gpt-4o",
-      status: "connected",
-      connectedAt: null,
-    };
-    const out = toDisplayConfig(row);
-    expect(out.configured).toBe(true);
-    expect(out.hubspotTokenMasked).toBe("••••WXYZ");
-
-    const serialized = JSON.stringify(out);
-    expect(serialized).not.toContain("pat-na2-secretWXYZ");
-    expect(serialized).not.toContain(row.encryptedHubspotToken);
+  it("returns configured=false for a row without oauth tokens", () => {
+    const out = toDisplayConfig({ connectionMode: "pat", status: "connected" });
+    expect(out.configured).toBe(false);
   });
   it("exposes singleSendEmailId and canDeliverEmail=true when an id is set", () => {
     const out = toDisplayConfig({
-      encryptedHubspotToken: null,
+      connectionMode: "oauth",
+      encryptedHubspotAccessToken: encryptMofuToken("acc"),
       hubspotSingleSendEmailId: "987",
       status: "connected",
     });
+    expect(out.configured).toBe(true);
     expect(out.singleSendEmailId).toBe("987");
     expect(out.canDeliverEmail).toBe(true);
   });
   it("canDeliverEmail=false and singleSendEmailId=null when no id is set", () => {
-    const out = toDisplayConfig({ encryptedHubspotToken: null, status: "connected" });
+    const out = toDisplayConfig({
+      connectionMode: "oauth",
+      encryptedHubspotAccessToken: encryptMofuToken("acc"),
+      status: "connected",
+    });
     expect(out.singleSendEmailId).toBeNull();
     expect(out.canDeliverEmail).toBe(false);
   });
 });
 
 describe("getDecryptedHubspotToken", () => {
-  it("returns the original token for a configured tenant (PAT mode)", async () => {
-    const row = { encryptedHubspotToken: encryptMofuToken("pat-na2-roundtrip") };
-    const prisma = { mofuIntegration: { findUnique: async () => row } };
-    expect(await getDecryptedHubspotToken(prisma, "t")).toBe("pat-na2-roundtrip");
-  });
   it("returns null when the tenant has no integration", async () => {
     const prisma = { mofuIntegration: { findUnique: async () => null } };
+    expect(await getDecryptedHubspotToken(prisma, "t")).toBeNull();
+  });
+  it("returns null for non-oauth integrations", async () => {
+    const row = { encryptedHubspotToken: encryptMofuToken("pat-legacy") };
+    const prisma = { mofuIntegration: { findUnique: async () => row } };
     expect(await getDecryptedHubspotToken(prisma, "t")).toBeNull();
   });
   it("delegates to OAuth path when connectionMode is oauth", async () => {
@@ -176,22 +127,13 @@ describe("getHubspotAccessToken", () => {
     process.env.HUBSPOT_REDIRECT_URI = "http://localhost:3000/cb";
   });
 
-  it("PAT path: returns the decrypted PAT and does not fetch", async () => {
+  it("returns null for legacy PAT rows", async () => {
     const row = {
       connectionMode: "pat",
       encryptedHubspotToken: encryptMofuToken("pat-na2-x"),
     };
     const prisma = { mofuIntegration: { findUnique: async () => row } };
-    const fetchImpl = () => {
-      throw new Error("must not fetch in PAT mode");
-    };
-    expect(await getHubspotAccessToken(prisma, "t", { fetchImpl })).toBe("pat-na2-x");
-  });
-
-  it("PAT path: unset connectionMode still returns the PAT", async () => {
-    const row = { encryptedHubspotToken: encryptMofuToken("pat-legacy") };
-    const prisma = { mofuIntegration: { findUnique: async () => row } };
-    expect(await getHubspotAccessToken(prisma, "t")).toBe("pat-legacy");
+    expect(await getHubspotAccessToken(prisma, "t")).toBeNull();
   });
 
   it("oauth valid path: returns cached access token without refreshing", async () => {
@@ -307,10 +249,10 @@ describe("upsertHubspotOAuth", () => {
 });
 
 describe("toDisplayConfig OAuth fields", () => {
-  it("exposes connectionMode, portalId, and scopeCount", () => {
+  it("exposes connectionMode, portalId, scopes, and scopeCount", () => {
     const row = {
       connectionMode: "oauth",
-      encryptedHubspotToken: null,
+      encryptedHubspotAccessToken: encryptMofuToken("acc"),
       hubspotPortalId: "987",
       hubspotScopes: ["a", "b", "c"],
       status: "connected",
@@ -319,7 +261,8 @@ describe("toDisplayConfig OAuth fields", () => {
     const out = toDisplayConfig(row);
     expect(out.connectionMode).toBe("oauth");
     expect(out.hubspotPortalId).toBe("987");
+    expect(out.hubspotScopes).toEqual(["a", "b", "c"]);
     expect(out.scopeCount).toBe(3);
-    expect(out.hubspotTokenMasked).toBeNull();
+    expect(out.configured).toBe(true);
   });
 });

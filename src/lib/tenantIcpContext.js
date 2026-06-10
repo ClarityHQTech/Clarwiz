@@ -45,6 +45,9 @@ function buildStepBody(record, stepKey) {
   const step = PIPELINE_STEPS.find((s) => s.key === stepKey);
   if (!step) throw new Error(`Unknown pipeline step: ${stepKey}`);
 
+  if (step.key === "market_research" && !record.icpGapAnalysis) {
+    throw new Error("ICP gap analysis must complete before market research");
+  }
   if (step.key === "value_proposition" && !record.marketResearch) {
     throw new Error("Market research must complete before value proposition");
   }
@@ -98,8 +101,8 @@ export async function runIcpAnalysisStep(tenantId, stepKey) {
       where: { tenantId },
       data: {
         [step.field]: output,
-        status: isLastStep ? "complete" : "analyzing",
-        currentStep: isLastStep ? null : stepKey,
+        status: isLastStep ? "complete" : "partial",
+        currentStep: null,
         lastError: null,
         ...(isLastStep ? { analyzedAt: new Date() } : {}),
       },
@@ -109,10 +112,43 @@ export async function runIcpAnalysisStep(tenantId, stepKey) {
   } catch (err) {
     await prisma.tenantIcpContext.update({
       where: { tenantId },
-      data: { status: "error", lastError: err.message },
+      data: { status: "error", currentStep: null, lastError: err.message },
     });
     throw err;
   }
+}
+
+function stepHasOutput(record, stepKey) {
+  const step = PIPELINE_STEPS.find((s) => s.key === stepKey);
+  if (!step) return false;
+  const value = record[step.field];
+  return Boolean(typeof value === "string" ? value.trim() : value);
+}
+
+/** No background worker — clear stale "analyzing" rows left by crashed/timed-out requests. */
+async function reconcileAnalyzingState(record) {
+  if (!record || record.status !== "analyzing") return record;
+
+  const updates = {};
+
+  if (record.currentStep && stepHasOutput(record, record.currentStep)) {
+    updates.currentStep = null;
+    updates.status = record.icpWorkbook ? "complete" : "partial";
+  } else if (record.currentStep && !stepHasOutput(record, record.currentStep)) {
+    updates.status = "error";
+    updates.currentStep = null;
+    updates.lastError =
+      record.lastError ||
+      `Previous "${record.currentStep}" run did not finish. Click Run on that step to try again.`;
+  } else {
+    updates.status = record.icpWorkbook ? "complete" : "partial";
+    updates.currentStep = null;
+  }
+
+  return prisma.tenantIcpContext.update({
+    where: { id: record.id },
+    data: updates,
+  });
 }
 
 export function serializeTenantIcpContext(record) {
@@ -150,9 +186,12 @@ function preview(text, max = 280) {
 }
 
 export async function getTenantIcpContext(tenantId) {
-  const record = await prisma.tenantIcpContext.findUnique({
+  let record = await prisma.tenantIcpContext.findUnique({
     where: { tenantId },
   });
+  if (record?.status === "analyzing") {
+    record = await reconcileAnalyzingState(record);
+  }
   return serializeTenantIcpContext(record);
 }
 

@@ -71,17 +71,17 @@ async function tryWhatsAppFreeformFromCommLog({ commLogId, tenantId, prospect })
 
   const row = await prisma.communicationLog.findUnique({
     where: { id: commLogId },
-    select: { message: true, campaignId: true, contactCampaignId: true },
+    select: { message: true, campaignId: true, campaignContactId: true },
   });
   const messageText = row?.message?.trim();
   if (!messageText) return null;
 
   let commHistory = [];
-  if (row?.campaignId && row?.contactCampaignId) {
+  if (row?.campaignId && row?.campaignContactId) {
     commHistory = await prisma.communicationLog.findMany({
       where: {
         campaignId: row.campaignId,
-        contactCampaignId: row.contactCampaignId,
+        campaignContactId: row.campaignContactId,
       },
       orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],
     });
@@ -320,13 +320,13 @@ export async function pushWhatsAppTemplateForDecision({
     if (commLogId && campaign?.id) {
       const anchor = await prisma.communicationLog.findUnique({
         where: { id: commLogId },
-        select: { contactCampaignId: true },
+        select: { campaignContactId: true },
       });
-      if (anchor?.contactCampaignId) {
+      if (anchor?.campaignContactId) {
         commHistory = await prisma.communicationLog.findMany({
           where: {
             campaignId: campaign.id,
-            contactCampaignId: anchor.contactCampaignId,
+            campaignContactId: anchor.campaignContactId,
           },
           orderBy: [{ sentAt: "asc" }, { createdAt: "asc" }],
         });

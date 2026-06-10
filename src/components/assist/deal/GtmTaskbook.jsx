@@ -37,7 +37,7 @@ export default function GtmTaskbook({ dealId, gtmPaths }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 412) {
-        toast.error("Connect HubSpot in Settings to create tasks.");
+        toast.error("Connect HubSpot in Integrations to create tasks.");
         return;
       }
       if (!res.ok) {

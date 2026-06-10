@@ -1,58 +1,24 @@
 import { encryptMofuToken, decryptMofuToken } from "@/lib/encryptSecret";
+import { assessRecordingScopes } from "@/lib/assist/hubspotScopes";
 
 /**
  * MOFU integration credential store. One row per tenant (`MofuIntegration`).
  *
- * A tenant connects HubSpot in one of two modes:
- *  - `oauth`: each portal installs the app via "Connect HubSpot". We persist an
- *    encrypted access token + refresh token and auto-refresh on expiry.
- *  - `pat` (default / fallback): a manually pasted private-app token.
+ * Each tenant connects HubSpot via OAuth ("Connect HubSpot" in Integrations). We
+ * persist an encrypted access token + refresh token and auto-refresh on expiry.
  *
  * All credentials are stored AES-256-GCM encrypted and never leave the server
- * in plaintext — display paths mask or omit them.
+ * in plaintext.
  */
 
 const HUBSPOT_TOKEN_URL = "https://api.hubapi.com/oauth/v1/token";
 // Refresh slightly before the real expiry so in-flight calls never use a dead token.
 const TOKEN_EXPIRY_MARGIN_MS = 120 * 1000;
 
-/** Mask a secret for display: `••••WXYZ`. Returns null for empty input. */
-export function maskToken(token) {
-  if (!token) return null;
-  return `••••${String(token).slice(-4)}`;
-}
-
-/**
- * Shape the persisted columns from raw form input, encrypting the token.
- * Pure (no DB) so it is unit-testable. Throws if the token is missing.
- */
-export function buildMofuIntegrationData({
-  hubspotToken,
-  hubspotPortalId = null,
-  defaultOwnerId = null,
-  insightModel = null,
-  singleSendEmailId = null,
-} = {}) {
-  if (!hubspotToken) {
-    throw new Error("hubspotToken is required");
-  }
-  return {
-    encryptedHubspotToken: encryptMofuToken(hubspotToken),
-    hubspotPortalId: hubspotPortalId || null,
-    defaultOwnerId: defaultOwnerId || null,
-    insightModel: insightModel || null,
-    hubspotSingleSendEmailId: singleSendEmailId ? String(singleSendEmailId) : null,
-  };
-}
-
-/** Upsert a tenant's MOFU integration (status lifecycle is owned by the route after verification). */
-export async function upsertMofuIntegration(prisma, tenantId, input) {
-  const data = buildMofuIntegrationData(input);
-  return prisma.mofuIntegration.upsert({
-    where: { tenantId },
-    create: { tenantId, ...data },
-    update: data,
-  });
+/** True when the tenant has an OAuth grant stored (access and/or refresh token). */
+export function isHubspotOAuthConnected(row) {
+  if (!row || row.connectionMode !== "oauth") return false;
+  return !!(row.encryptedHubspotRefreshToken || row.encryptedHubspotAccessToken);
 }
 
 export async function getMofuIntegration(prisma, tenantId) {
@@ -89,18 +55,16 @@ export function buildTokenRefreshBody({ refreshToken }) {
 /**
  * Resolve a usable HubSpot bearer token for a tenant, or null.
  *
- * - OAuth mode: returns the cached access token while it is still valid (with a
- *   120s safety margin); otherwise refreshes via the token endpoint, persists
- *   the new encrypted access token (+ refresh token if rotated) and expiry, and
- *   returns the fresh token. Never throws on refresh failure — returns null.
- * - PAT mode (or unset): returns the decrypted private-app token.
+ * Returns the cached access token while it is still valid (with a 120s safety
+ * margin); otherwise refreshes via the token endpoint, persists the new
+ * encrypted access token (+ refresh token if rotated) and expiry, and returns
+ * the fresh token. Never throws on refresh failure — returns null.
  */
 export async function getHubspotAccessToken(prisma, tenantId, { fetchImpl = fetch } = {}) {
   const row = await getMofuIntegration(prisma, tenantId);
-  if (!row) return null;
+  if (!row || row.connectionMode !== "oauth") return null;
 
-  if (row.connectionMode === "oauth") {
-    const expiresAt = row.hubspotTokenExpiresAt
+  const expiresAt = row.hubspotTokenExpiresAt
       ? new Date(row.hubspotTokenExpiresAt).getTime()
       : 0;
     const stillValid = expiresAt - TOKEN_EXPIRY_MARGIN_MS > Date.now();
@@ -149,23 +113,9 @@ export async function getHubspotAccessToken(prisma, tenantId, { fetchImpl = fetc
       console.warn("[MOFU] HubSpot token refresh error:", err.message);
       return null;
     }
-  }
-
-  // PAT mode (or unset connectionMode): legacy private-app token.
-  if (!row.encryptedHubspotToken) return null;
-  try {
-    return decryptMofuToken(row.encryptedHubspotToken);
-  } catch (err) {
-    console.warn("[MOFU] failed to decrypt HubSpot PAT:", err.message);
-    return null;
-  }
 }
 
-/**
- * Server-side only: resolve the HubSpot bearer token for outbound calls.
- * Delegates to {@link getHubspotAccessToken} so OAuth-connected tenants are
- * served transparently while PAT tenants keep working. Null if unconfigured.
- */
+/** Server-side only: resolve the HubSpot bearer token for outbound calls. */
 export async function getDecryptedHubspotToken(prisma, tenantId, opts) {
   return getHubspotAccessToken(prisma, tenantId, opts);
 }
@@ -197,29 +147,26 @@ export async function upsertHubspotOAuth(
   });
 }
 
-/** Safe-for-client view: masks/omits the token, exposes config + status only. */
+/** Safe-for-client view: exposes config + status only (no tokens). */
 export function toDisplayConfig(row) {
   if (!row) return { configured: false };
-  let hubspotTokenMasked = null;
-  if (row.encryptedHubspotToken) {
-    try {
-      hubspotTokenMasked = maskToken(decryptMofuToken(row.encryptedHubspotToken));
-    } catch {
-      hubspotTokenMasked = null;
-    }
-  }
+  const connected = isHubspotOAuthConnected(row);
   const singleSendEmailId = row.hubspotSingleSendEmailId ?? null;
+  const hubspotScopes = Array.isArray(row.hubspotScopes) ? row.hubspotScopes : [];
+  const recordingScopes = assessRecordingScopes(hubspotScopes);
   return {
-    configured: true,
-    connectionMode: row.connectionMode ?? "pat",
+    configured: connected,
+    connectionMode: connected ? "oauth" : null,
     hubspotPortalId: row.hubspotPortalId ?? null,
     defaultOwnerId: row.defaultOwnerId ?? null,
     insightModel: row.insightModel ?? null,
     status: row.status ?? "pending",
     connectedAt: row.connectedAt ?? null,
-    scopeCount: Array.isArray(row.hubspotScopes) ? row.hubspotScopes.length : 0,
-    hubspotTokenMasked,
+    hubspotScopes,
+    scopeCount: hubspotScopes.length,
     singleSendEmailId,
     canDeliverEmail: !!singleSendEmailId,
+    canFetchCallTranscripts: recordingScopes.hasTranscriptsRead,
+    recordingScopes,
   };
 }

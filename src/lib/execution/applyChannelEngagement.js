@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 
 function mergeDeliveryMeta(log, patch) {
   return {
@@ -34,7 +34,7 @@ export async function applyLinkedInConnectedEngagement(log, { invitationState, m
     },
   });
 
-  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
+  await syncCampaignContactStatus(prisma, updated.campaignContactId);
 
   return { updated: true, log: updated, activity: "connected" };
 }
@@ -60,7 +60,7 @@ export async function applyLinkedInReplyEngagement(log, { responseContent, repli
     },
   });
 
-  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
+  await syncCampaignContactStatus(prisma, updated.campaignContactId);
 
   return { updated: true, log: updated, activity: "reply" };
 }
@@ -121,7 +121,7 @@ export async function applyWhatsAppEngagement(log, engagement) {
     data,
   });
 
-  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
+  await syncCampaignContactStatus(prisma, updated.campaignContactId);
 
   return { updated: true, log: updated, activity: engagement.activity };
 }

@@ -9,10 +9,6 @@ import AssistBadge from "@/components/assist/ui/AssistBadge";
 import { ui } from "@/lib/brandUi";
 
 const EMPTY_FORM = {
-  hubspotToken: "",
-  hubspotPortalId: "",
-  defaultOwnerId: "",
-  insightModel: "",
   singleSendEmailId: "",
 };
 
@@ -24,14 +20,6 @@ const EMPTY_BRAND = {
   logoUrl: "",
   tagline: "",
 };
-
-function statusBadge(integration, loading) {
-  if (loading) return <AssistBadge variant="ghost">Checking…</AssistBadge>;
-  if (!integration?.configured) return <AssistBadge variant="ghost">Not configured</AssistBadge>;
-  if (integration.status === "connected") return <AssistBadge variant="ok">Connected</AssistBadge>;
-  if (integration.status === "error") return <AssistBadge variant="danger">Test failed</AssistBadge>;
-  return <AssistBadge variant="warn">Pending</AssistBadge>;
-}
 
 function SettingsSection({ title, description, action, children }) {
   return (
@@ -59,25 +47,26 @@ function FieldLabel({ children, required }) {
 
 function MofuSettingsPage() {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [integration, setIntegration] = useState({ configured: false });
   const [form, setForm] = useState(EMPTY_FORM);
   const [brand, setBrand] = useState(EMPTY_BRAND);
   const [savingBrand, setSavingBrand] = useState(false);
-  const [showPatForm, setShowPatForm] = useState(false);
   const [savingSingleSend, setSavingSingleSend] = useState(false);
   const [internalDomainsText, setInternalDomainsText] = useState("");
   const [detectedDomains, setDetectedDomains] = useState([]);
   const [savingDomains, setSavingDomains] = useState(false);
   const [cleaning, setCleaning] = useState(false);
+  const [gmail, setGmail] = useState({ connected: false });
+  const [gmailDisconnecting, setGmailDisconnecting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sRes, bRes, dRes] = await Promise.all([
+      const [sRes, bRes, dRes, gRes] = await Promise.all([
         fetch("/api/assist/settings"),
         fetch("/api/assist/brand"),
         fetch("/api/assist/internal-domains"),
+        fetch("/api/assist/gmail"),
       ]);
       const sData = await sRes.json();
       const integ = sData.integration ?? { configured: false };
@@ -103,6 +92,10 @@ function MofuSettingsPage() {
         setInternalDomainsText((dData.configured ?? []).join("\n"));
         setDetectedDomains(dData.detected ?? []);
       }
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        setGmail(gData.gmail ?? { connected: false });
+      }
     } catch {
       toast.error("Failed to load MOFU settings");
     } finally {
@@ -116,50 +109,40 @@ function MofuSettingsPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const status = params.get("hubspot");
+    const status = params.get("gmail");
     if (!status) return;
-    if (status === "connected") toast.success("HubSpot connected via OAuth");
-    else if (status === "denied") toast.error("HubSpot connection was denied");
-    else if (status === "badstate") toast.error("HubSpot connection expired — please try again");
-    else if (status === "error") toast.error("HubSpot connection failed — please try again");
+    if (status === "connected") {
+      toast.success("Gmail connected — NBA emails will send from your mailbox");
+      load();
+    } else if (status === "denied") toast.error("Gmail connection was denied");
+    else if (status === "badstate") toast.error("Gmail connection expired — try again");
+    else if (status === "error") toast.error("Gmail connection failed — try again");
     window.history.replaceState({}, "", window.location.pathname);
-  }, []);
+  }, [load]);
 
-  const connectHubspot = () => {
-    window.location.href = "/api/assist/hubspot/oauth/start";
+  const connectGmail = () => {
+    window.location.href = "/api/assist/gmail/oauth/start";
+  };
+
+  const disconnectGmail = async () => {
+    setGmailDisconnecting(true);
+    try {
+      const res = await fetch("/api/assist/gmail", { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Could not disconnect Gmail");
+        return;
+      }
+      setGmail({ connected: false });
+      toast.success("Gmail disconnected");
+    } catch {
+      toast.error("Could not disconnect Gmail");
+    } finally {
+      setGmailDisconnecting(false);
+    }
   };
 
   const onChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const onBrandChange = (key) => (e) => setBrand((b) => ({ ...b, [key]: e.target.value }));
-
-  const onSave = async (e) => {
-    e.preventDefault();
-    if (!form.hubspotToken.trim()) {
-      toast.error("HubSpot token is required");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/assist/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Save failed");
-        return;
-      }
-      setIntegration(data.integration);
-      setForm((f) => ({ ...f, hubspotToken: "" }));
-      if (data.verified?.hubspot) toast.success("HubSpot connected");
-      else toast.warning("Saved, but the HubSpot test failed — check the token and scopes");
-    } catch {
-      toast.error("Save failed");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const onSaveSingleSend = async (e) => {
     e.preventDefault();
@@ -306,79 +289,55 @@ function MofuSettingsPage() {
       <div>
         <h1 className={ui.title}>AE Assist settings</h1>
         <p className={ui.subtitle}>
-          Connect HubSpot so the assist layer can read your deals, companies, and contacts.
+          Brand, email delivery, and internal domain settings for AE Assist.
         </p>
       </div>
 
-      <SettingsSection title="HubSpot" action={statusBadge(integration, loading)}>
-        {integration.connectionMode === "oauth" && integration.configured ? (
-          <p className={ui.body}>
-            Connected via OAuth · Portal {integration.hubspotPortalId || "—"} ·{" "}
-            {integration.scopeCount ?? 0} scopes
-          </p>
-        ) : (
-          <p className={ui.body}>
-            Install the Clarwiz app into your HubSpot portal to grant access — no token to paste.
-          </p>
-        )}
-
-        <button type="button" className={ui.btnPrimary} onClick={connectHubspot}>
-          {integration.connectionMode === "oauth" && integration.configured
-            ? "Reconnect HubSpot"
-            : "Connect HubSpot"}
-        </button>
-
-        <div className="pt-4 border-t border-brand-secondary/25">
-          <button type="button" className={ui.btnSecondary} onClick={() => setShowPatForm((v) => !v)}>
-            {showPatForm ? "Hide" : "Advanced: use a private-app token instead"}
-          </button>
-
-          {showPatForm ? (
-            <form onSubmit={onSave} className="mt-4 space-y-4">
-              {integration.configured && integration.connectionMode !== "oauth" ? (
-                <p className={ui.body}>
-                  Token {integration.hubspotTokenMasked} · Portal {integration.hubspotPortalId || "—"}
-                </p>
-              ) : null}
-              <div>
-                <FieldLabel required>HubSpot private-app token</FieldLabel>
-                <input
-                  className={ui.inputSurface}
-                  type="password"
-                  placeholder="pat-naX-…"
-                  autoComplete="off"
-                  value={form.hubspotToken}
-                  onChange={onChange("hubspotToken")}
-                />
-              </div>
-              <div>
-                <FieldLabel>Portal ID (optional)</FieldLabel>
-                <input className={ui.inputSurface} value={form.hubspotPortalId} onChange={onChange("hubspotPortalId")} />
-              </div>
-              <div>
-                <FieldLabel>Default owner ID (optional)</FieldLabel>
-                <input className={ui.inputSurface} value={form.defaultOwnerId} onChange={onChange("defaultOwnerId")} />
-              </div>
-              <div>
-                <FieldLabel>Insight model (optional)</FieldLabel>
-                <input className={ui.inputSurface} placeholder="gpt-4o" value={form.insightModel} onChange={onChange("insightModel")} />
-              </div>
-              <button type="submit" className={ui.btnPrimary} disabled={saving}>
-                {saving ? "Saving…" : integration.configured ? "Update" : "Save & verify"}
+      <SettingsSection
+        title="Gmail (recommended)"
+        description="Connect your Gmail to send NBA emails from your mailbox. The same message is always logged on the HubSpot deal timeline. Tenant admins and members with NBA or channel permissions can connect their own account."
+        action={
+          gmail.connected ? (
+            <AssistBadge variant="ok">Connected</AssistBadge>
+          ) : (
+            <AssistBadge variant="ghost">Not connected</AssistBadge>
+          )
+        }
+      >
+        {gmail.connected ? (
+          <div className="space-y-3">
+            <p className="text-sm text-brand-stone">
+              Sending as <span className="font-medium text-brand-ink">{gmail.email}</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={ui.btnSecondarySurface} onClick={connectGmail}>
+                Reconnect Gmail
               </button>
-            </form>
-          ) : null}
-        </div>
+              <button
+                type="button"
+                className={ui.btnGhost}
+                onClick={disconnectGmail}
+                disabled={gmailDisconnecting}
+              >
+                {gmailDisconnecting ? "Disconnecting…" : "Disconnect"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className={ui.btnPrimary} onClick={connectGmail}>
+            Connect Gmail
+          </button>
+        )}
       </SettingsSection>
 
       <SettingsSection
-        title="Email sending"
-        description="Create a transactional email in HubSpot (Save for Single Send API) with {{ custom.subject }} and {{ custom.body }} tokens. With no ID, NBA emails are logged to the timeline instead of being delivered."
+        title="HubSpot Single Send (fallback)"
+        description="Optional fallback when Gmail is not connected. Create a transactional email in HubSpot with {{ custom.subject }} and {{ custom.body }} tokens."
         action={
           integration.canDeliverEmail ? (
-            <AssistBadge variant="ok">Delivers</AssistBadge>
+            <AssistBadge variant="ok">Fallback ready</AssistBadge>
           ) : (
-            <AssistBadge variant="ghost">Timeline only</AssistBadge>
+            <AssistBadge variant="ghost">Not configured</AssistBadge>
           )
         }
       >

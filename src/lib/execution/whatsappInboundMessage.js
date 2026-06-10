@@ -8,7 +8,7 @@ import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
 import { runPostTrackQualification } from "@/lib/execution/qualifyProspect";
 import { shouldAutoExecuteOnWebhook } from "@/lib/execution/webhookAutoExecute";
 import { computeWhatsAppWindowExpiry } from "@/lib/whatsappSessionWindow";
-import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 
 /** Match two phone numbers (full or last 10 digits). */
 export function phonesMatch(a, b) {
@@ -29,7 +29,7 @@ export async function findProspectByWhatsAppPhone(tenantId, phone) {
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
-  const rows = await prisma.contactCampaign.findMany({
+  const rows = await prisma.campaignContact.findMany({
     where: { campaign: { tenantId } },
     include: {
       contact: { include: { businessUser: true } },
@@ -64,7 +64,7 @@ export async function findWhatsAppCommLogForProspect({
 }) {
   const baseWhere = {
     tenantId,
-    contactCampaignId: prospectId,
+    campaignContactId: prospectId,
     channel: "whatsapp",
     ...(campaignId ? { campaignId } : {}),
   };
@@ -102,10 +102,10 @@ function alreadyProcessedInbound(log, inboundMessageId) {
   return Array.isArray(ids) && ids.includes(inboundMessageId);
 }
 
-async function refreshWhatsAppSessionWindow(contactCampaignId, repliedAtDate) {
+async function refreshWhatsAppSessionWindow(campaignContactId, repliedAtDate) {
   const expiresAt = computeWhatsAppWindowExpiry(repliedAtDate);
-  await prisma.contactCampaign.update({
-    where: { id: contactCampaignId },
+  await prisma.campaignContact.update({
+    where: { id: campaignContactId },
     data: { whatsapp24hWindowExpiresAt: expiresAt },
   });
   return expiresAt;
@@ -113,7 +113,7 @@ async function refreshWhatsAppSessionWindow(contactCampaignId, repliedAtDate) {
 
 async function createInboundOnlyCommLog({
   tenantId,
-  contactCampaignId,
+  campaignContactId,
   campaignId,
   provider,
   trimmedText,
@@ -127,7 +127,7 @@ async function createInboundOnlyCommLog({
     data: {
       tenantId,
       campaignId,
-      contactCampaignId,
+      campaignContactId,
       channel: "whatsapp",
       message: "",
       status: "delivered",
@@ -199,7 +199,7 @@ export async function recordWhatsAppInboundMessage({
       const priorInbound = await prisma.communicationLog.findFirst({
         where: {
           tenantId,
-          contactCampaignId: prospect.id,
+          campaignContactId: prospect.id,
           channel: "whatsapp",
           deliveryMeta: {
             path: ["lastInboundMessageId"],
@@ -221,7 +221,7 @@ export async function recordWhatsAppInboundMessage({
 
     const created = await createInboundOnlyCommLog({
       tenantId,
-      contactCampaignId: prospect.id,
+      campaignContactId: prospect.id,
       campaignId: campaignId ?? prospect.campaignId,
       provider,
       trimmedText,
@@ -231,15 +231,15 @@ export async function recordWhatsAppInboundMessage({
     });
 
     await syncCampaignMetrics(prisma, created.campaignId);
-    await syncContactCampaignStatus(prisma, created.contactCampaignId);
+    await syncCampaignContactStatus(prisma, created.campaignContactId);
 
     const activeCampaign = await prisma.campaign.findFirst({
       where: { id: created.campaignId, status: "active" },
       select: { id: true },
     });
     if (activeCampaign) {
-      await prisma.contactCampaign.update({
-        where: { id: created.contactCampaignId },
+      await prisma.campaignContact.update({
+        where: { id: created.campaignContactId },
         data: { nextScheduledOutreachAt: new Date() },
       });
     }
@@ -250,21 +250,21 @@ export async function recordWhatsAppInboundMessage({
       (await shouldAutoExecuteOnWebhook(created.campaignId));
     if (autoExecute) {
       await runExecutionForCampaign(created.campaignId, {
-        contactCampaignIds: [created.contactCampaignId],
+        campaignContactIds: [created.campaignContactId],
         skipDailyLimit: true,
         forceWhatsAppFreeform: true,
       });
       ranExecution = true;
     } else {
       await runPostTrackQualification(prisma, created.campaignId, {
-        contactCampaignIds: [created.contactCampaignId],
+        campaignContactIds: [created.campaignContactId],
       });
     }
 
     return {
       stored: true,
       commLogId: created.id,
-      prospectId: created.contactCampaignId,
+      prospectId: created.campaignContactId,
       campaignId: created.campaignId,
       responseContent: trimmedText,
       ranExecution,
@@ -285,7 +285,7 @@ export async function recordWhatsAppInboundMessage({
       stored: false,
       reason: "duplicate",
       commLogId: log.id,
-      prospectId: log.contactCampaignId,
+      prospectId: log.campaignContactId,
     };
   }
 
@@ -327,17 +327,17 @@ export async function recordWhatsAppInboundMessage({
     },
   });
 
-  await refreshWhatsAppSessionWindow(updated.contactCampaignId, repliedAtDate);
+  await refreshWhatsAppSessionWindow(updated.campaignContactId, repliedAtDate);
   await syncCampaignMetrics(prisma, updated.campaignId);
-  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
+  await syncCampaignContactStatus(prisma, updated.campaignContactId);
 
   const activeCampaign = await prisma.campaign.findFirst({
     where: { id: updated.campaignId, status: "active" },
     select: { id: true },
   });
   if (activeCampaign) {
-    await prisma.contactCampaign.update({
-      where: { id: updated.contactCampaignId },
+    await prisma.campaignContact.update({
+      where: { id: updated.campaignContactId },
       data: { nextScheduledOutreachAt: new Date() },
     });
   }
@@ -347,21 +347,21 @@ export async function recordWhatsAppInboundMessage({
     triggerExecution && (await shouldAutoExecuteOnWebhook(updated.campaignId));
   if (autoExecute) {
     await runExecutionForCampaign(updated.campaignId, {
-      contactCampaignIds: [updated.contactCampaignId],
+      campaignContactIds: [updated.campaignContactId],
       skipDailyLimit: true,
       forceWhatsAppFreeform: true,
     });
     ranExecution = true;
   } else {
     await runPostTrackQualification(prisma, updated.campaignId, {
-      contactCampaignIds: [updated.contactCampaignId],
+      campaignContactIds: [updated.campaignContactId],
     });
   }
 
   return {
     stored: true,
     commLogId: updated.id,
-    prospectId: updated.contactCampaignId,
+    prospectId: updated.campaignContactId,
     campaignId: updated.campaignId,
     responseContent,
     ranExecution,

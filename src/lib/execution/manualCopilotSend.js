@@ -7,7 +7,7 @@ import {
 } from "@/lib/execution/executionRules";
 import { applyTemplateVariables } from "@/lib/execution/renderMessage";
 import { campaignExecutionInclude } from "@/lib/execution/outreachSchedule";
-import { flattenContactCampaign } from "@/lib/resolveBusinessUser";
+import { flattenCampaignContact } from "@/lib/resolveBusinessUser";
 import { resolveCampaignEnabledChannels } from "@/lib/campaignChannels";
 import { CHANNEL_LABELS } from "@/lib/campaignConstants";
 import { resolveCommLogOutboundContent } from "@/lib/execution/renderCommLogContent";
@@ -21,7 +21,7 @@ import {
 import {
   getWhatsAppCopilotUiState,
 } from "@/lib/whatsappSessionWindow";
-import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 
 async function applyPushResultToCommLog(logId, pushResult) {
   if (!pushResult || pushResult.skippedSend) {
@@ -91,10 +91,10 @@ async function applyPushResultToCommLog(logId, pushResult) {
 
   const log = await prisma.communicationLog.findUnique({
     where: { id: logId },
-    select: { contactCampaignId: true },
+    select: { campaignContactId: true },
   });
-  if (log?.contactCampaignId) {
-    await syncContactCampaignStatus(prisma, log.contactCampaignId);
+  if (log?.campaignContactId) {
+    await syncCampaignContactStatus(prisma, log.campaignContactId);
   }
 
   return { ok: true, status: pushResult.status };
@@ -252,7 +252,7 @@ function buildWhatsAppPayload({ body, template, prospect, campaign, commHistory 
 
 export async function manualCopilotSend({
   campaignId,
-  contactCampaignId,
+  campaignContactId,
   tenantId,
   body,
 }) {
@@ -271,14 +271,14 @@ export async function manualCopilotSend({
     );
   }
 
-  const cc = campaign.contactCampaigns.find((row) => row.id === contactCampaignId);
+  const cc = campaign.campaignContacts.find((row) => row.id === campaignContactId);
   if (!cc) {
     throw new Error("Contact not found in this campaign");
   }
 
-  const prospect = flattenContactCampaign(cc);
+  const prospect = flattenCampaignContact(cc);
   const commHistory = campaign.commLogs.filter(
-    (log) => log.contactCampaignId === contactCampaignId
+    (log) => log.campaignContactId === campaignContactId
   );
 
   const channel = body.channel;
@@ -333,7 +333,7 @@ export async function manualCopilotSend({
     data: {
       tenantId: campaign.tenantId,
       campaignId: campaign.id,
-      contactCampaignId,
+      campaignContactId,
       channel,
       templateId: payload.templateId,
       stage: payload.stage,

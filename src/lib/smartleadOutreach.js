@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 import {
   getDecryptedSmartleadAccountId,
   getEmailIntegration,
@@ -672,7 +672,7 @@ export async function applyEngagementToCommLog(log, engagement) {
     data,
   });
 
-  await syncContactCampaignStatus(prisma, updated.contactCampaignId);
+  await syncCampaignContactStatus(prisma, updated.campaignContactId);
 
   return { updated: true, log: updated, activity: engagement.activity };
 }

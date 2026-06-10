@@ -1,5 +1,8 @@
-import { getOpenAIClient } from "@/lib/openaiClient";
 import { getLatestProspectReply } from "@/lib/execution/humanizeOutboundMessage";
+import { classifyReplyIntent } from "@/lib/scoring/replyIntent";
+import { MAX_SCORE } from "@/lib/scoring/campaignContactScore";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
+import { enqueueQualifiedCrmPush } from "@/lib/crm/pushQualifiedToHubspot";
 
 export const QUALIFICATION_REASONS = {
   CALENDLY_BOOKED: "calendly_booked",
@@ -8,23 +11,37 @@ export const QUALIFICATION_REASONS = {
   MANUAL: "manual",
 };
 
-const POSITIVE_KEYWORDS =
-  /\b(book|schedule|demo|call|meeting|interested|let'?s talk|sounds good|send contract|deal)\b/i;
+/** Persist the inferred reply intent on a comm log so scoring can read it. */
+async function storeReplyIntent(prismaClient, log, intent, points) {
+  if (!log?.id) return;
+  const baseMeta =
+    log.deliveryMeta && typeof log.deliveryMeta === "object" ? log.deliveryMeta : {};
+  await prismaClient.communicationLog
+    .update({
+      where: { id: log.id },
+      data: {
+        deliveryMeta: {
+          ...baseMeta,
+          replyIntent: intent,
+          replyScore: points,
+          replyIntentAt: new Date().toISOString(),
+        },
+      },
+    })
+    .catch(() => {});
+}
 
-const NEGATIVE_KEYWORDS =
-  /\b(unsubscribe|not interested|wrong person|stop emailing|remove me|no thanks)\b/i;
-
-export async function markContactCampaignQualified(
+export async function markCampaignContactQualified(
   prismaClient,
-  { contactCampaignId, campaignId, reason, sourceMeta = null, businessUserId = null, tenantId = null }
+  { campaignContactId, campaignId, reason, sourceMeta = null, businessUserId = null, tenantId = null }
 ) {
-  const cc = await prismaClient.contactCampaign.findFirst({
-    where: { id: contactCampaignId, campaignId },
+  const cc = await prismaClient.campaignContact.findFirst({
+    where: { id: campaignContactId, campaignId },
     include: { contact: true },
   });
-  if (!cc) return { updated: false, contactCampaign: null };
+  if (!cc) return { updated: false, campaignContact: null };
   if (cc.status === "QUALIFIED") {
-    return { updated: false, contactCampaign: cc, alreadyQualified: true };
+    return { updated: false, campaignContact: cc, alreadyQualified: true };
   }
 
   const campaign = await prismaClient.campaign.findUnique({
@@ -32,12 +49,17 @@ export async function markContactCampaignQualified(
     select: { tenantId: true },
   });
 
-  const updated = await prismaClient.contactCampaign.update({
-    where: { id: contactCampaignId },
+  const updated = await prismaClient.campaignContact.update({
+    where: { id: campaignContactId },
     data: {
       status: "QUALIFIED",
       qualifiedAt: new Date(),
       qualifiedReason: reason,
+      score: MAX_SCORE,
+      scoreUpdatedAt: new Date(),
+      scoreBreakdown: [
+        { label: "Qualified", points: MAX_SCORE, kind: "qualified", reason },
+      ],
     },
   });
 
@@ -57,24 +79,29 @@ export async function markContactCampaignQualified(
       .catch(() => {});
   }
 
-  return { updated: true, contactCampaign: updated };
+  enqueueQualifiedCrmPush(prismaClient, campaignContactId);
+
+  return { updated: true, campaignContact: updated };
 }
 
 /** @deprecated */
-export const markProspectQualified = markContactCampaignQualified;
+export const markProspectQualified = markCampaignContactQualified;
 
-function keywordQualificationHint(text) {
-  if (!text?.trim()) return null;
-  if (NEGATIVE_KEYWORDS.test(text)) return { qualified: false, disqualified: true };
-  if (POSITIVE_KEYWORDS.test(text)) return { qualified: true };
-  return null;
-}
-
-export async function evaluateContactCampaignQualification(
+/**
+ * Intelligently evaluate the latest prospect reply.
+ *
+ * The reply intent is inferred (positive / neutral / negative) so a negative
+ * reply never qualifies (it disqualifies), a genuinely positive reply qualifies
+ * immediately, and neutral replies just add their engagement points — which can
+ * still push the contact over the score threshold via syncCampaignContactStatus.
+ * The inferred intent is persisted on the reply log so the deterministic score
+ * recompute stays stable and idempotent.
+ */
+export async function evaluateCampaignContactQualification(
   prismaClient,
-  { contactCampaign, prospect, commHistory, campaign }
+  { campaignContact, prospect, commHistory, campaign }
 ) {
-  const cc = contactCampaign ?? prospect;
+  const cc = campaignContact ?? prospect;
   if (cc.status === "QUALIFIED" || cc.qualifiedAt) {
     return { qualified: false, skipped: true, reason: "already_qualified" };
   }
@@ -85,114 +112,63 @@ export async function evaluateContactCampaignQualification(
   }
 
   const text = latestReply.responseContent.trim();
-  const keywordHint = keywordQualificationHint(text);
-  if (keywordHint?.disqualified) {
-    await prismaClient.contactCampaign.update({
-      where: { id: cc.id },
-      data: { status: "DISQUALIFIED" },
-    });
-    return { qualified: false, reason: "negative_intent_keywords" };
-  }
-  if (keywordHint?.qualified === true) {
-    await markContactCampaignQualified(prismaClient, {
-      contactCampaignId: cc.id,
-      campaignId: campaign.id,
-      reason: QUALIFICATION_REASONS.POSITIVE_REPLY,
-      sourceMeta: { channel: latestReply.channel, keywordMatch: true },
-    });
-    return { qualified: true, reason: QUALIFICATION_REASONS.POSITIVE_REPLY };
-  }
 
-  const openai = getOpenAIClient();
-  const model = process.env.OPENAI_MODEL_SIMPLE?.trim() || "gpt-4o-mini";
-
-  const completion = await openai.chat.completions.create({
-    model,
-    temperature: 0.2,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "qualification_check",
-        strict: true,
-        schema: {
-          type: "object",
-          properties: {
-            qualified: { type: "boolean" },
-            confidence: { type: "string", enum: ["high", "medium", "low"] },
-            reason: { type: "string" },
-          },
-          required: ["qualified", "confidence", "reason"],
-          additionalProperties: false,
-        },
-      },
-    },
-    messages: [
-      {
-        role: "system",
-        content: `You classify B2B prospect replies for lead qualification.
-Qualified = clear intent to book a demo, schedule a call, move deal forward, or explicit buying interest.
-NOT qualified = OOO, polite brush-off, questions only, unsubscribe, wrong person, generic "thanks".`,
-      },
-      {
-        role: "user",
-        content: JSON.stringify({
-          campaignGoals: campaign.goals,
-          replyChannel: latestReply.channel,
-          replyText: text.slice(0, 1500),
-        }),
-      },
-    ],
+  const { intent, points, reason: intentReason } = await classifyReplyIntent({
+    text,
+    channel: latestReply.channel,
+    campaign,
   });
 
-  let parsed;
-  try {
-    parsed = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
-  } catch {
-    return { qualified: false, reason: "parse_error" };
+  await storeReplyIntent(prismaClient, latestReply, intent, points);
+
+  if (intent === "negative") {
+    await prismaClient.campaignContact
+      .update({ where: { id: cc.id }, data: { status: "DISQUALIFIED" } })
+      .catch(() => {});
+    return { qualified: false, intent, reason: intentReason || "negative_reply" };
   }
 
-  if (parsed.qualified && parsed.confidence === "high") {
-    await markContactCampaignQualified(prismaClient, {
-      contactCampaignId: cc.id,
+  if (intent === "positive") {
+    await markCampaignContactQualified(prismaClient, {
+      campaignContactId: cc.id,
       campaignId: campaign.id,
       reason: QUALIFICATION_REASONS.POSITIVE_REPLY,
-      sourceMeta: {
-        channel: latestReply.channel,
-        llmReason: parsed.reason,
-      },
+      sourceMeta: { channel: latestReply.channel, intent, intentReason },
     });
     return {
       qualified: true,
+      intent,
       reason: QUALIFICATION_REASONS.POSITIVE_REPLY,
-      llmReason: parsed.reason,
+      llmReason: intentReason,
     };
   }
 
-  await prismaClient.contactCampaign.update({
-    where: { id: cc.id },
-    data: { status: "REPLIED" },
-  }).catch(() => {});
-
+  // Neutral reply — recompute the score (it may still cross the threshold via
+  // accumulated engagement) and advance status.
+  const sync = await syncCampaignContactStatus(prismaClient, cc.id);
   return {
-    qualified: false,
-    reason: parsed.reason ?? "not_qualified",
-    confidence: parsed.confidence,
+    qualified: Boolean(sync.qualifiedByScore),
+    intent,
+    reason: sync.qualifiedByScore
+      ? "score_threshold"
+      : intentReason || "neutral_reply",
+    score: sync.score,
   };
 }
 
 /** @deprecated */
-export const evaluateProspectQualification = evaluateContactCampaignQualification;
+export const evaluateProspectQualification = evaluateCampaignContactQualification;
 
 export async function runPostTrackQualification(
   prismaClient,
   campaignId,
-  { contactCampaignIds = [], prospectIds = [] } = {}
+  { campaignContactIds = [], prospectIds = [] } = {}
 ) {
-  const ids = contactCampaignIds.length ? contactCampaignIds : prospectIds;
+  const ids = campaignContactIds.length ? campaignContactIds : prospectIds;
   const campaign = await prismaClient.campaign.findUnique({
     where: { id: campaignId },
     include: {
-      contactCampaigns: ids.length
+      campaignContacts: ids.length
         ? { where: { id: { in: ids }, status: { not: "QUALIFIED" } } }
         : { where: { status: { not: "QUALIFIED" } } },
       commLogs: { orderBy: { sentAt: "asc" } },
@@ -203,25 +179,25 @@ export async function runPostTrackQualification(
   const results = [];
   const logsByCc = new Map();
   for (const log of campaign.commLogs) {
-    const key = log.contactCampaignId;
+    const key = log.campaignContactId;
     const list = logsByCc.get(key) ?? [];
     list.push(log);
     logsByCc.set(key, list);
   }
 
-  for (const cc of campaign.contactCampaigns) {
+  for (const cc of campaign.campaignContacts) {
     const commHistory = logsByCc.get(cc.id) ?? [];
     if (!commHistory.some((l) => l.responseType && l.responseContent)) continue;
 
     try {
-      const result = await evaluateContactCampaignQualification(prismaClient, {
-        contactCampaign: cc,
+      const result = await evaluateCampaignContactQualification(prismaClient, {
+        campaignContact: cc,
         commHistory,
         campaign,
       });
-      results.push({ contactCampaignId: cc.id, prospectId: cc.id, ...result });
+      results.push({ campaignContactId: cc.id, prospectId: cc.id, ...result });
     } catch (err) {
-      results.push({ contactCampaignId: cc.id, error: err.message });
+      results.push({ campaignContactId: cc.id, error: err.message });
     }
   }
 

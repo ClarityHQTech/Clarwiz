@@ -1,17 +1,17 @@
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
-  patchContactCampaign,
-  removeContactCampaign,
+  patchCampaignContact,
+  removeCampaignContact,
 } from "@/lib/api/campaignContacts";
 
-/** @deprecated Use /api/campaigns/[id]/contact-campaigns/[contactCampaignId] */
+/** @deprecated Use /api/campaigns/[id]/contact-campaigns/[campaignContactId] */
 export async function PATCH(request, { params }) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
   if (auth.error) return auth.error;
   const { ctx } = auth;
 
-  return patchContactCampaign(
+  return patchCampaignContact(
     request,
     params.id,
     ctx.tenantId,
@@ -19,11 +19,11 @@ export async function PATCH(request, { params }) {
   );
 }
 
-/** @deprecated Use DELETE /api/campaigns/[id]/contact-campaigns/[contactCampaignId] */
+/** @deprecated Use DELETE /api/campaigns/[id]/contact-campaigns/[campaignContactId] */
 export async function DELETE(_request, { params }) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
   if (auth.error) return auth.error;
   const { ctx } = auth;
 
-  return removeContactCampaign(params.id, ctx.tenantId, params.prospectId);
+  return removeCampaignContact(params.id, ctx.tenantId, params.prospectId);
 }

@@ -9,19 +9,19 @@ import {
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
 import { runPostTrackQualification } from "@/lib/execution/qualifyProspect";
 import { shouldAutoExecuteOnWebhook } from "@/lib/execution/webhookAutoExecute";
-import { syncContactCampaignStatus } from "@/lib/syncContactCampaignStatus";
+import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 import {
   getDecryptedSigningSecret,
   markWebhookEvent,
 } from "@/lib/integrationWebhooks";
-import { contactCampaignInclude } from "@/lib/campaignDetail";
+import { campaignContactInclude } from "@/lib/campaignDetail";
 import { getLinkedInIntegrationWithAccountId } from "@/lib/linkedinIntegration";
-import { findContactCampaignsForLinkedInSender } from "@/lib/execution/resolveLinkedInWebhookContact";
+import { findCampaignContactsForLinkedInSender } from "@/lib/execution/resolveLinkedInWebhookContact";
 
-async function findContactCampaignByEmail(campaignId, email) {
+async function findCampaignContactByEmail(campaignId, email) {
   if (!email) return null;
   const normalized = email.trim().toLowerCase();
-  return prisma.contactCampaign.findFirst({
+  return prisma.campaignContact.findFirst({
     where: {
       campaignId,
       contact: {
@@ -30,15 +30,15 @@ async function findContactCampaignByEmail(campaignId, email) {
         },
       },
     },
-    include: contactCampaignInclude,
+    include: campaignContactInclude,
   });
 }
 
-async function findLatestEmailLog(campaignId, contactCampaignId) {
+async function findLatestEmailLog(campaignId, campaignContactId) {
   return prisma.communicationLog.findFirst({
     where: {
       campaignId,
-      contactCampaignId,
+      campaignContactId,
       channel: "email",
       status: { in: ["planned", "queued", "sent", "delivered"] },
     },
@@ -46,25 +46,25 @@ async function findLatestEmailLog(campaignId, contactCampaignId) {
   });
 }
 
-async function afterWebhookReply(campaignId, contactCampaignId) {
+async function afterWebhookReply(campaignId, campaignContactId) {
   try {
     await runPostTrackQualification(prisma, campaignId, {
-      contactCampaignIds: [contactCampaignId],
+      campaignContactIds: [campaignContactId],
     });
   } catch (err) {
     console.error("[webhook] qualification failed:", err.message);
   }
 }
 
-async function triggerReplyExecution(campaignId, contactCampaignId) {
+async function triggerReplyExecution(campaignId, campaignContactId) {
   if (!(await shouldAutoExecuteOnWebhook(campaignId))) {
-    await afterWebhookReply(campaignId, contactCampaignId);
+    await afterWebhookReply(campaignId, campaignContactId);
     return;
   }
 
   try {
     await runExecutionForCampaign(campaignId, {
-      contactCampaignIds: [contactCampaignId],
+      campaignContactIds: [campaignContactId],
       skipDailyLimit: true,
     });
   } catch (err) {
@@ -152,7 +152,7 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
 
   let processed = false;
   for (const campaign of campaigns) {
-    const cc = await findContactCampaignByEmail(campaign.id, toEmail);
+    const cc = await findCampaignContactByEmail(campaign.id, toEmail);
     if (!cc) continue;
 
     const log = await findLatestEmailLog(campaign.id, cc.id);
@@ -163,7 +163,7 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
         activity: "open",
         openedAt: event.time_opened ? new Date(event.time_opened) : new Date(),
       });
-      await syncContactCampaignStatus(prisma, cc.id);
+      await syncCampaignContactStatus(prisma, cc.id);
       processed = true;
     }
 
@@ -186,7 +186,7 @@ export async function handleSmartleadWebhookEvent(tenantId, event) {
           event.preview_text || event.reply_body || event.subject || "",
         repliedAt: event.time_replied ? new Date(event.time_replied) : new Date(),
       });
-      await syncContactCampaignStatus(prisma, cc.id);
+      await syncCampaignContactStatus(prisma, cc.id);
       await triggerReplyExecution(campaign.id, cc.id);
       processed = true;
     }
@@ -275,7 +275,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
         : [];
 
     for (const conn of connections) {
-      const matches = await findContactCampaignsForLinkedInSender(tenantId, {
+      const matches = await findCampaignContactsForLinkedInSender(tenantId, {
         profileUrl: conn.profile_url,
         senderName: conn.name,
         linkupAccountId,
@@ -285,7 +285,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
         const connLog = await prisma.communicationLog.findFirst({
           where: {
             campaignId: cc.campaignId,
-            contactCampaignId: cc.id,
+            campaignContactId: cc.id,
             channel: "linkedin",
             ctaType: "connect_linkedin",
           },
@@ -298,7 +298,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
             ? `Connection accepted — ${conn.name}`
             : "Connection accepted",
         });
-        await syncContactCampaignStatus(prisma, cc.id);
+        await syncCampaignContactStatus(prisma, cc.id);
         processed = true;
         await syncCampaignMetrics(prisma, cc.campaignId);
       }
@@ -319,7 +319,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
     const senderName = eventPayload?.sender?.name ?? null;
     const entityUrn = eventPayload?.metadata?.entity_urn ?? null;
 
-    const matches = await findContactCampaignsForLinkedInSender(tenantId, {
+    const matches = await findCampaignContactsForLinkedInSender(tenantId, {
       profileUrl,
       senderName,
       entityUrn,
@@ -345,7 +345,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
       let dmLog = await prisma.communicationLog.findFirst({
         where: {
           campaignId: cc.campaignId,
-          contactCampaignId: cc.id,
+          campaignContactId: cc.id,
           channel: "linkedin",
         },
         orderBy: { sentAt: "desc" },
@@ -356,7 +356,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
           data: {
             tenantId,
             campaignId: cc.campaignId,
-            contactCampaignId: cc.id,
+            campaignContactId: cc.id,
             channel: "linkedin",
             message: messageText.trim() || "LinkedIn inbound message",
             status: "delivered",
@@ -381,7 +381,7 @@ export async function handleLinkupWebhookEvent(tenantId, body) {
         });
       }
 
-      await syncContactCampaignStatus(prisma, cc.id);
+      await syncCampaignContactStatus(prisma, cc.id);
       await triggerReplyExecution(cc.campaignId, cc.id);
       processed = true;
       await syncCampaignMetrics(prisma, cc.campaignId);

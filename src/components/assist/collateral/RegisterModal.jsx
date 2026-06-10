@@ -1,8 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+} from "@chakra-ui/react";
 import { toast } from "sonner";
 import { TYPE_OPTIONS, CATEGORY_OPTIONS, STAGE_OPTIONS } from "./constants";
+import { modalShell, modalUi, ui } from "@/lib/brandUi";
 
 const EMPTY = {
   title: "",
@@ -14,13 +24,6 @@ const EMPTY = {
   tags: "",
 };
 
-/**
- * "Register collateral" modal (cockpit) — the brand-template upload path.
- * Paste the collateral's HTML (brand colors baked in) and categorize it as
- * Marketing or Sales. POSTs to /api/assist/collateral, which stores the markup
- * as a Document + an isTemplate CollateralIndex row. An optional external URL is
- * supported for link-only assets (no HTML).
- */
 export default function RegisterModal({ isOpen, onClose, onRegistered }) {
   const [form, setForm] = useState(EMPTY);
   const [submitting, setSubmitting] = useState(false);
@@ -33,11 +36,7 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
   };
 
   useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e) => e.key === "Escape" && close();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!isOpen) setForm(EMPTY);
   }, [isOpen]);
 
   const submit = async () => {
@@ -79,117 +78,122 @@ export default function RegisterModal({ isOpen, onClose, onRegistered }) {
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="ck-modal" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="ck-email-frame" role="dialog" aria-label="Register collateral template">
-        <div className="ck-email-header">
-          <div className="ck-email-title">Register brand template</div>
-          <button
-            type="button"
-            className="ck-drawer-close"
-            style={{ position: "relative", top: 0, right: 0 }}
-            onClick={close}
-            aria-label="Close"
-          >
-            ✕
+    <Modal
+      isOpen={isOpen}
+      onClose={close}
+      isCentered
+      size="2xl"
+      scrollBehavior="inside"
+      closeOnOverlayClick={!submitting}
+    >
+      <ModalOverlay backdropFilter="blur(4px)" className={modalUi.overlayClass} />
+      <ModalContent
+        {...modalShell.content}
+        {...modalShell.contentCentered}
+        maxW="3xl"
+        className={modalUi.contentClass}
+      >
+        <ModalHeader {...modalShell.header} className={`${modalUi.headerClass} !border-b`}>
+          <span className="font-serif text-lg">Register brand template</span>
+        </ModalHeader>
+        <ModalCloseButton className={modalUi.closeButtonClass} isDisabled={submitting} />
+
+        <ModalBody
+          {...modalShell.body}
+          {...modalShell.bodyPadded}
+          className={`${modalUi.bodyClass} space-y-4`}
+        >
+          <div>
+            <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>Title</label>
+            <input
+              className={ui.inputSurface}
+              value={form.title}
+              onChange={set("title")}
+              placeholder="Sales one-pager"
+              autoFocus
+            />
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>Category</label>
+              <select className={ui.inputSurface} value={form.category} onChange={set("category")}>
+                {CATEGORY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>Type</label>
+              <select className={ui.inputSurface} value={form.type} onChange={set("type")}>
+                {TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>Funnel stage</label>
+              <select className={ui.inputSurface} value={form.funnelStage} onChange={set("funnelStage")}>
+                {STAGE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>HTML content</label>
+            <textarea
+              className={`${ui.inputSurface} font-mono text-xs resize-y min-h-[200px]`}
+              value={form.html}
+              onChange={set("html")}
+              placeholder="<!DOCTYPE html><html>…paste your on-brand template markup…</html>"
+              rows={12}
+            />
+            <p className="text-xs text-brand-stone mt-1.5">
+              The pasted markup becomes an editable brand template. Bake brand colors in; use{" "}
+              <code className={ui.code}>{"{{prospect_name}}"}</code>-style placeholders for personalization.
+            </p>
+          </div>
+
+          <div>
+            <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>External URL (optional)</label>
+            <input
+              className={ui.inputSurface}
+              value={form.url}
+              onChange={set("url")}
+              placeholder="https://… (link-only asset instead of pasted HTML)"
+            />
+          </div>
+
+          <div>
+            <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>Tags</label>
+            <input
+              className={ui.inputSurface}
+              value={form.tags}
+              onChange={set("tags")}
+              placeholder="fintech, cfo, security"
+            />
+            <p className="text-xs text-brand-stone mt-1.5">Comma-separated; powers best-match ranking.</p>
+          </div>
+        </ModalBody>
+
+        <ModalFooter {...modalShell.footer} className={`${modalUi.footerClass} !border-t gap-2`}>
+          <button type="button" className={ui.btnSecondary} onClick={close} disabled={submitting}>
+            Cancel
           </button>
-        </div>
-
-        <div className="ck-email-body">
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Title</div>
-              <input
-                className="ck-input"
-                value={form.title}
-                onChange={set("title")}
-                placeholder="Sales one-pager"
-                autoFocus
-              />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <div>
-                <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Category</div>
-                <select className="ck-input" value={form.category} onChange={set("category")}>
-                  {CATEGORY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Type</div>
-                <select className="ck-input" value={form.type} onChange={set("type")}>
-                  {TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Funnel stage</div>
-                <select className="ck-input" value={form.funnelStage} onChange={set("funnelStage")}>
-                  {STAGE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>HTML content</div>
-              <textarea
-                className="ck-input"
-                value={form.html}
-                onChange={set("html")}
-                placeholder={"<!DOCTYPE html><html>…paste your on-brand template markup, with {{prospect_*}} placeholders…</html>"}
-                rows={12}
-                style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 12, resize: "vertical", minHeight: 200 }}
-              />
-              <div className="ck-collateral-meta" style={{ marginTop: 4 }}>
-                The pasted markup becomes an editable brand template. Bake brand colors in; use
-                {" "}<code>{"{{prospect_name}}"}</code>-style placeholders for personalization.
-              </div>
-            </div>
-
-            <div>
-              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>External URL (optional)</div>
-              <input
-                className="ck-input"
-                value={form.url}
-                onChange={set("url")}
-                placeholder="https://… (use when linking an external asset instead of pasting HTML)"
-              />
-            </div>
-
-            <div>
-              <div className="ck-eyebrow" style={{ marginBottom: 6 }}>Tags</div>
-              <input
-                className="ck-input"
-                value={form.tags}
-                onChange={set("tags")}
-                placeholder="fintech, cfo, security"
-              />
-              <div className="ck-collateral-meta" style={{ marginTop: 4 }}>
-                Comma-separated; powers best-match ranking.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="ck-email-footer">
-          <div className="ck-email-footer-meta" />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="ck-btn ck-btn-ghost" onClick={close} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="button" className="ck-btn ck-btn-primary" onClick={submit} disabled={submitting}>
-              {submitting ? "Registering…" : "Register template"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+          <button type="button" className={ui.btnPrimary} onClick={submit} disabled={submitting}>
+            {submitting ? "Registering…" : "Register template"}
+          </button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }

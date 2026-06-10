@@ -10,7 +10,7 @@
  *
  * What the seed does:
  *   1. Find-or-create the "MOFU Demo" tenant (payment_status = true).
- *   2. If HUBSPOT_PRIVATE_APP_TOKEN is set: upsert the tenant's MofuIntegration
+ *   2. If HUBSPOT_DEV_ACCESS_TOKEN is set: upsert the tenant's MofuIntegration
  *      (token encrypted at rest) and hydrate the real sandbox CRM graph via
  *      syncCrmGraph (deal "Northwind Traders", companies/contacts, MQL leads).
  *   3. If SEED_COMPUTE=1 AND OPENAI_API_KEY is set: run recomputeDeal over each

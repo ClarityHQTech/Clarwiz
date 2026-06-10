@@ -30,7 +30,7 @@ enum ContactPersona {
   OTHER
 }
 
-enum ContactCampaignStatus {
+enum CampaignContactStatus {
   PENDING
   IN_OUTREACH
   REPLIED
@@ -167,8 +167,9 @@ model User {
   is_superadmin   Boolean            @default(false)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
-  memberships     TenantMembership[]
-  invitationsSent TenantInvitation[] @relation("InvitedBy")
+  memberships         TenantMembership[]
+  invitationsSent     TenantInvitation[] @relation("InvitedBy")
+  gmailConnections    UserGmailConnection[]
 }
 
 model Tenant {
@@ -200,6 +201,29 @@ model Tenant {
   collateralIndex     CollateralIndex[]
   assistActionLogs    AssistActionLog[]
   documents           Document[]
+  dealRecordings      DealRecording[]
+  gmailConnections    UserGmailConnection[]
+}
+
+/// Per-user Gmail OAuth for NBA email delivery (sends from the AE's mailbox).
+model UserGmailConnection {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email                 String
+  encryptedAccessToken  String
+  encryptedRefreshToken String?
+  tokenExpiresAt        DateTime?
+  status                String    @default("connected")
+  connectedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model ExternalApiKey {
@@ -371,9 +395,10 @@ model Campaign {
   outreachTimezone    String                  @default("UTC")
   defaultOutreachTime String                  @default("11:00")
   enabledChannels     String[]                @default(["email", "linkedin", "whatsapp"])
+  qualificationThreshold Int                  @default(90)
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
-  contactCampaigns    ContactCampaign[]
+  campaignContacts    CampaignContact[]
   templates           CommunicationTemplate[]
   commLogs            CommunicationLog[]
 
@@ -392,7 +417,7 @@ model Contact {
   ownerId          String? // HubSpot hubspot_owner_id — for "my book" owner filtering
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
-  contactCampaigns ContactCampaign[]
+  campaignContacts CampaignContact[]
   dealContacts     DealContact[]
   nbas             NbaRecommendation[]
 
@@ -403,13 +428,18 @@ model Contact {
   @@index([tenantId, ownerId])
 }
 
-model ContactCampaign {
+model CampaignContact {
   id                      String                @id @default(cuid())
   contactId               String
   campaignId              String
-  status                  ContactCampaignStatus @default(PENDING)
+  status                  CampaignContactStatus @default(PENDING)
+  score                   Int                   @default(0)
+  scoreUpdatedAt          DateTime?
+  scoreBreakdown          Json?
   qualifiedAt             DateTime?
   qualifiedReason         String?
+  hubspotDealId           String?
+  crmSyncedAt             DateTime?
   outreachDeliveryTime    String?
   nextScheduledOutreachAt DateTime?
   lastOutreachDate        DateTime?             @db.Date
@@ -432,8 +462,8 @@ model CommunicationLog {
   tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   campaignId        String
   campaign          Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contactCampaignId String
-  contactCampaign   ContactCampaign @relation(fields: [contactCampaignId], references: [id], onDelete: Cascade)
+  campaignContactId String
+  campaignContact   CampaignContact @relation(fields: [campaignContactId], references: [id], onDelete: Cascade)
   channel           String
   templateId        String?
   stage             Int?
@@ -464,8 +494,8 @@ model CommunicationLog {
   @@index([tenantId])
   @@index([tenantId, sentAt])
   @@index([campaignId])
-  @@index([contactCampaignId])
-  @@index([campaignId, contactCampaignId])
+  @@index([campaignContactId])
+  @@index([campaignId, campaignContactId])
   @@index([status, scheduledFor])
   @@index([status, nextRetryAt])
 }
@@ -582,6 +612,7 @@ model Deal {
   nbas           NbaRecommendation[]
   signals        Signal[]
   dealContacts   DealContact[]
+  recordings     DealRecording[]
 
   @@unique([tenantId, hubspotDealId])
   @@index([tenantId])
@@ -696,6 +727,32 @@ model Signal {
   @@index([tenantId])
   @@index([dealId])
   @@index([tenantId, category])
+}
+
+/// Call/meeting recordings & transcripts synced from HubSpot (best-effort).
+model DealRecording {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealId              String
+  deal                Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  hubspotEngagementId String
+  engagementType      String // call | meeting
+  title               String?
+  recordingUrl        String?
+  hubspotTranscriptId String?
+  transcriptText      String?   @db.Text
+  transcriptSource    String?
+  transcriptAvailable Boolean   @default(false)
+  payload             Json?
+  occurredAt          DateTime?
+  syncedAt            DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([dealId, hubspotEngagementId, engagementType])
+  @@index([tenantId])
+  @@index([dealId])
 }
 
 /// Unified marketing + sales collateral directory.

@@ -285,14 +285,14 @@ describe.skipIf(!process.env.DATABASE_URL)("recomputeDeal (real prisma against c
       data: { tenantId, businessUserId, hubspotContactId: `hcc_${stamp}` },
     });
     const campaign = await prisma.campaign.create({ data: { tenantId, name: `__test_camp_${stamp}` } });
-    const cc = await prisma.contactCampaign.create({
+    const cc = await prisma.campaignContact.create({
       data: { contactId: contact.id, campaignId: campaign.id },
     });
     await prisma.communicationLog.create({
       data: {
         tenantId,
         campaignId: campaign.id,
-        contactCampaignId: cc.id,
+        campaignContactId: cc.id,
         channel: "email",
         message: "Hi, we're worried about the ROI here.",
         subject: "ROI question",

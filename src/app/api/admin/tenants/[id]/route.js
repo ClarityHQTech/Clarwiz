@@ -38,7 +38,7 @@ export async function GET(_request, { params }) {
         _count: { select: { campaigns: true } },
       },
     }),
-    prisma.contactCampaign.count({
+    prisma.campaignContact.count({
       where: { campaign: { tenantId: params.id } },
     }),
   ]);

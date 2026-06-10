@@ -11,14 +11,14 @@ const HUBSPOT_TOKEN_URL = "https://api.hubapi.com/oauth/v1/token";
 const HUBSPOT_TOKEN_INFO_URL = "https://api.hubapi.com/oauth/v1/access-tokens";
 
 function redirect(status) {
-  return NextResponse.redirect(`${getAppBaseUrl()}/assist/settings?hubspot=${status}`);
+  return NextResponse.redirect(`${getAppBaseUrl()}/integrations?hubspot=${status}`);
 }
 
 /**
  * HubSpot OAuth callback. Exchanges the authorization code for tokens, looks up
  * portal id + granted scopes, and persists the OAuth grant for the tenant.
  *
- * Always redirects to /assist/settings with a ?hubspot= status — never 500s to
+ * Always redirects to /integrations with a ?hubspot= status — never 500s to
  * the browser and never leaks the client secret.
  */
 export async function GET(request) {

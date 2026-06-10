@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+} from "@chakra-ui/react";
 import { toast } from "sonner";
+import { modalShell, modalUi, ui } from "@/lib/brandUi";
 
-/**
- * Cockpit modal showing a generated PRE-MEETING BRIEF for a meeting NBA.
- *
- * On open it POSTs /api/assist/deal/[dealId]/nba/[nbaId]/brief (or shows an
- * already-stored brief from nba.draftPayload.brief). The brief is markdown,
- * rendered as preformatted text. Actions:
- *   - "Add as note" → POSTs /api/assist/deal/[dealId]/note (HubSpot timeline)
- *   - "Draft follow-up email" → hands off to the email flow (onDraftFollowup)
- *
- * Props: { dealId, nba, isOpen, onClose, onDraftFollowup }
- */
 export default function BriefModal({ dealId, nba, isOpen, onClose, onDraftFollowup }) {
   const [brief, setBrief] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,15 +47,6 @@ export default function BriefModal({ dealId, nba, isOpen, onClose, onDraftFollow
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, nba?.id]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e) => e.key === "Escape" && onClose?.();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
   const addAsNote = async () => {
     if (!brief.trim()) return;
     setSavingNote(true);
@@ -68,7 +58,7 @@ export default function BriefModal({ dealId, nba, isOpen, onClose, onDraftFollow
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 412) {
-        toast.error("Connect HubSpot in Settings to add notes.");
+        toast.error("Connect HubSpot in Integrations to add notes.");
         return;
       }
       if (!res.ok || data.ok === false) {
@@ -85,68 +75,49 @@ export default function BriefModal({ dealId, nba, isOpen, onClose, onDraftFollow
   };
 
   return (
-    <div className="ck-modal" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
-      <div className="ck-email-frame" role="dialog" aria-label="Pre-meeting brief">
-        <div className="ck-email-header">
-          <div>
-            <div className="ck-email-eyebrow">NBA · Pre-meeting brief</div>
-            <div className="ck-email-title">{nba?.title || "Pre-meeting brief"}</div>
-          </div>
-          <button
-            type="button"
-            className="ck-drawer-close"
-            style={{ position: "relative", top: 0, right: 0 }}
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} isCentered size="2xl" scrollBehavior="inside">
+      <ModalOverlay backdropFilter="blur(4px)" className={modalUi.overlayClass} />
+      <ModalContent {...modalShell.content} {...modalShell.contentCentered} maxW="2xl" className={modalUi.contentClass}>
+        <ModalHeader {...modalShell.header} className={`${modalUi.headerClass} !border-b`}>
+          <p className={`${ui.label} mb-1 normal-case tracking-wide font-sans`}>NBA · Pre-meeting brief</p>
+          <span className="font-serif text-lg">{nba?.title || "Pre-meeting brief"}</span>
+        </ModalHeader>
+        <ModalCloseButton className={modalUi.closeButtonClass} />
 
-        <div className="ck-email-body">
+        <ModalBody {...modalShell.body} {...modalShell.bodyPadded} className={modalUi.bodyClass}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <p className="ck-risk-desc">Preparing your brief…</p>
-            </div>
+            <p className={`${ui.body} py-12 text-center`}>Preparing your brief…</p>
           ) : brief ? (
-            <div
-              className="ck-email-preview"
-              style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.55 }}
-            >
+            <div className={`${ui.cardMuted} p-4 text-sm text-brand-ink leading-relaxed whitespace-pre-wrap max-h-[50vh] overflow-y-auto`}>
               {brief}
             </div>
           ) : (
-            <div style={{ textAlign: "center", padding: "32px 0" }}>
-              <p className="ck-risk-desc" style={{ marginBottom: 16 }}>No brief yet.</p>
-              <button type="button" className="ck-btn ck-btn-primary" onClick={generate}>
-                Generate brief →
+            <div className="py-10 text-center">
+              <p className={`${ui.body} mb-4`}>No brief yet.</p>
+              <button type="button" className={ui.btnPrimary} onClick={generate}>
+                Generate brief
               </button>
             </div>
           )}
-        </div>
+        </ModalBody>
 
-        <div className="ck-email-footer">
-          <div className="ck-email-footer-meta">{brief ? "Generated · grounded in deal context" : ""}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {brief && (
-              <button type="button" className="ck-btn ck-btn-ghost" onClick={generate} disabled={loading}>
-                Re-generate
-              </button>
-            )}
-            <button type="button" className="ck-btn" onClick={addAsNote} disabled={!brief || savingNote}>
-              {savingNote ? "Saving…" : "Add as note"}
+        <ModalFooter {...modalShell.footer} className={`${modalUi.footerClass} !border-t flex-wrap gap-2`}>
+          <p className={`${ui.label} normal-case tracking-normal mr-auto`}>
+            {brief ? "Generated · grounded in deal context" : ""}
+          </p>
+          {brief ? (
+            <button type="button" className={ui.btnGhost} onClick={generate} disabled={loading}>
+              Re-generate
             </button>
-            <button
-              type="button"
-              className="ck-btn ck-btn-primary"
-              onClick={() => onDraftFollowup?.()}
-              disabled={!brief}
-            >
-              Draft follow-up email →
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+          ) : null}
+          <button type="button" className={ui.btnSecondary} onClick={addAsNote} disabled={!brief || savingNote}>
+            {savingNote ? "Saving…" : "Add as note"}
+          </button>
+          <button type="button" className={ui.btnPrimary} onClick={() => onDraftFollowup?.()} disabled={!brief}>
+            Draft follow-up email
+          </button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }

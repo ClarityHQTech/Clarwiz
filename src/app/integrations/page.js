@@ -2,6 +2,7 @@
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import EmailIntegrationSection from "@/components/settings/EmailIntegrationSection";
+import HubSpotIntegrationSection from "@/components/settings/HubSpotIntegrationSection";
 import LinkedInIntegrationSection from "@/components/settings/LinkedInIntegrationSection";
 import WhatsAppIntegrationSection from "@/components/settings/WhatsAppIntegrationSection";
 import CalendlyIntegrationSection from "@/components/settings/CalendlyIntegrationSection";
@@ -10,6 +11,7 @@ import { useUser } from "@/context/UserContext";
 import IntegrationStatusBadge, {
   getCalendlyDisplayStatus,
   getEmailDisplayStatus,
+  getHubSpotDisplayStatus,
   getLinkedInDisplayStatus,
   getWhatsAppDisplayStatus,
 } from "@/components/settings/IntegrationStatusBadge";
@@ -30,9 +32,19 @@ import {
   HiOutlineEnvelope,
   HiOutlinePhone,
 } from "react-icons/hi2";
-import { SiWhatsapp } from "react-icons/si";
+import { SiHubspot, SiWhatsapp } from "react-icons/si";
 import { toast } from "sonner";
 import { ui } from "@/lib/brandUi";
+
+const CRM_INTEGRATIONS = [
+  {
+    id: "hubspot",
+    title: "HubSpot",
+    description: "Connect your CRM so AE Assist can read deals, companies, and contacts.",
+    icon: <SiHubspot className="h-4 w-4 text-[#FF7A59]" />,
+    available: true,
+  },
+];
 
 const INTEGRATIONS = [
   {
@@ -72,7 +84,8 @@ const INTEGRATIONS = [
   },
 ];
 
-function getIntegrationStatus(id, linkedin, email, whatsapp, calendly) {
+function getIntegrationStatus(id, linkedin, email, whatsapp, calendly, hubspot) {
+  if (id === "hubspot") return getHubSpotDisplayStatus(hubspot);
   if (id === "linkedin") return getLinkedInDisplayStatus(linkedin);
   if (id === "email") return getEmailDisplayStatus(email);
   if (id === "whatsapp") return getWhatsAppDisplayStatus(whatsapp);
@@ -80,7 +93,15 @@ function getIntegrationStatus(id, linkedin, email, whatsapp, calendly) {
   return "coming_soon";
 }
 
-function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly) {
+function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly, hubspot) {
+  if (id === "hubspot" && hubspot?.configured) {
+    return [
+      hubspot.hubspotPortalId ? `Portal ${hubspot.hubspotPortalId}` : null,
+      hubspot.scopeCount > 0 ? `${hubspot.scopeCount} scopes` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
   if (id === "linkedin" && linkedin?.status === "connected") {
     return linkedin.accountName || linkedin.email;
   }
@@ -167,6 +188,8 @@ const IntegrationsPage = () => {
   const [whatsappIntegration, setWhatsappIntegration] = useState(null);
   const [calendlyIntegration, setCalendlyIntegration] = useState(null);
   const [calendlyOAuthSetup, setCalendlyOAuthSetup] = useState(null);
+  const [hubspotIntegration, setHubspotIntegration] = useState(null);
+  const [loadingHubspot, setLoadingHubspot] = useState(true);
   const [loadingLinkedin, setLoadingLinkedin] = useState(true);
   const [loadingEmail, setLoadingEmail] = useState(true);
   const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
@@ -245,12 +268,27 @@ const IntegrationsPage = () => {
     }
   }, [bumpWebhooks]);
 
+  const fetchHubspot = useCallback(async () => {
+    try {
+      const res = await fetch("/api/assist/settings");
+      if (!res.ok) throw new Error("Failed to load HubSpot integration");
+      const data = await res.json();
+      setHubspotIntegration(data.integration ?? { configured: false });
+    } catch (err) {
+      toast.error(err.message);
+      setHubspotIntegration({ configured: false });
+    } finally {
+      setLoadingHubspot(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchLinkedin();
     fetchEmail();
     fetchWhatsapp();
     fetchCalendly();
-  }, [fetchLinkedin, fetchEmail, fetchWhatsapp, fetchCalendly]);
+    fetchHubspot();
+  }, [fetchLinkedin, fetchEmail, fetchWhatsapp, fetchCalendly, fetchHubspot]);
 
   const openIntegration = (id) => {
     setActiveIntegrationId(id);
@@ -262,14 +300,17 @@ const IntegrationsPage = () => {
     setActiveIntegrationId(null);
   };
 
-  const activeItem = INTEGRATIONS.find((i) => i.id === activeIntegrationId);
+  const activeItem =
+    INTEGRATIONS.find((i) => i.id === activeIntegrationId) ??
+    CRM_INTEGRATIONS.find((i) => i.id === activeIntegrationId);
   const activeIntegrationStatus = activeItem
     ? getIntegrationStatus(
         activeItem.id,
         linkedinIntegration,
         emailIntegration,
         whatsappIntegration,
-        calendlyIntegration
+        calendlyIntegration,
+        hubspotIntegration
       )
     : null;
 
@@ -321,6 +362,16 @@ const IntegrationsPage = () => {
       );
     }
 
+    if (activeItem.id === "hubspot") {
+      return (
+        <HubSpotIntegrationSection
+          integration={hubspotIntegration}
+          loading={loadingHubspot}
+          onRefresh={fetchHubspot}
+        />
+      );
+    }
+
     return (
       <ComingSoonPanel title={activeItem.title} description={activeItem.description} />
     );
@@ -334,6 +385,41 @@ const IntegrationsPage = () => {
           Connect channels and tools used by your outreach campaigns.
         </p>
       </header>
+
+      <section className="w-full">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
+            Connect CRM
+          </h2>
+          <p className="text-xs text-brand-steel">Click an integration to configure</p>
+        </div>
+        <ul className="space-y-2">
+          {CRM_INTEGRATIONS.map((item) => (
+            <li key={item.id}>
+              <IntegrationListRow
+                item={item}
+                status={getIntegrationStatus(
+                  item.id,
+                  linkedinIntegration,
+                  emailIntegration,
+                  whatsappIntegration,
+                  calendlyIntegration,
+                  hubspotIntegration
+                )}
+                subtitle={getIntegrationSubtitle(
+                  item.id,
+                  linkedinIntegration,
+                  emailIntegration,
+                  whatsappIntegration,
+                  calendlyIntegration,
+                  hubspotIntegration
+                )}
+                onConfigure={() => openIntegration(item.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="w-full">
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -357,14 +443,16 @@ const IntegrationsPage = () => {
                   linkedinIntegration,
                   emailIntegration,
                   whatsappIntegration,
-                  calendlyIntegration
+                  calendlyIntegration,
+                  hubspotIntegration
                 )}
                 subtitle={getIntegrationSubtitle(
                   item.id,
                   linkedinIntegration,
                   emailIntegration,
                   whatsappIntegration,
-                  calendlyIntegration
+                  calendlyIntegration,
+                  hubspotIntegration
                 )}
                 onConfigure={() => openIntegration(item.id)}
               />

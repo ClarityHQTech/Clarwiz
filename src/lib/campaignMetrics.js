@@ -15,8 +15,8 @@ export function computeCampaignMetrics(commLogs, prospectCount = 0, qualifiedCou
   const withReply = commLogs.filter(isProspectReply);
   const replyCount = withReply.length;
 
-  const contactedIds = new Set(outbound.map((l) => l.contactCampaignId));
-  const repliedIds = new Set(withReply.map((l) => l.contactCampaignId));
+  const contactedIds = new Set(outbound.map((l) => l.campaignContactId));
+  const repliedIds = new Set(withReply.map((l) => l.campaignContactId));
 
   const openRate = sent > 0 ? (opened / sent) * 100 : 0;
   const replyRate =
@@ -35,17 +35,17 @@ export function computeCampaignMetrics(commLogs, prospectCount = 0, qualifiedCou
 }
 
 export async function syncCampaignMetrics(prisma, campaignId) {
-  const [logs, contactCampaignCount, qualifiedCount] = await Promise.all([
+  const [logs, campaignContactCount, qualifiedCount] = await Promise.all([
     prisma.communicationLog.findMany({ where: { campaignId } }),
-    prisma.contactCampaign.count({ where: { campaignId } }),
-    prisma.contactCampaign.count({
+    prisma.campaignContact.count({ where: { campaignId } }),
+    prisma.campaignContact.count({
       where: { campaignId, status: "QUALIFIED" },
     }),
   ]);
 
   const metrics = computeCampaignMetrics(
     logs,
-    contactCampaignCount,
+    campaignContactCount,
     qualifiedCount
   );
 
@@ -64,8 +64,8 @@ export function serializeCommLogForUi(log, { contactName, prospectName, message,
   const name = contactName ?? prospectName ?? null;
   return {
     id: log.id,
-    contactCampaignId: log.contactCampaignId,
-    prospectId: log.contactCampaignId,
+    campaignContactId: log.campaignContactId,
+    prospectId: log.campaignContactId,
     contactName: name,
     prospectName: name,
     channel: log.channel,

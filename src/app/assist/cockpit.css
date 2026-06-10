@@ -1397,6 +1397,37 @@
 }
 
 /* ============ CHAT DOCK ============ */
+/* Self-contained tokens — the dock also renders on the light dashboard (outside .cockpit). */
+.ck-chat-root {
+  --bg: #0a0a0d;
+  --panel: #14141a;
+  --panel-2: #1a1a22;
+  --elevated: #22222c;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.14);
+  --text: #ece9e0;
+  --text-2: #b5b1a6;
+  --muted: #6b6b72;
+  --accent: #f2a65a;
+  --accent-soft: rgba(242, 166, 90, 0.14);
+  --accent-line: rgba(242, 166, 90, 0.4);
+  --danger: #e5736f;
+  --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+}
+.ck-chat-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1190;
+  background: rgba(8, 8, 12, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  padding: 0;
+  cursor: default;
+  animation: ck-fade 0.2s ease-out;
+}
 .ck-chat-fab {
   position: fixed;
   bottom: 24px;
@@ -1430,9 +1461,14 @@
   display: flex;
   flex-direction: column;
   z-index: 1200;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   animation: ck-chat-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
+  color: var(--text);
+  font-family: var(--sans);
 }
 @keyframes ck-chat-in {
   from {
@@ -1448,17 +1484,28 @@
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   background: var(--panel-2);
+  flex-shrink: 0;
+}
+.ck-chat-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 .ck-chat-title {
   font-family: var(--serif);
   font-style: italic;
   font-size: 18px;
   color: var(--text);
+  line-height: 1.2;
 }
 .ck-chat-context {
+  display: inline-block;
+  width: fit-content;
   font-family: var(--mono);
   font-size: 10px;
   color: var(--accent);
@@ -1467,7 +1514,7 @@
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin-left: 8px;
+  border: 1px solid var(--accent-line);
 }
 .ck-chat-body {
   flex: 1;
@@ -1476,6 +1523,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background: var(--panel);
 }
 .ck-chat-msg {
   max-width: 86%;
@@ -1521,6 +1569,8 @@
   border-top: 1px solid var(--line);
   display: flex;
   gap: 8px;
+  background: var(--panel-2);
+  flex-shrink: 0;
 }
 .ck-chat-input {
   flex: 1;

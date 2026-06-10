@@ -19,7 +19,7 @@ export default function PostMeetingCard({ dealId }) {
       const res = await fetch(`/api/assist/deal/${dealId}/meeting-notes`);
       const data = await res.json().catch(() => ({}));
       if (res.status === 412) {
-        if (!silent) toast.error("Connect HubSpot in Settings to fetch meeting notes.");
+        if (!silent) toast.error("Connect HubSpot in Integrations to fetch meeting notes.");
         return;
       }
       if (!res.ok || data.ok === false || !data.text) {
@@ -65,7 +65,7 @@ export default function PostMeetingCard({ dealId }) {
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 412) {
-        toast.error("Connect HubSpot in Settings to save meeting notes.");
+        toast.error("Connect HubSpot in Integrations to save meeting notes.");
         return;
       }
       if (!res.ok || data.ok === false) {

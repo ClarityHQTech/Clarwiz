@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/authContext";
 import { prisma } from "@/lib/prisma";
-import { getMofuIntegration, getDecryptedHubspotToken } from "@/lib/assist/mofuIntegration";
+import {
+  getMofuIntegration,
+  getDecryptedHubspotToken,
+  isHubspotOAuthConnected,
+} from "@/lib/assist/mofuIntegration";
 import { resolveOwnerIdByEmail } from "@/lib/assist/hubspot";
 import { getDashboardData } from "@/lib/assist/insightsReader";
 import { recentAssistActions } from "@/lib/assist/logAction";
@@ -32,16 +36,16 @@ export default async function DashboardPage({ searchParams }) {
     );
   }
 
-  // MOFU/HubSpot not configured yet → guide the AE to Settings.
+  // MOFU/HubSpot not connected yet → guide the AE to Integrations.
   const integration = await getMofuIntegration(prisma, ctx.tenantId);
-  if (!integration?.encryptedHubspotToken) {
+  if (!isHubspotOAuthConnected(integration)) {
     return (
       <AssistNotice
         icon="link"
         title="Connect HubSpot to get started"
-        message="AE Assist reads your deals, leads and companies from HubSpot. Add your private-app token in Settings to hydrate your CRM graph."
-        ctaLabel="Connect HubSpot in Settings"
-        ctaHref="/assist/settings"
+        message="AE Assist reads your deals, leads and companies from HubSpot. Connect your portal in Integrations to hydrate your CRM graph."
+        ctaLabel="Connect HubSpot"
+        ctaHref="/integrations"
       />
     );
   }

@@ -2,7 +2,7 @@
  * TOFU outreach timeline for the MOFU Lead Workroom (Mode-3 enrichment).
  *
  * A lead's HubSpot identity (Contact → BusinessUser email) is matched against the
- * Clarwiz TOFU outreach graph: CommunicationLog → ContactCampaign → Contact →
+ * Clarwiz TOFU outreach graph: CommunicationLog → CampaignContact → Contact →
  * BusinessUser. When the email matches no TOFU rows we simply return [] and the
  * UI shows "No Clarwiz outreach history" — the workroom NEVER depends on TOFU
  * data existing (composability for tenants with zero TOFU activity).
@@ -24,7 +24,7 @@ export async function getTofuTimeline(prisma, tenantId, email) {
   const logs = await prisma.communicationLog.findMany({
     where: {
       tenantId,
-      contactCampaign: {
+      campaignContact: {
         contact: { businessUser: { email: normalized } },
       },
     },

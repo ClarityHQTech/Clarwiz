@@ -10,6 +10,7 @@ const SCRYPT_SALT_WHATSAPP = "clarwiz-whatsapp-access-token";
 const SCRYPT_SALT_CALENDLY = "clarwiz-calendly-oauth-token";
 const SCRYPT_SALT_WEBHOOK = "clarwiz-integration-webhook-secret";
 const SCRYPT_SALT_MOFU = "clarwiz-mofu-integration-token";
+const SCRYPT_SALT_GMAIL = "clarwiz-gmail-oauth-token";
 
 function deriveKey(salt) {
   const secret = process.env.SECRET?.trim();
@@ -142,5 +143,19 @@ export function decryptMofuToken(stored) {
     return decryptWithSalt(stored, SCRYPT_SALT_MOFU);
   } catch {
     throw new Error("Failed to decrypt MOFU integration token");
+  }
+}
+
+/** Encrypts a Gmail OAuth access or refresh token for storage. */
+export function encryptGmailToken(plainText) {
+  return encryptWithSalt(String(plainText), SCRYPT_SALT_GMAIL);
+}
+
+/** Decrypts a stored Gmail OAuth token. */
+export function decryptGmailToken(stored) {
+  try {
+    return decryptWithSalt(stored, SCRYPT_SALT_GMAIL, /^[A-Za-z0-9._-]{20,}$/);
+  } catch {
+    throw new Error("Failed to decrypt Gmail credential");
   }
 }

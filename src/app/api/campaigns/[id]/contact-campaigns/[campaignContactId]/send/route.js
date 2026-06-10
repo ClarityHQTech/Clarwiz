@@ -20,7 +20,7 @@ export async function POST(request, { params }) {
   try {
     const result = await manualCopilotSend({
       campaignId: params.id,
-      contactCampaignId: params.contactCampaignId,
+      campaignContactId: params.campaignContactId,
       tenantId: ctx.tenantId,
       body,
     });

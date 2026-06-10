@@ -35,6 +35,15 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" }, ope
     if (isOpen) listEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, setOpen]);
+
   const buildHistory = useCallback(
     (extra = []) =>
       [...messages, ...extra]
@@ -114,36 +123,45 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" }, ope
 
   if (!isOpen) {
     return (
-      <button
-        type="button"
-        className="ck-chat-fab"
-        aria-label="Open AE Assist chat"
-        onClick={() => setOpen(true)}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      </button>
+      <div className="ck-chat-root">
+        <button
+          type="button"
+          className="ck-chat-fab"
+          aria-label="Open AE Assist chat"
+          onClick={() => setOpen(true)}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="ck-chat-dock" role="dialog" aria-label="AE Assist chat">
-      <div className="ck-chat-header">
-        <div>
-          <span className="ck-chat-title">Ask the cockpit</span>
-          <span className="ck-chat-context">Context: {contextLabel}</span>
+    <div className="ck-chat-root">
+      <button
+        type="button"
+        className="ck-chat-backdrop"
+        aria-label="Close chat"
+        onClick={() => setOpen(false)}
+      />
+      <div className="ck-chat-dock" role="dialog" aria-label="AE Assist chat" aria-modal="true">
+        <div className="ck-chat-header">
+          <div className="ck-chat-header-main">
+            <span className="ck-chat-title">Ask the cockpit</span>
+            <span className="ck-chat-context">Context: {contextLabel}</span>
+          </div>
+          <button
+            type="button"
+            className="ck-drawer-close"
+            style={{ position: "relative", top: 0, right: 0, flexShrink: 0 }}
+            aria-label="Close chat"
+            onClick={() => setOpen(false)}
+          >
+            ✕
+          </button>
         </div>
-        <button
-          type="button"
-          className="ck-drawer-close"
-          style={{ position: "relative", top: 0, right: 0 }}
-          aria-label="Close chat"
-          onClick={() => setOpen(false)}
-        >
-          ✕
-        </button>
-      </div>
 
       <div className="ck-chat-body">
         {messages.length === 0 && (
@@ -187,6 +205,7 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" }, ope
           ↵
         </button>
       </form>
+      </div>
     </div>
   );
 }

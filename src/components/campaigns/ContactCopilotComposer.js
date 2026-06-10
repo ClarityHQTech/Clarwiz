@@ -474,7 +474,7 @@ export default function ContactCopilotComposer({
   templates,
   communications,
   campaignId,
-  contactCampaignId,
+  campaignContactId,
   onSent,
 }) {
   const [sending, setSending] = useState(false);
@@ -499,7 +499,7 @@ export default function ContactCopilotComposer({
     setSending(true);
     try {
       const res = await fetch(
-        `/api/campaigns/${campaignId}/contact-campaigns/${contactCampaignId}/send`,
+        `/api/campaigns/${campaignId}/contact-campaigns/${campaignContactId}/send`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
