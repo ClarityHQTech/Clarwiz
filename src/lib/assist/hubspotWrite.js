@@ -208,26 +208,58 @@ export async function sendSingleSendEmail(
   return { ok: true, status: res.json?.status ?? null, statusId: res.json?.statusId ?? null };
 }
 
+function isMissingCustomPropError(json, propName = CLARWIZ_CAMPAIGN_CONTACT_ID_PROP) {
+  if (!json) return false;
+  const msg = String(json.message ?? "");
+  if (msg.includes(propName) && /PROPERTY_DOESNT_EXIST|does not exist/i.test(msg)) return true;
+  return (json.errors ?? []).some(
+    (e) => e?.name === propName || e?.error === "PROPERTY_DOESNT_EXIST"
+  );
+}
+
+function withoutCampaignContactId(input) {
+  if (!input?.campaignContactId) return input;
+  const { campaignContactId: _drop, ...rest } = input;
+  return rest;
+}
+
+async function createWithOptionalPropRetry(token, path, buildBody, input, { fetchImpl }) {
+  const res = await hsWrite(token, path, { body: buildBody(input), fetchImpl });
+  if (!res.ok && input.campaignContactId && isMissingCustomPropError(res.json)) {
+    const retry = await hsWrite(token, path, {
+      body: buildBody(withoutCampaignContactId(input)),
+      fetchImpl,
+    });
+    return { ok: retry.ok, status: retry.status, id: retry.json?.id ?? null, json: retry.json };
+  }
+  return { ok: res.ok, status: res.status, id: res.json?.id ?? null, json: res.json };
+}
+
 // ── calls ──────────────────────────────────────────────────────────────────
 export async function createDeal(token, input, { fetchImpl = fetch } = {}) {
-  const res = await hsWrite(token, "/crm/v3/objects/deals", { body: buildDealCreateBody(input), fetchImpl });
-  return { ok: res.ok, status: res.status, id: res.json?.id ?? null, json: res.json };
+  return createWithOptionalPropRetry(token, "/crm/v3/objects/deals", buildDealCreateBody, input, {
+    fetchImpl,
+  });
 }
 
 export async function createContact(token, input, { fetchImpl = fetch } = {}) {
-  const res = await hsWrite(token, "/crm/v3/objects/contacts", {
-    body: buildContactCreateBody(input),
-    fetchImpl,
-  });
-  return { ok: res.ok, status: res.status, id: res.json?.id ?? null, json: res.json };
+  return createWithOptionalPropRetry(
+    token,
+    "/crm/v3/objects/contacts",
+    buildContactCreateBody,
+    input,
+    { fetchImpl }
+  );
 }
 
 export async function createCompany(token, input, { fetchImpl = fetch } = {}) {
-  const res = await hsWrite(token, "/crm/v3/objects/companies", {
-    body: buildCompanyCreateBody(input),
-    fetchImpl,
-  });
-  return { ok: res.ok, status: res.status, id: res.json?.id ?? null, json: res.json };
+  return createWithOptionalPropRetry(
+    token,
+    "/crm/v3/objects/companies",
+    buildCompanyCreateBody,
+    input,
+    { fetchImpl }
+  );
 }
 
 /** Find a HubSpot contact id by email, or null. Never throws. */

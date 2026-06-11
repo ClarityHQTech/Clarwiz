@@ -51,7 +51,7 @@ export async function ensureClarwizCampaignContactProperty(token, objectType, { 
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (res.ok) return { ok: true, existed: true };
+  if (res.ok) return { ok: true, stampable: true, existed: true };
 
   const groupName =
     objectType === "deals" ? "dealinformation" : objectType === "contacts" ? "contactinformation" : "companyinformation";
@@ -71,17 +71,28 @@ export async function ensureClarwizCampaignContactProperty(token, objectType, { 
       description: "Clarwiz TOFU campaign enrollment id — links outreach history to this CRM record.",
     }),
   });
-  return { ok: create.ok, existed: false };
+  return { ok: create.ok, stampable: create.ok, existed: false };
+}
+
+/**
+ * Which CRM object types can receive clarwiz_campaign_contact_id on create/patch.
+ * Many portals lack schema-write scopes — sync still works via hubspotDealId fallback.
+ */
+export async function getClarwizCampaignContactStampableMap(token, { fetchImpl = fetch } = {}) {
+  const types = ["deals", "contacts", "companies"];
+  const map = { deals: false, contacts: false, companies: false };
+  for (const t of types) {
+    try {
+      const r = await ensureClarwizCampaignContactProperty(token, t, { fetchImpl });
+      map[t] = !!r.stampable;
+    } catch {
+      map[t] = false;
+    }
+  }
+  return map;
 }
 
 /** Stamp all three CRM object types before a qualified-lead push (never throws). */
 export async function ensureClarwizCampaignContactProperties(token, { fetchImpl = fetch } = {}) {
-  const types = ["deals", "contacts", "companies"];
-  for (const t of types) {
-    try {
-      await ensureClarwizCampaignContactProperty(token, t, { fetchImpl });
-    } catch {
-      // Property creation is best-effort; hubspotDealId fallback still links on sync.
-    }
-  }
+  await getClarwizCampaignContactStampableMap(token, { fetchImpl });
 }

@@ -77,7 +77,11 @@ vi.mock("@/lib/assist/hubspot", () => ({
 
 vi.mock("@/lib/crm/campaignContactBridge", () => ({
   CLARWIZ_CAMPAIGN_CONTACT_ID_PROP: "clarwiz_campaign_contact_id",
-  ensureClarwizCampaignContactProperties: vi.fn().mockResolvedValue({ ok: true }),
+  getClarwizCampaignContactStampableMap: vi.fn().mockResolvedValue({
+    deals: true,
+    contacts: true,
+    companies: true,
+  }),
 }));
 
 vi.mock("@/lib/assist/hubspotWrite", () => ({

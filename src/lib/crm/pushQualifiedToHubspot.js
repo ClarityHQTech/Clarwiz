@@ -20,7 +20,7 @@ import {
 import { firstOpenStageId } from "@/lib/assist/tofuTimeline";
 import {
   CLARWIZ_CAMPAIGN_CONTACT_ID_PROP,
-  ensureClarwizCampaignContactProperties,
+  getClarwizCampaignContactStampableMap,
 } from "@/lib/crm/campaignContactBridge";
 
 function buildDealName({ contactName, companyName, campaignName }) {
@@ -78,8 +78,14 @@ function buildProvenanceNote({
   return lines.join("\n");
 }
 
-async function stampCampaignContactId(token, objectType, objectId, campaignContactId, { fetchImpl }) {
-  if (!objectId || !campaignContactId) return;
+async function stampCampaignContactId(
+  token,
+  objectType,
+  objectId,
+  campaignContactId,
+  { fetchImpl, stampable }
+) {
+  if (!stampable || !objectId || !campaignContactId) return;
   await patchCrmObject(
     token,
     objectType,
@@ -91,44 +97,107 @@ async function stampCampaignContactId(token, objectType, objectId, campaignConta
 
 async function resolveHubspotContactId(
   token,
-  { email, firstName, lastName, jobTitle, phone, companyName, campaignContactId },
-  { fetchImpl }
+  {
+    email,
+    firstName,
+    lastName,
+    jobTitle,
+    phone,
+    companyName,
+    campaignContactId,
+    existingHubspotContactId,
+  },
+  { fetchImpl, stampContactId = false }
 ) {
+  if (existingHubspotContactId) {
+    const id = String(existingHubspotContactId);
+    await stampCampaignContactId(token, "contacts", id, campaignContactId, {
+      fetchImpl,
+      stampable: stampContactId,
+    });
+    return { id, created: false };
+  }
+
   if (!email) return { id: null, reason: "no_email" };
 
   let id = await searchContactByEmail(token, email, { fetchImpl });
   if (id) {
-    await stampCampaignContactId(token, "contacts", id, campaignContactId, { fetchImpl });
+    await stampCampaignContactId(token, "contacts", id, campaignContactId, {
+      fetchImpl,
+      stampable: stampContactId,
+    });
     return { id: String(id), created: false };
   }
 
-  const created = await createContact(
-    token,
-    { email, firstName, lastName, jobTitle, phone, companyName, campaignContactId },
-    { fetchImpl }
-  );
+  const contactInput = {
+    email,
+    firstName,
+    lastName,
+    jobTitle,
+    phone,
+    companyName,
+    ...(stampContactId && campaignContactId ? { campaignContactId } : {}),
+  };
+  const created = await createContact(token, contactInput, { fetchImpl });
   if (!created.ok || !created.id) {
     return { id: null, reason: "contact_create_failed", status: created.status };
   }
   return { id: String(created.id), created: true };
 }
 
-async function resolveHubspotCompanyId(token, { name, domain, industry, campaignContactId }, { fetchImpl }) {
+async function resolveHubspotCompanyId(
+  token,
+  { name, domain, industry, campaignContactId },
+  { fetchImpl, stampCompanyId = false }
+) {
   if (!name && !domain) return { id: null };
 
   if (domain) {
     const existing = await searchCompanyByDomain(token, domain, { fetchImpl });
     if (existing) {
-      await stampCampaignContactId(token, "companies", existing, campaignContactId, { fetchImpl });
+      await stampCampaignContactId(token, "companies", existing, campaignContactId, {
+        fetchImpl,
+        stampable: stampCompanyId,
+      });
       return { id: String(existing), created: false };
     }
   }
 
-  const created = await createCompany(token, { name, domain, industry, campaignContactId }, { fetchImpl });
+  const companyInput = {
+    name,
+    domain,
+    industry,
+    ...(stampCompanyId && campaignContactId ? { campaignContactId } : {}),
+  };
+  const created = await createCompany(token, companyInput, { fetchImpl });
   if (!created.ok || !created.id) {
     return { id: null, reason: "company_create_failed", status: created.status };
   }
   return { id: String(created.id), created: true };
+}
+
+/** Human-readable failure for campaign CRM sync UI. */
+export function formatCrmPushFailure(reason) {
+  switch (reason) {
+    case "no_email":
+      return "Contact is missing an email address.";
+    case "contact_create_failed":
+      return "HubSpot rejected the contact — check the email and CRM write permissions.";
+    case "company_create_failed":
+      return "HubSpot rejected the company record.";
+    case "deal_create_failed":
+      return "HubSpot rejected the deal — check pipeline permissions.";
+    case "hubspot_not_configured":
+      return "HubSpot is not connected.";
+    default:
+      return reason ? String(reason).replace(/_/g, " ") : "Sync failed.";
+  }
+}
+
+export function summarizeCrmSyncFailures(results = []) {
+  const failed = results.filter((r) => !r.ok && !r.skipped);
+  if (!failed.length) return null;
+  return [...new Set(failed.map((r) => formatCrmPushFailure(r.reason)))].join(" ");
 }
 
 /**
@@ -170,7 +239,7 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
   const token = await getDecryptedHubspotToken(prisma, tenantId, { fetchImpl });
   if (!token) return { ok: false, skipped: true, reason: "hubspot_not_configured" };
 
-  await ensureClarwizCampaignContactProperties(token, { fetchImpl });
+  const stampable = await getClarwizCampaignContactStampableMap(token, { fetchImpl });
 
   const bu = cc.contact.businessUser;
   const company = bu?.company;
@@ -190,8 +259,9 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
       phone: bu?.phone || bu?.whatsapp,
       companyName: company?.name,
       campaignContactId,
+      existingHubspotContactId: cc.contact.hubspotContactId,
     },
-    { fetchImpl }
+    { fetchImpl, stampContactId: stampable.contacts }
   );
   if (!contactRes.id) {
     return { ok: false, reason: contactRes.reason || "contact_unresolved" };
@@ -207,7 +277,7 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
         industry: company.industry,
         campaignContactId,
       },
-      { fetchImpl }
+      { fetchImpl, stampCompanyId: stampable.companies }
     );
     hubspotCompanyId = companyRes.id;
     if (hubspotCompanyId) {
@@ -223,16 +293,13 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
     campaignName: cc.campaign.name,
   });
 
-  const dealRes = await createDeal(
-    token,
-    {
-      name: dealName,
-      stageId,
-      ownerId: integration?.defaultOwnerId ?? cc.contact.ownerId ?? null,
-      campaignContactId,
-    },
-    { fetchImpl }
-  );
+  const dealInput = {
+    name: dealName,
+    stageId,
+    ownerId: integration?.defaultOwnerId ?? cc.contact.ownerId ?? null,
+    ...(stampable.deals ? { campaignContactId } : {}),
+  };
+  const dealRes = await createDeal(token, dealInput, { fetchImpl });
   if (!dealRes.ok || !dealRes.id) {
     return { ok: false, reason: "deal_create_failed", status: dealRes.status };
   }

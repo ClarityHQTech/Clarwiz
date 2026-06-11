@@ -3,7 +3,10 @@ import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getOwnedCampaignDetail } from "@/lib/campaignDetail";
-import { syncQualifiedCampaignToCrm } from "@/lib/crm/pushQualifiedToHubspot";
+import {
+  syncQualifiedCampaignToCrm,
+  summarizeCrmSyncFailures,
+} from "@/lib/crm/pushQualifiedToHubspot";
 
 /**
  * POST /api/campaigns/[id]/sync-crm — push any qualified contacts that have
@@ -31,13 +34,14 @@ export async function POST(_request, { params }) {
       });
     }
 
+    const failureDetail = summarizeCrmSyncFailures(res.results);
     return NextResponse.json({
       ok: res.ok,
       message:
         res.synced > 0
           ? `Synced ${res.synced} qualified contact(s) to HubSpot.`
           : res.failed > 0
-            ? "Some contacts could not be synced — check HubSpot connection."
+            ? failureDetail || "Some contacts could not be synced to HubSpot."
             : "Nothing new to sync.",
       ...res,
     });

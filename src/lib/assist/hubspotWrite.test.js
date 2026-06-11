@@ -4,6 +4,7 @@ import {
   buildTaskBody,
   buildNoteBody,
   createDeal,
+  createContact,
   addNote,
 } from "./hubspotWrite.js";
 
@@ -61,5 +62,34 @@ describe("createDeal / addNote (injected fetch)", () => {
     const res = await addNote("tok", { dealId: "D1", body: "hi" }, { fetchImpl });
     expect(res.ok).toBe(false);
     expect(res.status).toBe(403);
+  });
+
+  it("retries contact create without clarwiz_campaign_contact_id when the property is missing", async () => {
+    let calls = 0;
+    const fetchImpl = async (_url, opts) => {
+      calls += 1;
+      const body = JSON.parse(opts.body);
+      if (calls === 1) {
+        expect(body.properties.clarwiz_campaign_contact_id).toBe("cc-1");
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            message: 'Property "clarwiz_campaign_contact_id" does not exist',
+            errors: [{ name: "clarwiz_campaign_contact_id", error: "PROPERTY_DOESNT_EXIST" }],
+          }),
+        };
+      }
+      expect(body.properties.clarwiz_campaign_contact_id).toBeUndefined();
+      return { ok: true, status: 201, json: async () => ({ id: "HS-CT-2" }) };
+    };
+    const res = await createContact(
+      "tok",
+      { email: "a@b.test", campaignContactId: "cc-1" },
+      { fetchImpl }
+    );
+    expect(res.ok).toBe(true);
+    expect(res.id).toBe("HS-CT-2");
+    expect(calls).toBe(2);
   });
 });
