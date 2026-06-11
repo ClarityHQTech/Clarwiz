@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { toast } from "sonner";
 import CollateralEditorModal from "@/components/assist/collateral/CollateralEditorModal";
-import { stripCollateralViewerLinks } from "@/lib/assist/nbaEmailCollateral";
+import { stripCollateralViewerLinks } from "@/lib/assist/stripCollateralViewerLinks";
 import { modalShell, modalUi, ui } from "@/lib/brandUi";
 
 /**
