@@ -117,8 +117,19 @@ export async function resolveOrCreateCompany(tx, companyName, { domain = null } 
   return resolveOrCreateCompanyByName(tx, companyName);
 }
 
+/** True when the email is personal/free-mail (no business domain to derive company from). */
+export function isPersonalEmail(email) {
+  return Boolean(email?.trim()) && !domainFromEmail(email);
+}
+
 /** Prefer email domain for company; fall back to contact company field when email is missing. */
 export async function resolveOrCreateCompanyFromContact(tx, { email, companyName }) {
+  const normalizedCompanyName = normalizeCompanyName(companyName);
+
+  if (normalizedCompanyName && isPersonalEmail(email)) {
+    return resolveOrCreateCompanyByName(tx, normalizedCompanyName);
+  }
+
   const parsed = parseContactEmailDomain(email);
   if (parsed) {
     return resolveOrCreateCompanyByDomain(tx, parsed);
@@ -324,11 +335,17 @@ export async function updateBusinessUserContact(
     data.email = normalizedEmail || null;
   }
 
-  if (company !== undefined || email !== undefined) {
+  if (company !== undefined) {
+    const normalizedCompany = normalizeCompanyName(company);
+    const companyRow = normalizedCompany
+      ? await resolveOrCreateCompanyByName(tx, normalizedCompany)
+      : null;
+    data.companyId = companyRow?.id ?? null;
+  } else if (email !== undefined) {
+    const normalizedEmail = normalizeEmail(email);
     const companyRow = await resolveOrCreateCompanyFromContact(tx, {
-      email: email !== undefined ? normalizeEmail(email) : existing.email,
-      companyName:
-        company !== undefined ? company : existing.company?.name ?? null,
+      email: normalizedEmail,
+      companyName: existing.company?.name ?? null,
     });
     data.companyId = companyRow?.id ?? null;
   }

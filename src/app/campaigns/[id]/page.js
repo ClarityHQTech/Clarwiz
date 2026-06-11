@@ -212,23 +212,23 @@ const Page = () => {
   }, [id]);
 
   useEffect(() => {
-    if (selectedProspect) {
-      setProspectDeliveryTime(
-        selectedProspect.outreachDeliveryTime ||
-          campaign?.defaultOutreachTime ||
-          "11:00"
-      );
-      setProspectContactForm({
-        name: selectedProspect.name ?? "",
-        company: selectedProspect.company ?? "",
-        jobTitle: selectedProspect.jobTitle ?? "",
-        email: selectedProspect.email ?? "",
-        phone: selectedProspect.phone ?? "",
-        whatsapp: selectedProspect.whatsapp ?? "",
-        linkedinUrl: selectedProspect.linkedinUrl ?? "",
-      });
-    }
-  }, [selectedProspect, campaign?.defaultOutreachTime]);
+    if (!selectedProspect) return;
+    setProspectDeliveryTime(
+      selectedProspect.outreachDeliveryTime ||
+        campaign?.defaultOutreachTime ||
+        "11:00"
+    );
+    setProspectContactForm({
+      name: selectedProspect.name ?? "",
+      company: selectedProspect.company ?? "",
+      jobTitle: selectedProspect.jobTitle ?? "",
+      email: selectedProspect.email ?? "",
+      phone: selectedProspect.phone ?? "",
+      whatsapp: selectedProspect.whatsapp ?? "",
+      linkedinUrl: selectedProspect.linkedinUrl ?? "",
+    });
+    // Only re-seed the form when opening a different contact, not after each save.
+  }, [selectedProspect?.id, campaign?.defaultOutreachTime]);
 
   const saveProspectContact = async () => {
     if (!selectedProspect || !id) return;
@@ -251,7 +251,18 @@ const Page = () => {
       setCampaign(data);
       const rows = data.contacts ?? data.prospects ?? [];
       const updated = rows.find((p) => p.id === selectedProspect.id);
-      if (updated) setSelectedProspect(updated);
+      if (updated) {
+        setSelectedProspect(updated);
+        setProspectContactForm({
+          name: updated.name ?? "",
+          company: updated.company ?? "",
+          jobTitle: updated.jobTitle ?? "",
+          email: updated.email ?? "",
+          phone: updated.phone ?? "",
+          whatsapp: updated.whatsapp ?? "",
+          linkedinUrl: updated.linkedinUrl ?? "",
+        });
+      }
       toast.success("Contact info saved");
     } catch (err) {
       toast.error(err.message);
