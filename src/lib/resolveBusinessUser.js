@@ -1,3 +1,4 @@
+import { domainFromEmail } from "@/lib/assist/companyResolve";
 import { normalizeContactPersona } from "@/lib/contactPersona";
 
 function normalizeCompanyName(name) {
@@ -12,27 +13,6 @@ function normalizeEmail(email) {
     .toLowerCase();
 }
 
-/** Multi-part public suffixes (e.g. example.co.uk). */
-const TWO_PART_PUBLIC_SUFFIXES = new Set([
-  "co.uk",
-  "org.uk",
-  "ac.uk",
-  "gov.uk",
-  "net.uk",
-  "com.au",
-  "net.au",
-  "org.au",
-  "edu.au",
-  "co.nz",
-  "co.jp",
-  "co.in",
-  "co.za",
-  "com.br",
-  "com.mx",
-  "com.sg",
-  "com.hk",
-]);
-
 function extractEmailHost(email) {
   const normalized = normalizeEmail(email);
   if (!normalized.includes("@")) return null;
@@ -43,29 +23,16 @@ function extractEmailHost(email) {
   return host;
 }
 
-/** mail.example.com → example.com; example.ai → example.ai; john.tech@example.com uses example.com. */
-function getRegistrableDomain(host) {
-  const labels = host.trim().toLowerCase().split(".").filter(Boolean);
-  if (labels.length < 2) return null;
-
-  const lastTwo = labels.slice(-2).join(".");
-  if (TWO_PART_PUBLIC_SUFFIXES.has(lastTwo) && labels.length >= 3) {
-    return labels.slice(-3).join(".");
-  }
-
-  return labels.slice(-2).join(".");
-}
-
 function companyNameFromRegistrableDomain(domain) {
   return domain.split(".")[0] || domain;
 }
 
 function parseContactEmailDomain(email) {
+  const domain = domainFromEmail(email);
+  if (!domain) return null;
+
   const host = extractEmailHost(email);
   if (!host) return null;
-
-  const domain = getRegistrableDomain(host);
-  if (!domain) return null;
 
   return {
     host,
