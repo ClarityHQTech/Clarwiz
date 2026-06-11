@@ -75,3 +75,8 @@ export function getHubSpotDisplayStatus(integration) {
   if (integration.status === "error") return "failed";
   return "pending";
 }
+
+export function getGmailDisplayStatus(gmail) {
+  if (!gmail?.connected) return "not_configured";
+  return "connected";
+}

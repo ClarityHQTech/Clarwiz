@@ -83,9 +83,9 @@ export async function POST(request, { params }) {
   } catch (err) {
     console.error("[execute]", err);
     const message =
-      err.message?.includes("OPENAI_API_KEY") ||
+      err.message?.includes("ANTHROPIC_API_KEY") ||
       err.message?.includes("API key")
-        ? "OpenAI is not configured. Set OPENAI_API_KEY in .env"
+        ? "Anthropic is not configured. Set ANTHROPIC_API_KEY in .env"
         : err.message || "Execution failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }

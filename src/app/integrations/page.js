@@ -2,6 +2,7 @@
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import EmailIntegrationSection from "@/components/settings/EmailIntegrationSection";
+import GmailIntegrationSection from "@/components/settings/GmailIntegrationSection";
 import HubSpotIntegrationSection from "@/components/settings/HubSpotIntegrationSection";
 import LinkedInIntegrationSection from "@/components/settings/LinkedInIntegrationSection";
 import WhatsAppIntegrationSection from "@/components/settings/WhatsAppIntegrationSection";
@@ -11,6 +12,7 @@ import { useUser } from "@/context/UserContext";
 import IntegrationStatusBadge, {
   getCalendlyDisplayStatus,
   getEmailDisplayStatus,
+  getGmailDisplayStatus,
   getHubSpotDisplayStatus,
   getLinkedInDisplayStatus,
   getWhatsAppDisplayStatus,
@@ -32,7 +34,7 @@ import {
   HiOutlineEnvelope,
   HiOutlinePhone,
 } from "react-icons/hi2";
-import { SiHubspot, SiWhatsapp } from "react-icons/si";
+import { SiGmail, SiHubspot, SiWhatsapp } from "react-icons/si";
 import { toast } from "sonner";
 import { ui } from "@/lib/brandUi";
 
@@ -42,6 +44,17 @@ const CRM_INTEGRATIONS = [
     title: "HubSpot",
     description: "Connect your CRM so AE Assist can read deals, companies, and contacts.",
     icon: <SiHubspot className="h-4 w-4 text-[#FF7A59]" />,
+    available: true,
+  },
+];
+
+const EMAIL_INTEGRATIONS = [
+  {
+    id: "gmail",
+    title: "Gmail",
+    description:
+      "Connect your Gmail to send AE Assist and NBA emails directly from the platform.",
+    icon: <SiGmail className="h-4 w-4 text-[#EA4335]" />,
     available: true,
   },
 ];
@@ -56,8 +69,8 @@ const INTEGRATIONS = [
   },
   {
     id: "email",
-    title: "Email",
-    description: "Connect this channel.",
+    title: "Smartlead",
+    description: "Outbound email for TOFU campaign sequences.",
     icon: <HiOutlineEnvelope className="h-4 w-4 text-brand-terracotta" />,
     available: true,
   },
@@ -84,8 +97,9 @@ const INTEGRATIONS = [
   },
 ];
 
-function getIntegrationStatus(id, linkedin, email, whatsapp, calendly, hubspot) {
+function getIntegrationStatus(id, linkedin, email, whatsapp, calendly, hubspot, gmail) {
   if (id === "hubspot") return getHubSpotDisplayStatus(hubspot);
+  if (id === "gmail") return getGmailDisplayStatus(gmail);
   if (id === "linkedin") return getLinkedInDisplayStatus(linkedin);
   if (id === "email") return getEmailDisplayStatus(email);
   if (id === "whatsapp") return getWhatsAppDisplayStatus(whatsapp);
@@ -93,7 +107,7 @@ function getIntegrationStatus(id, linkedin, email, whatsapp, calendly, hubspot) 
   return "coming_soon";
 }
 
-function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly, hubspot) {
+function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly, hubspot, gmail) {
   if (id === "hubspot" && hubspot?.configured) {
     return [
       hubspot.hubspotPortalId ? `Portal ${hubspot.hubspotPortalId}` : null,
@@ -107,6 +121,9 @@ function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly, hubspot
   }
   if (id === "linkedin" && linkedin?.email) {
     return linkedin.email;
+  }
+  if (id === "gmail" && gmail?.connected) {
+    return gmail.email;
   }
   if (id === "email" && email?.fromEmail) {
     return `${email.fromName ? `${email.fromName} · ` : ""}${email.fromEmail}`;
@@ -189,7 +206,9 @@ const IntegrationsPage = () => {
   const [calendlyIntegration, setCalendlyIntegration] = useState(null);
   const [calendlyOAuthSetup, setCalendlyOAuthSetup] = useState(null);
   const [hubspotIntegration, setHubspotIntegration] = useState(null);
+  const [gmailIntegration, setGmailIntegration] = useState({ connected: false });
   const [loadingHubspot, setLoadingHubspot] = useState(true);
+  const [loadingGmail, setLoadingGmail] = useState(true);
   const [loadingLinkedin, setLoadingLinkedin] = useState(true);
   const [loadingEmail, setLoadingEmail] = useState(true);
   const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
@@ -282,13 +301,28 @@ const IntegrationsPage = () => {
     }
   }, []);
 
+  const fetchGmail = useCallback(async () => {
+    try {
+      const res = await fetch("/api/assist/gmail");
+      if (!res.ok) throw new Error("Failed to load Gmail connection");
+      const data = await res.json();
+      setGmailIntegration(data.gmail ?? { connected: false });
+    } catch (err) {
+      toast.error(err.message);
+      setGmailIntegration({ connected: false });
+    } finally {
+      setLoadingGmail(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchLinkedin();
     fetchEmail();
     fetchWhatsapp();
     fetchCalendly();
     fetchHubspot();
-  }, [fetchLinkedin, fetchEmail, fetchWhatsapp, fetchCalendly, fetchHubspot]);
+    fetchGmail();
+  }, [fetchLinkedin, fetchEmail, fetchWhatsapp, fetchCalendly, fetchHubspot, fetchGmail]);
 
   const openIntegration = (id) => {
     setActiveIntegrationId(id);
@@ -302,6 +336,7 @@ const IntegrationsPage = () => {
 
   const activeItem =
     INTEGRATIONS.find((i) => i.id === activeIntegrationId) ??
+    EMAIL_INTEGRATIONS.find((i) => i.id === activeIntegrationId) ??
     CRM_INTEGRATIONS.find((i) => i.id === activeIntegrationId);
   const activeIntegrationStatus = activeItem
     ? getIntegrationStatus(
@@ -310,7 +345,8 @@ const IntegrationsPage = () => {
         emailIntegration,
         whatsappIntegration,
         calendlyIntegration,
-        hubspotIntegration
+        hubspotIntegration,
+        gmailIntegration
       )
     : null;
 
@@ -372,6 +408,17 @@ const IntegrationsPage = () => {
       );
     }
 
+    if (activeItem.id === "gmail") {
+      return (
+        <GmailIntegrationSection
+          gmail={gmailIntegration}
+          loading={loadingGmail}
+          onRefresh={fetchGmail}
+          returnTo="integrations"
+        />
+      );
+    }
+
     return (
       <ComingSoonPanel title={activeItem.title} description={activeItem.description} />
     );
@@ -404,7 +451,8 @@ const IntegrationsPage = () => {
                   emailIntegration,
                   whatsappIntegration,
                   calendlyIntegration,
-                  hubspotIntegration
+                  hubspotIntegration,
+                  gmailIntegration
                 )}
                 subtitle={getIntegrationSubtitle(
                   item.id,
@@ -412,7 +460,45 @@ const IntegrationsPage = () => {
                   emailIntegration,
                   whatsappIntegration,
                   calendlyIntegration,
-                  hubspotIntegration
+                  hubspotIntegration,
+                  gmailIntegration
+                )}
+                onConfigure={() => openIntegration(item.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="w-full">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
+            Email
+          </h2>
+          <p className="text-xs text-brand-steel">Click an integration to configure</p>
+        </div>
+        <ul className="space-y-2">
+          {EMAIL_INTEGRATIONS.map((item) => (
+            <li key={item.id}>
+              <IntegrationListRow
+                item={item}
+                status={getIntegrationStatus(
+                  item.id,
+                  linkedinIntegration,
+                  emailIntegration,
+                  whatsappIntegration,
+                  calendlyIntegration,
+                  hubspotIntegration,
+                  gmailIntegration
+                )}
+                subtitle={getIntegrationSubtitle(
+                  item.id,
+                  linkedinIntegration,
+                  emailIntegration,
+                  whatsappIntegration,
+                  calendlyIntegration,
+                  hubspotIntegration,
+                  gmailIntegration
                 )}
                 onConfigure={() => openIntegration(item.id)}
               />
@@ -444,7 +530,8 @@ const IntegrationsPage = () => {
                   emailIntegration,
                   whatsappIntegration,
                   calendlyIntegration,
-                  hubspotIntegration
+                  hubspotIntegration,
+                  gmailIntegration
                 )}
                 subtitle={getIntegrationSubtitle(
                   item.id,
@@ -452,7 +539,8 @@ const IntegrationsPage = () => {
                   emailIntegration,
                   whatsappIntegration,
                   calendlyIntegration,
-                  hubspotIntegration
+                  hubspotIntegration,
+                  gmailIntegration
                 )}
                 onConfigure={() => openIntegration(item.id)}
               />

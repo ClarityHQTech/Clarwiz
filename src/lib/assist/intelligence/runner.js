@@ -1,5 +1,5 @@
 /**
- * Thin, injectable wrapper around an OpenAI-shaped chat client for JSON prompts.
+ * Thin, injectable wrapper around an Anthropic-shaped messages client for JSON prompts.
  * Kept LLM-agnostic so compute.js can be unit-tested with a fake `llm`.
  */
 
@@ -34,23 +34,52 @@ export function parseJsonLoose(raw) {
   return null;
 }
 
+/** Normalize Anthropic or OpenAI-shaped usage into a common token shape. */
+export function normalizeTokenUsage(usage) {
+  if (!usage) return null;
+  if (usage.prompt_tokens != null || usage.completion_tokens != null) {
+    return {
+      prompt_tokens: usage.prompt_tokens ?? 0,
+      completion_tokens: usage.completion_tokens ?? 0,
+      total_tokens:
+        usage.total_tokens ??
+        (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0),
+    };
+  }
+  const input = usage.input_tokens ?? 0;
+  const output = usage.output_tokens ?? 0;
+  return {
+    prompt_tokens: input,
+    completion_tokens: output,
+    total_tokens: input + output,
+  };
+}
+
+function extractTextContent(res) {
+  const blocks = res?.content;
+  if (!Array.isArray(blocks)) return "";
+  return blocks
+    .filter((b) => b?.type === "text" && typeof b.text === "string")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+}
+
 /**
- * Call chat.completions with a system+user message pair in json mode.
+ * Call messages.create with a system+user message pair; expect JSON in the reply.
  * Returns { data: parsedObject|null, tokensUsed }.
  */
 export async function runJsonPrompt({ llm, model, system, user, temperature = 0.3 }) {
-  const res = await llm.chat.completions.create({
+  const res = await llm.messages.create({
     model,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    response_format: { type: "json_object" },
+    max_tokens: 4096,
+    system: `${system}\n\nRespond with valid JSON only — no markdown fences or prose.`,
+    messages: [{ role: "user", content: user }],
     temperature,
   });
 
-  const content = res?.choices?.[0]?.message?.content ?? "";
+  const content = extractTextContent(res);
   const data = parseJsonLoose(content);
-  const tokensUsed = res?.usage ?? null;
+  const tokensUsed = normalizeTokenUsage(res?.usage);
   return { data, tokensUsed };
 }

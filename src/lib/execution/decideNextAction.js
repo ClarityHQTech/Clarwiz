@@ -1,4 +1,5 @@
-import { getOpenAIClient } from "@/lib/openaiClient";
+import { getAnthropicClient } from "@/lib/anthropicClient";
+import { parseJsonLoose } from "@/lib/assist/intelligence/runner";
 import { CAMPAIGN_CHANNELS } from "@/lib/campaignConstants";
 import {
   ACTIVE_EXECUTION_CHANNELS,
@@ -222,7 +223,7 @@ Rules (full spec: ${EXECUTION_RULES_DOC}):
 ${replyRules}
 ${signalRules}
 ${bookingRules}
-- Output valid JSON matching the schema only.`;
+- Output valid JSON matching this schema only: ${JSON.stringify(DECISION_SCHEMA)}`;
 
   const userPayload = {
     tenantContext: {
@@ -268,31 +269,23 @@ ${bookingRules}
         : "Return the next best outbound action. Use templateId only when the chosen email/LinkedIn template's variables are all present on the prospect; otherwise null with custom message.",
   };
 
-  const openai = getOpenAIClient();
-  const completion = await openai.chat.completions.create({
+  const client = getAnthropicClient();
+  const completion = await client.messages.create({
     model,
+    max_tokens: 4096,
     temperature: replyFollowUp ? 0.65 : serializedSignals.length > 0 ? 0.55 : 0.4,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "next_best_action",
-        strict: true,
-        schema: DECISION_SCHEMA,
-      },
-    },
+    system: systemPrompt,
     messages: [
-      { role: "system", content: systemPrompt },
       { role: "user", content: JSON.stringify(userPayload, null, 2) },
     ],
   });
 
-  const raw = completion.choices[0]?.message?.content;
+  const raw =
+    completion.content?.find((b) => b.type === "text")?.text ?? "";
   const providerMeta = buildProviderMetadata(completion, model);
 
-  let decision;
-  try {
-    decision = JSON.parse(raw);
-  } catch {
+  const decision = parseJsonLoose(raw);
+  if (!decision) {
     throw new Error("Execution layer returned invalid JSON");
   }
 

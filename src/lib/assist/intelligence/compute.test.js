@@ -133,13 +133,11 @@ function fenced(obj) {
 function queuedLlm(replies) {
   let i = 0;
   return {
-    chat: {
-      completions: {
-        create: async () => ({
-          choices: [{ message: { content: replies[i++] ?? "{}" } }],
-          usage: { total_tokens: 5 },
-        }),
-      },
+    messages: {
+      create: async () => ({
+        content: [{ type: "text", text: replies[i++] ?? "{}" }],
+        usage: { input_tokens: 3, output_tokens: 2 },
+      }),
     },
   };
 }

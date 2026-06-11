@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { getOpenAIClient } from "@/lib/openaiClient";
+import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { getDealView } from "@/lib/assist/insightsReader";
 import { logAssistAction } from "@/lib/assist/logAction";
 
-const BRIEF_MODEL = process.env.OPENAI_MODEL_SIMPLE || "gpt-4o-mini";
+const BRIEF_MODEL = ANTHROPIC_MODEL_SIMPLE;
 
 /**
  * Assemble a compact context string from the deal view + the NBA. Pure-ish
@@ -68,9 +68,9 @@ function buildBriefMessages({ nba, view }) {
  * `nba.draftPayload.brief`. Returns { ok, brief }. 502-safe: a provider failure
  * returns a 502 body rather than crashing.
  *
- * `_openAIClientFactory` is injectable for tests; defaults to the shared client.
+ * `_anthropicClientFactory` is injectable for tests; defaults to the shared client.
  */
-export async function POST(request, { params }, { _openAIClientFactory = getOpenAIClient } = {}) {
+export async function POST(request, { params }, { _anthropicClientFactory = getAnthropicClient } = {}) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.NBA_EXECUTE });
   if (auth.error) return auth.error;
   const { ctx } = auth;
@@ -92,13 +92,19 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
 
   let brief;
   try {
-    const client = _openAIClientFactory();
-    const completion = await client.chat.completions.create({
+    const client = _anthropicClientFactory();
+    const messages = buildBriefMessages({ nba, view });
+    const system = messages.find((m) => m.role === "system")?.content ?? "";
+    const user = messages.find((m) => m.role === "user")?.content ?? "";
+    const completion = await client.messages.create({
       model: BRIEF_MODEL,
+      max_tokens: 2048,
       temperature: 0.4,
-      messages: buildBriefMessages({ nba, view }),
+      system,
+      messages: [{ role: "user", content: user }],
     });
-    brief = completion?.choices?.[0]?.message?.content?.trim() || null;
+    brief =
+      completion.content?.find((b) => b.type === "text")?.text?.trim() || null;
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: "brief_failed", reason: err?.message ?? "llm_error" },

@@ -1,14 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { runJsonPrompt, parseJsonLoose } from "./runner.js";
 
-function fakeLlm(content, usage = { total_tokens: 123, prompt_tokens: 100, completion_tokens: 23 }) {
+function fakeLlm(content, usage = { input_tokens: 100, output_tokens: 23 }) {
   return {
-    chat: {
-      completions: {
-        create: async (req) => {
-          fakeLlm.lastReq = req;
-          return { choices: [{ message: { content } }], usage };
-        },
+    messages: {
+      create: async (req) => {
+        fakeLlm.lastReq = req;
+        return {
+          content: [{ type: "text", text: content }],
+          usage,
+        };
       },
     },
   };
@@ -37,24 +38,26 @@ describe("runJsonPrompt", () => {
     const llm = fakeLlm('```json\n{"account_score":"77"}\n```');
     const { data, tokensUsed } = await runJsonPrompt({
       llm,
-      model: "gpt-4o-mini",
+      model: "claude-haiku-4-5",
       system: "sys",
       user: "usr",
     });
     expect(data).toEqual({ account_score: "77" });
-    expect(tokensUsed).toEqual({ total_tokens: 123, prompt_tokens: 100, completion_tokens: 23 });
+    expect(tokensUsed).toEqual({
+      prompt_tokens: 100,
+      completion_tokens: 23,
+      total_tokens: 123,
+    });
   });
 
-  it("sends system+user messages, json response_format, and the model", async () => {
+  it("sends system+user messages, json instruction, and the model", async () => {
     const llm = fakeLlm('{"ok":true}');
     await runJsonPrompt({ llm, model: "m1", system: "S", user: "U" });
     const req = fakeLlm.lastReq;
     expect(req.model).toBe("m1");
-    expect(req.response_format).toEqual({ type: "json_object" });
-    expect(req.messages).toEqual([
-      { role: "system", content: "S" },
-      { role: "user", content: "U" },
-    ]);
+    expect(req.system).toContain("S");
+    expect(req.system).toContain("valid JSON");
+    expect(req.messages).toEqual([{ role: "user", content: "U" }]);
   });
 
   it("returns data:null when the model emits non-JSON", async () => {

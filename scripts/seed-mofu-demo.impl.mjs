@@ -58,7 +58,7 @@ async function seedFromHubspot(tenant, token) {
   // 3. Optional LLM compute pass over open deals.
   const computed = [];
   const wantCompute =
-    process.env.SEED_COMPUTE === "1" && !!process.env.OPENAI_API_KEY?.trim();
+    process.env.SEED_COMPUTE === "1" && !!process.env.ANTHROPIC_API_KEY?.trim();
   if (wantCompute) {
     const openDeals = await prisma.deal.findMany({
       where: { tenantId: tenant.id, status: "OPEN" },
@@ -80,7 +80,7 @@ async function seedFromHubspot(tenant, token) {
     }
   } else {
     log(
-      "skipping compute (set SEED_COMPUTE=1 and OPENAI_API_KEY to populate insights)"
+      "skipping compute (set SEED_COMPUTE=1 and ANTHROPIC_API_KEY to populate insights)"
     );
   }
 

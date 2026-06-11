@@ -1,4 +1,5 @@
-import { getOpenAIClient } from "@/lib/openaiClient";
+import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
+import { parseJsonLoose } from "@/lib/assist/intelligence/runner";
 import { REPLY_INTENT_POINTS } from "@/lib/scoring/campaignContactScore";
 
 /** Cheap keyword pre-filter so obvious replies skip the LLM call. */
@@ -34,45 +35,29 @@ export async function classifyReplyIntent({ text, channel, campaign } = {}) {
   const keyword = keywordIntent(trimmed);
   if (keyword) return keyword;
 
-  let openai;
+  let client;
   try {
-    openai = getOpenAIClient();
+    client = getAnthropicClient();
   } catch {
     // No LLM available — fall back to a conservative neutral classification.
     return intentResult("neutral", "no_llm");
   }
 
-  const model = process.env.OPENAI_MODEL_SIMPLE?.trim() || "gpt-4o-mini";
+  const model = ANTHROPIC_MODEL_SIMPLE;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await client.messages.create({
       model,
+      max_tokens: 256,
       temperature: 0.1,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "reply_intent",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              intent: { type: "string", enum: ["positive", "neutral", "negative"] },
-              reason: { type: "string" },
-            },
-            required: ["intent", "reason"],
-            additionalProperties: false,
-          },
-        },
-      },
-      messages: [
-        {
-          role: "system",
-          content: `You classify the intent of a B2B prospect reply for lead scoring.
+      system: `You classify the intent of a B2B prospect reply for lead scoring.
 positive = clear buying interest: wants a demo/call/meeting, asks for pricing, moves the deal forward, explicitly interested.
 negative = unsubscribe, "not interested", wrong person, hostile, asks to stop contact.
 neutral = out-of-office, polite brush-off, a question without commitment, generic "thanks", or anything ambiguous.
-Be strict: do not mark something positive unless there is genuine intent to engage.`,
-        },
+Be strict: do not mark something positive unless there is genuine intent to engage.
+
+Respond with valid JSON only shaped as {"intent":"positive"|"neutral"|"negative","reason":string}.`,
+      messages: [
         {
           role: "user",
           content: JSON.stringify({
@@ -84,7 +69,9 @@ Be strict: do not mark something positive unless there is genuine intent to enga
       ],
     });
 
-    const parsed = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    const raw =
+      completion.content?.find((b) => b.type === "text")?.text ?? "{}";
+    const parsed = parseJsonLoose(raw) ?? {};
     const intent =
       parsed.intent === "positive" ||
       parsed.intent === "negative" ||

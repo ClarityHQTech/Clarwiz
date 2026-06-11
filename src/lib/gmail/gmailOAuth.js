@@ -2,11 +2,9 @@
  * Google Gmail OAuth helpers (authorization URL, token exchange, refresh).
  */
 
-export const GMAIL_SCOPES = [
-  "openid",
-  "email",
-  "https://www.googleapis.com/auth/gmail.send",
-];
+export { GMAIL_SEND_SCOPE, GMAIL_SCOPES } from "./gmailScopes";
+import { GMAIL_SCOPES } from "./gmailScopes";
+import { getAppBaseUrl } from "@/lib/appUrl";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -14,10 +12,22 @@ const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
 const TOKEN_EXPIRY_MARGIN_MS = 120 * 1000;
 
+function googleClientId() {
+  return process.env.GOOGLE_CLIENT_ID?.trim() ?? "";
+}
+
+function googleClientSecret() {
+  return process.env.GOOGLE_CLIENT_SECRET?.trim() ?? "";
+}
+
+export function gmailOAuthRedirectUri() {
+  return `${getAppBaseUrl()}/api/assist/gmail/oauth/callback`;
+}
+
 export function buildGmailAuthorizeUrl(state) {
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const redirectUri = process.env.GMAIL_REDIRECT_URI;
-  if (!clientId || !redirectUri) {
+  const clientId = googleClientId();
+  const redirectUri = gmailOAuthRedirectUri();
+  if (!clientId || !googleClientSecret()) {
     throw new Error("Gmail OAuth is not configured");
   }
   const params = new URLSearchParams({
@@ -35,9 +45,9 @@ export function buildGmailAuthorizeUrl(state) {
 export function buildTokenExchangeBody({ code }) {
   return new URLSearchParams({
     grant_type: "authorization_code",
-    client_id: process.env.GMAIL_CLIENT_ID ?? "",
-    client_secret: process.env.GMAIL_CLIENT_SECRET ?? "",
-    redirect_uri: process.env.GMAIL_REDIRECT_URI ?? "",
+    client_id: googleClientId(),
+    client_secret: googleClientSecret(),
+    redirect_uri: gmailOAuthRedirectUri(),
     code: code ?? "",
   }).toString();
 }
@@ -45,8 +55,8 @@ export function buildTokenExchangeBody({ code }) {
 export function buildTokenRefreshBody({ refreshToken }) {
   return new URLSearchParams({
     grant_type: "refresh_token",
-    client_id: process.env.GMAIL_CLIENT_ID ?? "",
-    client_secret: process.env.GMAIL_CLIENT_SECRET ?? "",
+    client_id: googleClientId(),
+    client_secret: googleClientSecret(),
     refresh_token: refreshToken ?? "",
   }).toString();
 }

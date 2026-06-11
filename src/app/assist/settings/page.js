@@ -6,6 +6,7 @@ import { HiOutlineArrowLeft } from "react-icons/hi2";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AssistBadge from "@/components/assist/ui/AssistBadge";
+import GmailIntegrationSection from "@/components/settings/GmailIntegrationSection";
 import { ui } from "@/lib/brandUi";
 
 const EMPTY_FORM = {
@@ -57,7 +58,6 @@ function MofuSettingsPage() {
   const [savingDomains, setSavingDomains] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [gmail, setGmail] = useState({ connected: false });
-  const [gmailDisconnecting, setGmailDisconnecting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,40 +106,6 @@ function MofuSettingsPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("gmail");
-    if (!status) return;
-    if (status === "connected") {
-      toast.success("Gmail connected — NBA emails will send from your mailbox");
-      load();
-    } else if (status === "denied") toast.error("Gmail connection was denied");
-    else if (status === "badstate") toast.error("Gmail connection expired — try again");
-    else if (status === "error") toast.error("Gmail connection failed — try again");
-    window.history.replaceState({}, "", window.location.pathname);
-  }, [load]);
-
-  const connectGmail = () => {
-    window.location.href = "/api/assist/gmail/oauth/start";
-  };
-
-  const disconnectGmail = async () => {
-    setGmailDisconnecting(true);
-    try {
-      const res = await fetch("/api/assist/gmail", { method: "DELETE" });
-      if (!res.ok) {
-        toast.error("Could not disconnect Gmail");
-        return;
-      }
-      setGmail({ connected: false });
-      toast.success("Gmail disconnected");
-    } catch {
-      toast.error("Could not disconnect Gmail");
-    } finally {
-      setGmailDisconnecting(false);
-    }
-  };
 
   const onChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const onBrandChange = (key) => (e) => setBrand((b) => ({ ...b, [key]: e.target.value }));
@@ -293,41 +259,13 @@ function MofuSettingsPage() {
         </p>
       </div>
 
-      <SettingsSection
-        title="Gmail (recommended)"
-        description="Connect your Gmail to send NBA emails from your mailbox. The same message is always logged on the HubSpot deal timeline. Tenant admins and members with NBA or channel permissions can connect their own account."
-        action={
-          gmail.connected ? (
-            <AssistBadge variant="ok">Connected</AssistBadge>
-          ) : (
-            <AssistBadge variant="ghost">Not connected</AssistBadge>
-          )
-        }
-      >
-        {gmail.connected ? (
-          <div className="space-y-3">
-            <p className="text-sm text-brand-stone">
-              Sending as <span className="font-medium text-brand-ink">{gmail.email}</span>
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={ui.btnSecondarySurface} onClick={connectGmail}>
-                Reconnect Gmail
-              </button>
-              <button
-                type="button"
-                className={ui.btnGhost}
-                onClick={disconnectGmail}
-                disabled={gmailDisconnecting}
-              >
-                {gmailDisconnecting ? "Disconnecting…" : "Disconnect"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button type="button" className={ui.btnPrimary} onClick={connectGmail}>
-            Connect Gmail
-          </button>
-        )}
+      <SettingsSection title="Gmail (recommended)">
+        <GmailIntegrationSection
+          gmail={gmail}
+          loading={loading}
+          onRefresh={load}
+          returnTo="assist_settings"
+        />
       </SettingsSection>
 
       <SettingsSection

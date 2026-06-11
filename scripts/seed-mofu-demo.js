@@ -13,7 +13,7 @@
  *   2. If HUBSPOT_DEV_ACCESS_TOKEN is set: upsert the tenant's MofuIntegration
  *      (token encrypted at rest) and hydrate the real sandbox CRM graph via
  *      syncCrmGraph (deal "Northwind Traders", companies/contacts, MQL leads).
- *   3. If SEED_COMPUTE=1 AND OPENAI_API_KEY is set: run recomputeDeal over each
+ *   3. If SEED_COMPUTE=1 AND ANTHROPIC_API_KEY is set: run recomputeDeal over each
  *      synced OPEN deal to populate DealInsight / Signal / NbaRecommendation
  *      (each deal wrapped in try/catch so one bad LLM call can't sink the seed).
  *   4. If NO HubSpot token: build a small SYNTHETIC graph directly so the
@@ -27,7 +27,7 @@ const { spawnSync } = require("node:child_process");
 const repoRoot = path.resolve(__dirname, "..");
 
 // Load .env the same way the rest of the repo does (DATABASE_URL, SECRET,
-// HUBSPOT_*, OPENAI_API_KEY, ...). dotenv is a dependency of this repo.
+// HUBSPOT_*, ANTHROPIC_API_KEY, ...). dotenv is a dependency of this repo.
 try {
   require(path.join(repoRoot, "node_modules", "dotenv")).config({
     path: path.join(repoRoot, ".env"),

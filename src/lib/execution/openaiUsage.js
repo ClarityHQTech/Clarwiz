@@ -1,12 +1,11 @@
-/** USD per 1M tokens — update when OpenAI pricing changes */
+/** USD per 1M tokens — update when Anthropic pricing changes */
 const MODEL_PRICING_PER_1M = {
-  "gpt-4o-mini": { input: 0.15, output: 0.6 },
-  "gpt-4o": { input: 2.5, output: 10.0 },
-  "gpt-4o-2024-08-06": { input: 2.5, output: 10.0 },
-  "gpt-4o-mini-2024-07-18": { input: 0.15, output: 0.6 },
+  "claude-haiku-4-5": { input: 1.0, output: 5.0 },
+  "claude-sonnet-4-5": { input: 3.0, output: 15.0 },
+  "claude-opus-4-8": { input: 15.0, output: 75.0 },
 };
 
-const DEFAULT_PRICING = { input: 2.5, output: 10.0 };
+const DEFAULT_PRICING = { input: 3.0, output: 15.0 };
 
 function roundUsd(value) {
   return Math.round(value * 1e6) / 1e6;
@@ -15,13 +14,25 @@ function roundUsd(value) {
 export function getModelPricing(model) {
   if (!model) return DEFAULT_PRICING;
   if (MODEL_PRICING_PER_1M[model]) return MODEL_PRICING_PER_1M[model];
-  if (model.includes("mini")) return MODEL_PRICING_PER_1M["gpt-4o-mini"];
-  if (model.startsWith("gpt-4o")) return MODEL_PRICING_PER_1M["gpt-4o"];
+  if (model.includes("haiku")) return MODEL_PRICING_PER_1M["claude-haiku-4-5"];
+  if (model.includes("opus")) return MODEL_PRICING_PER_1M["claude-opus-4-8"];
+  if (model.includes("sonnet") || model.startsWith("claude-")) {
+    return MODEL_PRICING_PER_1M["claude-sonnet-4-5"];
+  }
   return DEFAULT_PRICING;
 }
 
 export function extractProviderUsage(completion) {
   const usage = completion?.usage ?? {};
+  if (usage.input_tokens != null || usage.output_tokens != null) {
+    const input = usage.input_tokens ?? 0;
+    const output = usage.output_tokens ?? 0;
+    return {
+      prompt_tokens: input,
+      completion_tokens: output,
+      total_tokens: input + output,
+    };
+  }
   return {
     prompt_tokens: usage.prompt_tokens ?? 0,
     completion_tokens: usage.completion_tokens ?? 0,

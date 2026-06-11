@@ -11,7 +11,7 @@
  * separate "deal" prompt in the AURA spec.
  */
 import { getMofuIntegration } from "@/lib/assist/mofuIntegration";
-import { getOpenAIClient } from "@/lib/openaiClient";
+import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { logAssistAction } from "@/lib/assist/logAction";
 import { assembleDealContext, assembleCompanyContext } from "@/lib/assist/context/assembleContext.js";
 import { fillTemplate, SIGNAL_SYSTEM, SIGNAL_USER, NBA_SYSTEM, NBA_USER, COMPANY_SYSTEM, COMPANY_USER } from "@/lib/assist/prompts/index.js";
@@ -116,7 +116,7 @@ export async function resolveModel(prisma, tenantId) {
   } catch {
     mofu = null;
   }
-  return mofu?.insightModel || process.env.OPENAI_MODEL_SIMPLE || "gpt-4o-mini";
+  return mofu?.insightModel || ANTHROPIC_MODEL_SIMPLE;
 }
 
 function arr(v) {
@@ -132,7 +132,7 @@ function arr(v) {
  * DealInsight; denormalize deal.score. Returns the created DealInsight (or null).
  */
 export async function recomputeDealInsight(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
-  const client = llm ?? getOpenAIClient();
+  const client = llm ?? getAnthropicClient();
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return null;
@@ -161,7 +161,7 @@ export async function recomputeDealInsight(prisma, tenantId, dealId, { llm, toke
  * Skips entirely when there are no engagements. Returns the created Signals.
  */
 export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
-  const client = llm ?? getOpenAIClient();
+  const client = llm ?? getAnthropicClient();
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return [];
@@ -192,7 +192,7 @@ export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, f
  * rows (the spec produces exactly 2). Returns the created NBAs.
  */
 export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
-  const client = llm ?? getOpenAIClient();
+  const client = llm ?? getAnthropicClient();
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return [];
@@ -275,7 +275,7 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetc
  * CompanyInsight row. Logs INSIGHT_COMPUTED. Returns the CompanyInsight (or null).
  */
 export async function recomputeCompany(prisma, tenantId, accountId, { llm, token, fetchImpl } = {}) {
-  const client = llm ?? getOpenAIClient();
+  const client = llm ?? getAnthropicClient();
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleCompanyContext(prisma, tenantId, accountId, { token, fetchImpl });
   if (!vars) return null;

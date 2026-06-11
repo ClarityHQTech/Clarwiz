@@ -1,10 +1,13 @@
-const MODEL_SIMPLE =
-  process.env.OPENAI_MODEL_SIMPLE || "gpt-4o-mini";
-const MODEL_COMPLEX =
-  process.env.OPENAI_MODEL_COMPLEX || "gpt-4o";
+import {
+  ANTHROPIC_MODEL_SIMPLE,
+  ANTHROPIC_MODEL_COMPLEX,
+} from "@/lib/anthropicClient";
+
+const MODEL_SIMPLE = ANTHROPIC_MODEL_SIMPLE;
+const MODEL_COMPLEX = ANTHROPIC_MODEL_COMPLEX;
 
 /**
- * Pick OpenAI model based on prospect execution context complexity.
+ * Pick Claude model based on prospect execution context complexity.
  */
 export function selectModel({ commHistory, hasRecentReply, signalCount = 0 }) {
   const logCount = commHistory.length;

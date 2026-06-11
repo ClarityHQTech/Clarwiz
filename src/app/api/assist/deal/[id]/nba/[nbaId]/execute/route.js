@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { getOpenAIClient } from "@/lib/openaiClient";
+import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
+import { runJsonPrompt } from "@/lib/assist/intelligence/runner";
 import { logAssistAction } from "@/lib/assist/logAction";
 import {
   assembleCollateralVars,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/assist/collateralGen";
 import { rankCollateral } from "@/lib/assist/collateralRank";
 
-const DRAFT_MODEL = process.env.NBA_DRAFT_MODEL || "gpt-4o-mini";
+const DRAFT_MODEL = process.env.NBA_DRAFT_MODEL?.trim() || ANTHROPIC_MODEL_SIMPLE;
 
 /**
  * Keyword → CollateralType map. An NBA only "needs a document" when its asset /
@@ -191,9 +192,9 @@ function parseDraft(rawText) {
  * POST — execute an NBA: draft an email (HTML) from the NBA's email_detail,
  * persist it on draftPayload, mark the NBA EXECUTED, and log the action.
  *
- * `_openAIClientFactory` is injectable for tests; defaults to the shared client.
+ * `_anthropicClientFactory` is injectable for tests; defaults to the shared client.
  */
-export async function POST(request, { params }, { _openAIClientFactory = getOpenAIClient } = {}) {
+export async function POST(request, { params }, { _anthropicClientFactory = getAnthropicClient } = {}) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.NBA_EXECUTE });
   if (auth.error) return auth.error;
   const { ctx } = auth;
@@ -228,14 +229,24 @@ export async function POST(request, { params }, { _openAIClientFactory = getOpen
   // Draft via LLM, isolated so a provider failure never 500s the route.
   let draft;
   try {
-    const client = _openAIClientFactory();
-    const completion = await client.chat.completions.create({
+    const client = _anthropicClientFactory();
+    const messages = buildDraftMessages(nba, { postMeeting });
+    const system = messages.find((m) => m.role === "system")?.content ?? "";
+    const user = messages.find((m) => m.role === "user")?.content ?? "";
+    const { data } = await runJsonPrompt({
+      llm: client,
       model: DRAFT_MODEL,
+      system,
+      user,
       temperature: 0.5,
-      response_format: { type: "json_object" },
-      messages: buildDraftMessages(nba, { postMeeting }),
     });
-    draft = parseDraft(completion?.choices?.[0]?.message?.content);
+    draft = data
+      ? {
+          subject: typeof data.subject === "string" ? data.subject : null,
+          emailHtml: typeof data.emailHtml === "string" ? data.emailHtml : null,
+        }
+      : null;
+    if (draft && (!draft.subject || !draft.emailHtml)) draft = parseDraft(JSON.stringify(data));
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: "draft_failed", reason: err?.message ?? "llm_error" },
