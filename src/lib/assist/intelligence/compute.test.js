@@ -7,9 +7,12 @@ import {
   buildNbaData,
   buildDealInsightData,
   bootstrapSignalsFromTofuCampaign,
+  bootstrapSignalsFromEngagements,
+  shrinkPromptVars,
   recomputeDeal,
   recomputeCompany,
 } from "./compute.js";
+import { extractSignalsPayload } from "./runner.js";
 import { PROMPT_VERSION } from "@/lib/assist/prompts/ontology.js";
 
 // ---------------------------------------------------------------------------
@@ -46,6 +49,35 @@ describe("deriveActionType", () => {
     expect(deriveActionType({ action_verb: "Sales::Escalate" })).toBe("create_task");
     expect(deriveActionType({ core_action: "Clarify technical integration" })).toBe("clarify_technical");
     expect(deriveActionType({ action_title: "Email the buyer" })).toBe("draft_email");
+  });
+});
+
+describe("bootstrapSignalsFromEngagements", () => {
+  it("detects replies and demo CTAs", () => {
+    const signals = bootstrapSignalsFromEngagements([
+      { responseContent: "Yes, let's talk", channel: "email" },
+      { message: "Book a demo?", ctaType: "book_demo" },
+    ]);
+    expect(signals.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("shrinkPromptVars", () => {
+  it("caps engagement and campaign log size", () => {
+    const long = "x".repeat(5000);
+    const out = shrinkPromptVars({
+      engagements: [{ message: long }],
+      campaignContext: [{ commLogs: [{ message: long }] }],
+    });
+    expect(out.engagements[0].message.length).toBeLessThan(5000);
+    expect(out.campaignContext[0].commLogs[0].message.length).toBeLessThan(5000);
+  });
+});
+
+describe("extractSignalsPayload", () => {
+  it("salvages signals from truncated fenced JSON", () => {
+    const raw = '```json\n{"signals":[{"signal_type":"Intent::Demo","signal_score":"80"}]';
+    expect(extractSignalsPayload(null, raw)).toHaveLength(1);
   });
 });
 
@@ -245,12 +277,13 @@ describe("recomputeDeal (fake llm + fake prisma)", () => {
 
   it("isolates a failing step (bad company JSON) without losing signals/nbas", async () => {
     const prisma = makeFakePrisma();
-    const llm = queuedLlm([SIGNAL_REPLY, NBA_REPLY, "not json"]);
+    const llm = queuedLlm([SIGNAL_REPLY, NBA_REPLY, "not json", "not json"]);
     const summary = await recomputeDeal(prisma, "t1", "d1", { llm });
     expect(summary.signals).toBe(2);
     expect(summary.nbas).toBe(2);
-    expect(summary.insight).toBe(false);
-    expect(prisma.store.dealInsights.length).toBe(0);
+    expect(summary.insight).toBe(true);
+    expect(prisma.store.dealInsights.length).toBe(1);
+    expect(prisma.store.dealInsights[0].payload).toMatchObject({ source: "bootstrap" });
   });
 });
 

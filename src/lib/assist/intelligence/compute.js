@@ -14,9 +14,46 @@ import { getMofuIntegration } from "@/lib/assist/mofuIntegration";
 import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { logAssistAction } from "@/lib/assist/logAction";
 import { assembleDealContext, assembleCompanyContext } from "@/lib/assist/context/assembleContext.js";
-import { fillTemplate, SIGNAL_SYSTEM, SIGNAL_USER, NBA_SYSTEM, NBA_USER, COMPANY_SYSTEM, COMPANY_USER } from "@/lib/assist/prompts/index.js";
+import {
+  fillTemplate,
+  SIGNAL_SYSTEM,
+  SIGNAL_USER,
+  SIGNAL_SYSTEM_SLIM,
+  SIGNAL_USER_SLIM,
+  NBA_SYSTEM,
+  NBA_USER,
+  COMPANY_SYSTEM,
+  COMPANY_USER,
+  COMPANY_SYSTEM_SLIM,
+  COMPANY_USER_SLIM,
+} from "@/lib/assist/prompts/index.js";
 import { ONTOLOGY, PROMPT_VERSION } from "@/lib/assist/prompts/ontology.js";
-import { runJsonPrompt } from "./runner.js";
+import {
+  runJsonPrompt,
+  extractSignalsPayload,
+  extractNbaPayload,
+  salvageAuraJson,
+} from "./runner.js";
+
+const ONTOLOGY_SLIM =
+  ONTOLOGY.length > 5000 ? `${ONTOLOGY.slice(0, 5000)}\n...[ontology truncated]` : ONTOLOGY;
+
+const DEFAULT_NBA_FALLBACKS = [
+  {
+    action_title: "Follow up on qualified outreach lead",
+    core_action: "Draft a personalized follow-up email referencing the TOFU campaign conversation",
+    action_verb: "Sales::Follow_Up",
+    action_score: "85",
+    justification: "Contact engaged in Clarwiz outreach; continue the conversation toward a meeting.",
+  },
+  {
+    action_title: "Schedule discovery call",
+    core_action: "Invite the champion to book a discovery meeting",
+    action_verb: "Sales::Schedule_Meeting",
+    action_score: "80",
+    justification: "Active engagement — move to live conversation.",
+  },
+];
 
 // ---------------------------------------------------------------------------
 // pure normalization helpers (unit-tested)
@@ -85,6 +122,167 @@ export function bootstrapSignalsFromTofuCampaign(campaignContexts = []) {
     }
   }
   return signals;
+}
+
+/** Heuristic signals from raw engagement rows when the LLM returns nothing. */
+export function bootstrapSignalsFromEngagements(engagements = []) {
+  const signals = [];
+  for (const e of engagements) {
+    if (e?.responseContent?.trim()) {
+      signals.push({
+        signal_type: "Behavior::Positive_Reply",
+        signal_score: "78",
+        confidence: "75",
+        context: "Prospect replied during outreach.",
+        supporting_quote_customer: String(e.responseContent).trim().slice(0, 500),
+        raised_by: e.channel ? `${e.channel} reply` : "Prospect",
+      });
+    }
+  }
+  const outbound = engagements.find((e) => e?.message?.trim() && e?.ctaType === "book_demo");
+  if (outbound) {
+    signals.push({
+      signal_type: "Intent::Demo_Request",
+      signal_score: "72",
+      confidence: "70",
+      context: "Outreach included a demo booking CTA.",
+      supporting_quote_ae: String(outbound.message).trim().slice(0, 500),
+    });
+  }
+  return signals.slice(0, 5);
+}
+
+/** Shrink prompt inputs so large deals stay within model context without losing recent history. */
+export function shrinkPromptVars(vars) {
+  if (!vars) return vars;
+  const trimText = (v, max = 1800) =>
+    typeof v === "string" && v.length > max ? `${v.slice(0, max)}…` : v;
+
+  return {
+    ...vars,
+    ontology: ONTOLOGY_SLIM,
+    engagements: arr(vars.engagements)
+      .slice(0, 18)
+      .map((e) => ({
+        ...e,
+        message: trimText(e.message),
+        text: trimText(e.text),
+        content: trimText(e.content),
+        responseContent: trimText(e.responseContent),
+      })),
+    campaignContext: arr(vars.campaignContext).map((cc) => ({
+      ...cc,
+      commLogs: arr(cc.commLogs)
+        .slice(-12)
+        .map((l) => ({
+          ...l,
+          message: trimText(l.message, 1200),
+          responseContent: trimText(l.responseContent, 1200),
+        })),
+    })),
+  };
+}
+
+function collectBootstrapSignals(vars) {
+  const seen = new Set();
+  const out = [];
+  for (const sig of [
+    ...bootstrapSignalsFromTofuCampaign(vars.campaignContext),
+    ...bootstrapSignalsFromEngagements(vars.engagements),
+  ]) {
+    const key = `${sig.signal_type}:${sig.context}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(sig);
+  }
+  return out;
+}
+
+async function persistSignals(prisma, tenantId, dealId, accountId, signals) {
+  const created = [];
+  for (const sig of signals) {
+    try {
+      const row = await prisma.signal.create({
+        data: buildSignalData(tenantId, dealId, accountId, sig),
+      });
+      created.push(row);
+    } catch (err) {
+      console.warn(`[MOFU] signal persist skipped deal=${dealId}: ${err.message}`);
+    }
+  }
+  return created;
+}
+
+async function extractSignalsWithLlm(client, model, vars) {
+  const promptVars = shrinkPromptVars(vars);
+
+  const slim = await runJsonPrompt({
+    llm: client,
+    model,
+    system: SIGNAL_SYSTEM_SLIM,
+    user: fillTemplate(SIGNAL_USER_SLIM, { ...promptVars, ontology: ONTOLOGY_SLIM }),
+  });
+  let signals = extractSignalsPayload(slim.data, slim.raw);
+  if (signals.length) return signals;
+
+  const full = await runJsonPrompt({
+    llm: client,
+    model,
+    system: SIGNAL_SYSTEM,
+    user: fillTemplate(SIGNAL_USER, { ...promptVars, ontology: ONTOLOGY }),
+  });
+  signals = extractSignalsPayload(full.data, full.raw);
+  if (signals.length) return signals;
+
+  if (full.truncated || slim.truncated) {
+    const salvaged = salvageAuraJson(full.raw || slim.raw || "");
+    if (Array.isArray(salvaged?.signals) && salvaged.signals.length) {
+      return salvaged.signals;
+    }
+  }
+  return [];
+}
+
+async function extractInsightWithLlm(client, model, vars) {
+  const promptVars = shrinkPromptVars(vars);
+
+  const slim = await runJsonPrompt({
+    llm: client,
+    model,
+    system: COMPANY_SYSTEM_SLIM,
+    user: fillTemplate(COMPANY_USER_SLIM, { ...promptVars, ontology: ONTOLOGY_SLIM }),
+  });
+  if (slim.data?.your_coach_speaks || slim.data?.brief_summary || slim.data?.account_score) {
+    return { data: slim.data, tokensUsed: slim.tokensUsed };
+  }
+
+  const full = await runJsonPrompt({
+    llm: client,
+    model,
+    system: COMPANY_SYSTEM,
+    user: fillTemplate(COMPANY_USER, { ...promptVars, ontology: ONTOLOGY }),
+  });
+  if (full.data) return { data: full.data, tokensUsed: full.tokensUsed };
+
+  const salvaged = salvageAuraJson(full.raw || slim.raw || "");
+  if (salvaged?.your_coach_speaks || salvaged?.brief_summary || salvaged?.account_score) {
+    return { data: salvaged, tokensUsed: full.tokensUsed ?? slim.tokensUsed };
+  }
+  return { data: null, tokensUsed: full.tokensUsed ?? slim.tokensUsed };
+}
+
+function buildMinimalDealInsightData(tenantId, dealId, vars) {
+  const name = vars?.dealData?.name || vars?.companyData?.name || "this deal";
+  return {
+    tenantId,
+    dealId,
+    score: 55,
+    briefing:
+      "Engagement data is limited. Review recent outreach, confirm stakeholders, and schedule a discovery call to advance the deal.",
+    summary: `${name} — run a follow-up while momentum from outreach is still warm.`,
+    payload: { source: "bootstrap", dealName: name },
+    promptVersion: PROMPT_VERSION,
+  };
 }
 
 /** User-facing summary for a deal recompute result. */
@@ -189,12 +387,16 @@ export async function recomputeDealInsight(prisma, tenantId, dealId, { llm, toke
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return null;
 
-  const user = fillTemplate(COMPANY_USER, { ...vars, ontology: ONTOLOGY });
-  const { data, tokensUsed } = await runJsonPrompt({ llm: client, model, system: COMPANY_SYSTEM, user });
-  if (!data) return null;
+  let { data, tokensUsed } = await extractInsightWithLlm(client, model, vars);
+  let rowData;
+  if (!data) {
+    rowData = buildMinimalDealInsightData(tenantId, dealId, vars);
+  } else {
+    rowData = buildDealInsightData(tenantId, dealId, data, { model, tokensUsed });
+  }
 
   const insight = await prisma.dealInsight.create({
-    data: buildDealInsightData(tenantId, dealId, data, { model, tokensUsed }),
+    data: rowData,
   });
 
   const score = toInt(data?.account_score);
@@ -217,29 +419,26 @@ export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, f
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return [];
-  if (!arr(vars.engagements).length) return [];
 
-  const user = fillTemplate(SIGNAL_USER, { ...vars, ontology: ONTOLOGY });
-  const { data } = await runJsonPrompt({ llm: client, model, system: SIGNAL_SYSTEM, user });
-  let signals = arr(data?.signals);
-  if (!signals.length) {
-    signals = bootstrapSignalsFromTofuCampaign(vars.campaignContext);
+  const bootstrap = collectBootstrapSignals(vars);
+  let signals = [];
+
+  if (arr(vars.engagements).length) {
+    signals = await extractSignalsWithLlm(client, model, vars);
   }
-  if (!signals.length) return [];
 
-  const accountId = vars._accountId ?? null;
-  const created = [];
-  for (const sig of signals) {
-    try {
-      const row = await prisma.signal.create({
-        data: buildSignalData(tenantId, dealId, accountId, sig),
-      });
-      created.push(row);
-    } catch {
-      /* skip a malformed signal, keep the rest */
+  if (!signals.length) signals = bootstrap;
+  else if (bootstrap.length) {
+    const seen = new Set(signals.map((s) => `${s.signal_type}:${s.context}`));
+    for (const sig of bootstrap) {
+      const key = `${sig.signal_type}:${sig.context}`;
+      if (!seen.has(key)) signals.push(sig);
     }
   }
-  return created;
+
+  if (!signals.length) return [];
+
+  return persistSignals(prisma, tenantId, dealId, vars._accountId ?? null, signals);
 }
 
 /**
@@ -252,36 +451,29 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetc
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return [];
 
-  let topSignals = arr(vars.signals)
-    .slice()
-    .sort((a, b) => (b?.score ?? 0) - (a?.score ?? 0))
-    .slice(0, 3);
+  const storedSignals = await prisma.signal.findMany({
+    where: { tenantId, dealId },
+    orderBy: { score: "desc" },
+    take: 5,
+  });
+
+  let topSignals = storedSignals.length
+    ? storedSignals.map((s) => ({ ...s.payload, signal_score: s.score, signal_type: s.type }))
+    : arr(vars.signals)
+        .slice()
+        .sort((a, b) => (b?.score ?? 0) - (a?.score ?? 0))
+        .slice(0, 3);
 
   if (!topSignals.length) {
-    const boot = bootstrapSignalsFromTofuCampaign(vars.campaignContext);
-    topSignals = boot.slice(0, 3);
+    topSignals = collectBootstrapSignals(vars).slice(0, 3);
   }
 
-  const user = fillTemplate(NBA_USER, { ...vars, signals: topSignals, ontology: ONTOLOGY });
-  const { data } = await runJsonPrompt({ llm: client, model, system: NBA_SYSTEM, user });
-  let actions = arr(data?.nba_action);
+  const promptVars = shrinkPromptVars(vars);
+  const user = fillTemplate(NBA_USER, { ...promptVars, signals: topSignals, ontology: ONTOLOGY_SLIM });
+  const nbaRes = await runJsonPrompt({ llm: client, model, system: NBA_SYSTEM, user });
+  let actions = extractNbaPayload(nbaRes.data, nbaRes.raw);
   if (!actions.length && topSignals.length) {
-    actions = [
-      {
-        action_title: "Follow up on qualified outreach lead",
-        core_action: "Draft a personalized follow-up email referencing the TOFU campaign conversation",
-        action_verb: "Sales::Follow_Up",
-        action_score: "85",
-        justification: "Contact qualified in Clarwiz outreach; continue the conversation toward a meeting.",
-      },
-      {
-        action_title: "Schedule discovery call",
-        core_action: "Invite the champion to book a discovery meeting",
-        action_verb: "Sales::Schedule_Meeting",
-        action_score: "80",
-        justification: "Qualified lead with prior engagement — move to live conversation.",
-      },
-    ];
+    actions = DEFAULT_NBA_FALLBACKS;
   }
   if (!actions.length) return [];
 

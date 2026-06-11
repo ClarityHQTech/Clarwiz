@@ -3,11 +3,15 @@
  * Kept LLM-agnostic so compute.js can be unit-tested with a fake `llm`.
  */
 
-/** Default output budget for AURA JSON prompts (signals/NBA/insight are large). */
-export const INTELLIGENCE_MAX_TOKENS = (() => {
-  const n = Number(process.env.INTELLIGENCE_MAX_TOKENS);
-  return Number.isFinite(n) && n > 0 ? Math.min(n, 64000) : 16384;
-})();
+/** Model output budget — only overridden when callers pass max_tokens explicitly. */
+export function defaultMaxTokensForModel(model = "") {
+  const env = Number(process.env.INTELLIGENCE_MAX_TOKENS);
+  if (Number.isFinite(env) && env > 0) return Math.min(env, 64000);
+  const m = String(model).toLowerCase();
+  if (m.includes("opus")) return 32000;
+  if (m.includes("sonnet")) return 16384;
+  return 8192;
+}
 
 const AURA_SALVAGE_KEYS = [
   "signals",
@@ -157,11 +161,11 @@ export async function runJsonPrompt({
   system,
   user,
   temperature = 0.3,
-  max_tokens = INTELLIGENCE_MAX_TOKENS,
+  max_tokens,
 }) {
   const res = await llm.messages.create({
     model,
-    max_tokens,
+    max_tokens: max_tokens ?? defaultMaxTokensForModel(model),
     system: `${system}\n\nRespond with valid JSON only — no markdown fences or prose.`,
     messages: [{ role: "user", content: user }],
     temperature,
@@ -170,5 +174,24 @@ export async function runJsonPrompt({
   const content = extractTextContent(res);
   const data = parseJsonLoose(content);
   const tokensUsed = normalizeTokenUsage(res?.usage);
-  return { data, tokensUsed };
+  const truncated = res?.stop_reason === "max_tokens";
+  return { data, tokensUsed, truncated, raw: content };
+}
+
+/** Pull a signals array from parsed JSON or salvage truncated output. */
+export function extractSignalsPayload(data, raw) {
+  const fromData = Array.isArray(data?.signals) ? data.signals : [];
+  if (fromData.length) return fromData;
+  if (!raw) return [];
+  const salvaged = salvageAuraJson(raw.includes("{") ? raw.slice(raw.indexOf("{")) : raw);
+  return Array.isArray(salvaged?.signals) ? salvaged.signals : [];
+}
+
+/** Pull NBA actions from parsed JSON or salvage truncated output. */
+export function extractNbaPayload(data, raw) {
+  const fromData = Array.isArray(data?.nba_action) ? data.nba_action : [];
+  if (fromData.length) return fromData;
+  if (!raw) return [];
+  const salvaged = salvageAuraJson(raw.includes("{") ? raw.slice(raw.indexOf("{")) : raw);
+  return Array.isArray(salvaged?.nba_action) ? salvaged.nba_action : [];
 }

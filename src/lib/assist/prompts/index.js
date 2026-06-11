@@ -25,6 +25,30 @@ export function fillTemplate(template, vars = {}) {
 // SIGNAL
 // ---------------------------------------------------------------------------
 
+/** Compact signal extraction — small JSON output, avoids truncation on large deals. */
+export const SIGNAL_SYSTEM_SLIM = `You are a GTM signal extraction agent for B2B deals.
+Extract 3-8 signals from the engagements. Use Category::Subtype from the ontology.
+Return ONLY valid JSON: {"signals":[...]} — no core_entities, no upsell_analysis, no markdown.`;
+
+export const SIGNAL_USER_SLIM = `Extract GTM signals from the inputs below.
+
+Return ONLY this JSON (3-8 items in signals):
+{"signals":[{"signal_type":"Category::Subtype","signal_score":"0-100","confidence":"0-100","context":"why it matters","supporting_quote_customer":"quote or null","supporting_quote_ae":"quote or null","raised_by":"name","raised_by_role":"role"}]}
+
+ontology (use Category::Subtype tokens from here):
+{{ontology}}
+
+engagements:
+{{engagements}}
+
+company: {{companyData}}
+contacts: {{contactData}}
+campaignContext: {{campaignContext}}
+deal: {{dealData}}
+tenant: {{tenantData}}
+owner: {{ownerData}}
+icpContext: {{icpContext}}`;
+
 export const SIGNAL_SYSTEM = `You are a GTM Intelligence Agent analyzing B2B sales, onboarding, or implementation calls , emails or any type of engagement.
 Your job is to DETECT and DIAGNOSE all relevant Go-To-Market Signals from the transcript, using only the structured ontology provided. Your output must explain what was said, why it matters, and what to do next using structured entities: Persona, Account, Opportunity, Interaction, Product, ActionItem, Channel, Source.
 DETECT is for CORE entities.
@@ -364,6 +388,25 @@ Build JSON block for each NBA with: action, justification, execution plan, impac
 // ---------------------------------------------------------------------------
 // COMPANY (account briefing — also drives the deal-level insight)
 // ---------------------------------------------------------------------------
+
+/** Compact deal briefing — avoids huge JSON that truncates before useful fields. */
+export const COMPANY_SYSTEM_SLIM = `You are AURA, a GTM coach. Return ONLY valid JSON for a deal briefing — no markdown.`;
+
+export const COMPANY_USER_SLIM = `Produce a concise account/deal coaching briefing from the inputs.
+
+Return ONLY this JSON:
+{"account_level_briefing":"company name","account_score":"0-100","brief_summary":"2-3 sentences","your_coach_speaks":"coach narrative for the AE","aura_insight_detected":{"insight_label":"headline","insight_explanation":"detail","gtm_paths_you_can_pursue":[{"title":"path","score_impact":"+N","path_steps":["step"],"why_this_works":"rationale"}]}}
+
+previousInsights: {{previousInsights}}
+engagements: {{engagements}}
+company: {{companyData}}
+contacts: {{contactData}}
+campaignContext: {{campaignContext}}
+deal: {{dealData}}
+tenant: {{tenantData}}
+owner: {{ownerData}}
+icpContext: {{icpContext}}
+ontology: {{ontology}}`;
 
 export const COMPANY_SYSTEM = `AURA GTM Coach & Simulation Engine v1
 You are AURA, a GTM intelligence coach powered by Ontology and real CRM data.
