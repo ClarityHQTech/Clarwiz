@@ -123,6 +123,18 @@ async function linkBusinessUserCompanyByDomain(prisma, tenantId, businessUser, h
   }
 }
 
+function contactSyncFields(m) {
+  return {
+    hubspotContactId: m.hubspotContactId,
+    lifecycleStage: m.lifecycleStage,
+    ownerId: m.ownerId,
+  };
+}
+
+function isUniqueConstraintError(err) {
+  return err?.code === "P2002";
+}
+
 /** Upsert the tenant-scoped Contact (+ its global BusinessUser). Returns the Contact row. */
 export async function upsertContact(prisma, tenantId, hsContact, { internalDomains = [] } = {}) {
   const m = mapHsContact(hsContact);
@@ -133,11 +145,67 @@ export async function upsertContact(prisma, tenantId, hsContact, { internalDomai
   // ownerId (hubspot_owner_id) powers the dashboard's "My book" lead filter.
   // NOTE: existing Contact rows stay null until the tenant re-syncs after
   // (re)connecting with the crm.objects.owners.read scope — no backfill needed.
-  return prisma.contact.upsert({
+  const fields = contactSyncFields(m);
+
+  // HubSpot contact id is the stable CRM sync key. Upserting only on businessUserId
+  // fails when the same hubspotContactId is already linked to a different BusinessUser
+  // (email corrected in HubSpot, or TOFU + CRM rows diverged).
+  const byHs =
+    m.hubspotContactId &&
+    (await prisma.contact.findUnique({
+      where: { tenantId_hubspotContactId: { tenantId, hubspotContactId: m.hubspotContactId } },
+    }));
+  if (byHs) {
+    return prisma.contact.update({
+      where: { id: byHs.id },
+      data: fields,
+    });
+  }
+
+  const byBu = await prisma.contact.findUnique({
     where: { tenantId_businessUserId: { tenantId, businessUserId: businessUser.id } },
-    create: { tenantId, businessUserId: businessUser.id, hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage, ownerId: m.ownerId },
-    update: { hubspotContactId: m.hubspotContactId, lifecycleStage: m.lifecycleStage, ownerId: m.ownerId },
   });
+  if (byBu) {
+    try {
+      return await prisma.contact.update({
+        where: { id: byBu.id },
+        data: fields,
+      });
+    } catch (err) {
+      if (isUniqueConstraintError(err) && m.hubspotContactId) {
+        const hsOwner = await prisma.contact.findUnique({
+          where: { tenantId_hubspotContactId: { tenantId, hubspotContactId: m.hubspotContactId } },
+        });
+        if (hsOwner) {
+          return prisma.contact.update({ where: { id: hsOwner.id }, data: fields });
+        }
+      }
+      throw err;
+    }
+  }
+
+  try {
+    return await prisma.contact.create({
+      data: { tenantId, businessUserId: businessUser.id, ...fields },
+    });
+  } catch (err) {
+    if (!isUniqueConstraintError(err)) throw err;
+    if (m.hubspotContactId) {
+      const hsOwner = await prisma.contact.findUnique({
+        where: { tenantId_hubspotContactId: { tenantId, hubspotContactId: m.hubspotContactId } },
+      });
+      if (hsOwner) {
+        return prisma.contact.update({ where: { id: hsOwner.id }, data: fields });
+      }
+    }
+    const buOwner = await prisma.contact.findUnique({
+      where: { tenantId_businessUserId: { tenantId, businessUserId: businessUser.id } },
+    });
+    if (buOwner) {
+      return prisma.contact.update({ where: { id: buOwner.id }, data: fields });
+    }
+    throw err;
+  }
 }
 
 /** Upsert the tenant-scoped Deal. Returns the Deal row. */
