@@ -278,7 +278,7 @@ function WhatsAppComposer({ prospect, templates, communications, onSend, sending
     [prospect, communications]
   );
   const [sendMode, setSendMode] = useState(
-    windowState.windowOpen ? "freeform" : "template"
+    windowState.canSendFreeForm ? "freeform" : "template"
   );
   const [templateId, setTemplateId] = useState("");
   const [message, setMessage] = useState("");
@@ -291,12 +291,12 @@ function WhatsAppComposer({ prospect, templates, communications, onSend, sending
     );
   }
 
-  if (windowState.windowOpen) {
+  if (windowState.canSendFreeForm) {
     return (
       <div className="space-y-3 pt-3 border-t border-brand-secondary/25">
         <div className="rounded-md bg-brand-sage/15 border border-brand-sage/30 px-3 py-2">
           <p className="text-xs font-medium text-brand-ink">
-            24-hour window for free messages available
+            Contact replied on WhatsApp — free messages available for 24 hours
           </p>
           {windowState.expiresAt && (
             <p className="text-xs text-brand-stone mt-0.5">

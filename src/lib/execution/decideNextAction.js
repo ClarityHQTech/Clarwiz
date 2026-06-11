@@ -210,8 +210,9 @@ Rules (full spec: ${EXECUTION_RULES_DOC}):
 - Allowed campaign template channels: ${enabledChannels.join(", ")}.
 - LinkedIn: send connection request (cta connect_linkedin) before any DM; DMs only after the request is accepted (see history responseType connected).
 - LinkedIn connection note (connect_linkedin message): max ${LINKEDIN_CONNECTION_NOTE_MAX_CHARS} characters including spaces — LinkedIn rejects longer notes (Linkup CUSTOM_MESSAGE_TOO_LONG). Keep it short and punchy.
-- For whatsapp when customerServiceWindowOpen is true: you MAY set templateId to null and compose a free-form service message (recommended for replies and conversational follow-ups). You may also use a campaign template if appropriate.
-- For whatsapp when customerServiceWindowOpen is false: you MUST set templateId to one of the campaign whatsapp template ids from templates (channel=whatsapp). Never invent template ids. Free-form whatsapp messages are not allowed outside the customer service window. If no whatsapp templates exist, set skip=true with skipReason explaining missing templates.
+- For whatsapp cold/initial outreach (no prospect WhatsApp reply in communicationHistory): you MUST set templateId to one of the campaign whatsapp template ids from templates (channel=whatsapp). Never invent template ids. Free-form whatsapp text is not allowed until the prospect has replied on WhatsApp.
+- For whatsapp after a prospect WhatsApp reply (communicationHistory shows whatsapp inbound/reply): you MAY set templateId to null and write a free-form reply (recommended). You may also reuse a campaign template if appropriate.
+- If no whatsapp templates exist and the prospect has not replied on WhatsApp, set skip=true with skipReason explaining missing templates.
 - Email/LinkedIn template variables: ${TEMPLATE_VARIABLES}. Do not use {{pain_point}}.
 - Use templateId for email/LinkedIn only when every variable referenced in that template body (and email subject, if any) is populated on the prospect profile in the user payload. If any field is null or empty, set templateId to null and write fully custom copy in message (no unfilled {{tokens}}).
 - Do not repeat the same channel+stage combination already sent unless a reply warrants a follow-up.
@@ -302,13 +303,14 @@ ${bookingRules}
   }
 
   const whatsappTemplates = allowedTemplates.filter((t) => t.channel === "whatsapp");
+  const hasWhatsAppInbound = hasWhatsAppProspectReply(commHistory);
 
   let matchedTemplate = decision.templateId
     ? allowedTemplates.find((t) => t.id === decision.templateId)
     : null;
 
   if (decision.channel === "whatsapp") {
-    if (whatsappTemplates.length === 0 && !whatsappWindowOpen) {
+    if (whatsappTemplates.length === 0 && !hasWhatsAppInbound) {
       return {
         skip: true,
         skipReason: "No WhatsApp templates configured for this campaign",
@@ -329,7 +331,7 @@ ${bookingRules}
       matchedTemplate =
         whatsappTemplates.find((t) => t.id === decision.templateId) ?? null;
     }
-    if (!matchedTemplate && !replyFollowUp && !whatsappWindowOpen) {
+    if (!matchedTemplate && !hasWhatsAppInbound) {
       const byStage = whatsappTemplates.find(
         (t) => t.stage === (decision.stage ?? 1)
       );
@@ -337,8 +339,7 @@ ${bookingRules}
     }
     if (
       !matchedTemplate &&
-      !replyFollowUp &&
-      !whatsappWindowOpen &&
+      !hasWhatsAppInbound &&
       !decision.message?.trim()
     ) {
       matchedTemplate = whatsappTemplates[0] ?? null;
@@ -461,15 +462,6 @@ ${bookingRules}
 
   if (enforced.channel === "whatsapp") {
     if (hasWhatsAppProspectReply(commHistory) && enforced.message?.trim()) {
-      return {
-        ...enforced,
-        skip: false,
-        templateId: null,
-        whatsappSendMode: "freeform",
-      };
-    }
-
-    if (replyFollowUp && whatsappWindowOpen) {
       return {
         ...enforced,
         skip: false,

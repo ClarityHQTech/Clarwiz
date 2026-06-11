@@ -109,17 +109,20 @@ export function getWhatsAppSessionWindowState({
 export function getWhatsAppCopilotUiState(campaignContact, commHistory = []) {
   const expiresAt = resolveWhatsAppWindowExpiresAt(campaignContact, commHistory);
   const windowState = getWhatsAppSessionWindowState({ expiresAt });
+  const hasReply = hasWhatsAppProspectReply(commHistory);
 
   return {
     ...windowState,
+    hasProspectReply: hasReply,
     canSendTemplate: true,
-    canSendFreeForm: windowState.windowOpen,
+    // Free-form only after the prospect has messaged on WhatsApp (24h window).
+    canSendFreeForm: windowState.windowOpen && hasReply,
   };
 }
 
 /**
  * Choose template vs free-form WhatsApp push.
- * Inbound reply in comm history → always free-form (Meta type: "text").
+ * Cold outreach → template only. After inbound WhatsApp reply → free-form text.
  * @returns {"template"|"freeform"|"none"}
  */
 export function resolveWhatsAppSendMode({
@@ -130,20 +133,9 @@ export function resolveWhatsAppSendMode({
 }) {
   const hasMessage = Boolean(decision?.message?.trim());
   const hasReply = hasWhatsAppProspectReply(commHistory);
-
-  if (forceFreeform && hasMessage) {
-    return "freeform";
-  }
-
-  if (hasReply && hasMessage) {
-    return "freeform";
-  }
-
-  const windowExpiresAt = resolveWhatsAppWindowExpiresAt(prospect, commHistory);
-  const windowOpen = isWhatsAppSessionWindowOpen(windowExpiresAt);
   const hasTemplateId = Boolean(decision?.templateId);
 
-  if (windowOpen && hasMessage) {
+  if ((forceFreeform || hasReply) && hasMessage) {
     return "freeform";
   }
 

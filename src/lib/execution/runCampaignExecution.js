@@ -228,7 +228,7 @@ async function maybePushOutboundMessage({
     }
 
     const sendMode = resolveWhatsAppSendMode({
-      decision: { ...decision, templateId: null, whatsappSendMode: undefined },
+      decision,
       prospect,
       commHistory: historyForSend,
       forceFreeform: forceWhatsAppFreeform,
@@ -391,14 +391,13 @@ export async function executeAndPushForProspect({
 
   const whatsappSendMode =
     decision.channel === "whatsapp"
-      ? hasWhatsAppReply && decision.message?.trim()
-        ? "freeform"
-        : resolveWhatsAppSendMode({
-            decision: { ...decision, templateId: null },
-            prospect: flat,
-            commHistory: postDecisionHistory,
-            forceFreeform: forceWhatsAppFreeform,
-          })
+      ? decision.whatsappSendMode ??
+        resolveWhatsAppSendMode({
+          decision,
+          prospect: flat,
+          commHistory: postDecisionHistory,
+          forceFreeform: forceWhatsAppFreeform || hasWhatsAppReply,
+        })
       : null;
 
   const normalizedDecision =

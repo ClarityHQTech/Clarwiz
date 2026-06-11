@@ -133,12 +133,13 @@ When the prospect has **live signals** attached:
 
 ### WhatsApp
 
-- **Must** use an approved campaign template (`templateId` from campaign templates with `channel === whatsapp`).
+- **Cold / initial outreach** (no inbound WhatsApp from prospect): **template only** — approved campaign template (`templateId` from templates with `channel === whatsapp`). Never send free-form text on first touch.
+- **After prospect WhatsApp reply** (inbound in comm history): free-form text allowed within the 24-hour customer service window (`resolveWhatsAppSendMode` → `freeform`).
 - **Never** invent template IDs in LLM output.
-- If no WhatsApp templates on campaign → skip with reason.
+- If no WhatsApp templates on campaign and no prospect reply → skip with reason.
 - Variable mapping must match Meta/Interakt template slots (`whatsappVariableMapping`).
 - Push requires WhatsApp integration connected (Meta or Interakt).
-- Only **template** messages for outbound campaigns (not free-form session messages unless product changes).
+- An open 24h window alone (without a prospect reply) does **not** enable free-form sends.
 
 ### LinkedIn
 
@@ -299,3 +300,4 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 | 2026-06-08 | LinkedIn push: connect-first with `check_invitation` fallback to DM when already connected (autopilot + co-pilot) |
 | 2026-06-08 | LinkedIn credits: invite-first (1 credit cold); `check_invitation` only on failure or success without `invitation_urn`; reuse comm-log invitation state |
 | 2026-06-08 | Linkup webhooks: fix V2 event parsing (`message`), HMAC signature verification, `new_connections` payload, URN profile matching |
+| 2026-06-11 | WhatsApp: template-only for cold outreach; free-form only after prospect WhatsApp reply (not merely open 24h window) |
