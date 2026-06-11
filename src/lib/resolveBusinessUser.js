@@ -287,6 +287,96 @@ export async function resolveOrCreateContact(
   });
 }
 
+/** Update an existing business user from campaign contact edit fields. */
+export async function updateBusinessUserContact(
+  tx,
+  businessUserId,
+  {
+    company,
+    name,
+    firstName,
+    lastName,
+    jobTitle,
+    email,
+    phone,
+    whatsapp,
+    linkedinUrl,
+    twitterId,
+  }
+) {
+  const existing = await tx.businessUser.findUnique({
+    where: { id: businessUserId },
+    include: { company: true },
+  });
+  if (!existing) {
+    throw new Error("Contact not found");
+  }
+
+  const data = {};
+
+  if (name !== undefined) {
+    const trimmed = String(name ?? "").trim();
+    if (!trimmed) throw new Error("Name is required");
+    data.name = trimmed;
+  }
+  if (firstName !== undefined) {
+    data.firstName = firstName?.trim() || null;
+  }
+  if (lastName !== undefined) {
+    data.lastName = lastName?.trim() || null;
+  }
+  if (jobTitle !== undefined) {
+    data.jobTitle = jobTitle?.trim() || null;
+  }
+  if (phone !== undefined) {
+    data.phone = phone?.trim() || null;
+  }
+  if (whatsapp !== undefined) {
+    data.whatsapp = whatsapp?.trim() || null;
+  }
+  if (linkedinUrl !== undefined) {
+    data.linkedinUrl = linkedinUrl?.trim() || null;
+  }
+  if (twitterId !== undefined) {
+    data.twitterId = twitterId?.trim() || null;
+  }
+
+  if (email !== undefined) {
+    const normalizedEmail = normalizeEmail(email);
+    if (normalizedEmail) {
+      const conflict = await tx.businessUser.findFirst({
+        where: {
+          email: { equals: normalizedEmail, mode: "insensitive" },
+          id: { not: businessUserId },
+        },
+      });
+      if (conflict) {
+        throw new Error("Email already in use by another contact");
+      }
+    }
+    data.email = normalizedEmail || null;
+  }
+
+  if (company !== undefined || email !== undefined) {
+    const companyRow = await resolveOrCreateCompanyFromContact(tx, {
+      email: email !== undefined ? normalizeEmail(email) : existing.email,
+      companyName:
+        company !== undefined ? company : existing.company?.name ?? null,
+    });
+    data.companyId = companyRow?.id ?? null;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return existing;
+  }
+
+  return tx.businessUser.update({
+    where: { id: businessUserId },
+    data,
+    include: { company: true },
+  });
+}
+
 export async function enrollContactInCampaign(
   tx,
   { contactId, campaignId, outreachDeliveryTime = null, nextScheduledOutreachAt = null }

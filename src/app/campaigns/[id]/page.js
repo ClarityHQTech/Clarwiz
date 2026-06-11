@@ -181,6 +181,16 @@ const Page = () => {
   const [deleteProspectLoading, setDeleteProspectLoading] = useState(false);
   const [prospectDeliveryTime, setProspectDeliveryTime] = useState("");
   const [savingProspectTime, setSavingProspectTime] = useState(false);
+  const [prospectContactForm, setProspectContactForm] = useState({
+    name: "",
+    company: "",
+    jobTitle: "",
+    email: "",
+    phone: "",
+    whatsapp: "",
+    linkedinUrl: "",
+  });
+  const [savingProspectContact, setSavingProspectContact] = useState(false);
   const [syncCrmLoading, setSyncCrmLoading] = useState(false);
 
   const fetchCampaign = useCallback(async () => {
@@ -208,8 +218,47 @@ const Page = () => {
           campaign?.defaultOutreachTime ||
           "11:00"
       );
+      setProspectContactForm({
+        name: selectedProspect.name ?? "",
+        company: selectedProspect.company ?? "",
+        jobTitle: selectedProspect.jobTitle ?? "",
+        email: selectedProspect.email ?? "",
+        phone: selectedProspect.phone ?? "",
+        whatsapp: selectedProspect.whatsapp ?? "",
+        linkedinUrl: selectedProspect.linkedinUrl ?? "",
+      });
     }
   }, [selectedProspect, campaign?.defaultOutreachTime]);
+
+  const saveProspectContact = async () => {
+    if (!selectedProspect || !id) return;
+    if (!prospectContactForm.name.trim()) {
+      toast.error("Name is required.");
+      return;
+    }
+    setSavingProspectContact(true);
+    try {
+      const res = await fetch(
+        `/api/campaigns/${id}/contact-campaigns/${selectedProspect.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(prospectContactForm),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Save failed");
+      setCampaign(data);
+      const rows = data.contacts ?? data.prospects ?? [];
+      const updated = rows.find((p) => p.id === selectedProspect.id);
+      if (updated) setSelectedProspect(updated);
+      toast.success("Contact info saved");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingProspectContact(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -723,15 +772,10 @@ const Page = () => {
             ) : (
               <div className="space-y-5">
                 <div className={`${ui.cardSurface} p-4`}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-brand-ink truncate">
-                        {selectedProspect.company || "—"}
-                      </p>
-                      <p className="text-xs mt-1 text-brand-stone truncate">
-                        {selectedProspect.jobTitle || "—"}
-                      </p>
-                    </div>
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <p className={`${ui.label} normal-case tracking-normal`}>
+                      Contact info
+                    </p>
                     <div className="text-xs text-brand-stone text-right whitespace-nowrap">
                       <p className="font-medium text-brand-ink">{selectedProspect.messageCount} msgs</p>
                       <p className="mt-1">
@@ -756,43 +800,131 @@ const Page = () => {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-brand-stone">
-                    <p className="truncate">
-                      <span className="font-medium text-brand-ink">Email:</span>{" "}
-                      {selectedProspect.email ? (
-                        <a
-                          href={`mailto:${selectedProspect.email}`}
-                          className="text-brand-terracotta hover:underline"
-                        >
-                          {selectedProspect.email}
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </p>
-                    <p className="truncate">
-                      <span className="font-medium text-brand-ink">Phone:</span>{" "}
-                      {selectedProspect.phone || "—"}
-                    </p>
-                    <p className="truncate">
-                      <span className="font-medium text-brand-ink">WhatsApp:</span>{" "}
-                      {selectedProspect.whatsapp || "—"}
-                    </p>
-                    <p className="truncate">
-                      <span className="font-medium text-brand-ink">LinkedIn:</span>{" "}
-                      {selectedProspect.linkedinUrl ? (
-                        <a
-                          href={selectedProspect.linkedinUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-brand-terracotta hover:underline"
-                        >
-                          Profile
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        value={prospectContactForm.name}
+                        onChange={(e) =>
+                          setProspectContactForm((prev) => ({
+                            ...prev,
+                            name: e.target.value,
+                          }))
+                        }
+                        className={ui.inputSurface}
+                      />
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                          Company
+                        </label>
+                        <input
+                          type="text"
+                          value={prospectContactForm.company}
+                          onChange={(e) =>
+                            setProspectContactForm((prev) => ({
+                              ...prev,
+                              company: e.target.value,
+                            }))
+                          }
+                          className={ui.inputSurface}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                          Job title
+                        </label>
+                        <input
+                          type="text"
+                          value={prospectContactForm.jobTitle}
+                          onChange={(e) =>
+                            setProspectContactForm((prev) => ({
+                              ...prev,
+                              jobTitle: e.target.value,
+                            }))
+                          }
+                          className={ui.inputSurface}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          value={prospectContactForm.email}
+                          onChange={(e) =>
+                            setProspectContactForm((prev) => ({
+                              ...prev,
+                              email: e.target.value,
+                            }))
+                          }
+                          className={ui.inputSurface}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                          Phone
+                        </label>
+                        <input
+                          type="tel"
+                          value={prospectContactForm.phone}
+                          onChange={(e) =>
+                            setProspectContactForm((prev) => ({
+                              ...prev,
+                              phone: e.target.value,
+                            }))
+                          }
+                          className={ui.inputSurface}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                          WhatsApp
+                        </label>
+                        <input
+                          type="tel"
+                          value={prospectContactForm.whatsapp}
+                          onChange={(e) =>
+                            setProspectContactForm((prev) => ({
+                              ...prev,
+                              whatsapp: e.target.value,
+                            }))
+                          }
+                          className={ui.inputSurface}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
+                          LinkedIn URL
+                        </label>
+                        <input
+                          type="url"
+                          value={prospectContactForm.linkedinUrl}
+                          onChange={(e) =>
+                            setProspectContactForm((prev) => ({
+                              ...prev,
+                              linkedinUrl: e.target.value,
+                            }))
+                          }
+                          className={ui.inputSurface}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={savingProspectContact}
+                      onClick={saveProspectContact}
+                      className={`${ui.btnSecondarySurface} disabled:opacity-50`}
+                    >
+                      {savingProspectContact ? "Saving…" : "Save contact info"}
+                    </button>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-brand-sand/50">

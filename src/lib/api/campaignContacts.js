@@ -10,6 +10,7 @@ import {
   enrollContactInCampaign,
   flattenCampaignContact,
   resolveOrCreateContact,
+  updateBusinessUserContact,
 } from "@/lib/resolveBusinessUser";
 import { enqueueQualifiedCrmPush } from "@/lib/crm/pushQualifiedToHubspot";
 
@@ -95,6 +96,25 @@ export async function patchCampaignContact(
   }
 
   const data = {};
+  const contactFields = {};
+  const contactFieldKeys = [
+    "name",
+    "firstName",
+    "lastName",
+    "company",
+    "jobTitle",
+    "email",
+    "phone",
+    "whatsapp",
+    "linkedinUrl",
+    "twitterId",
+  ];
+  for (const key of contactFieldKeys) {
+    if (body[key] !== undefined) {
+      contactFields[key] = body[key];
+    }
+  }
+
   if (body.outreachDeliveryTime !== undefined) {
     const t = body.outreachDeliveryTime?.trim() || null;
     if (t && !/^\d{1,2}:\d{2}$/.test(t)) {
@@ -128,26 +148,43 @@ export async function patchCampaignContact(
     }
   }
 
-  if (Object.keys(data).length === 0) {
+  if (Object.keys(data).length === 0 && Object.keys(contactFields).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
-  const flat = flattenCampaignContact(campaignContact);
-  data.nextScheduledOutreachAt = computeNextOutreachAt({
-    campaign,
-    campaignContact: { ...flat, ...data },
-  });
+  const businessUserId = campaignContact.contact?.businessUser?.id;
+  if (Object.keys(contactFields).length > 0) {
+    if (!businessUserId) {
+      return NextResponse.json({ error: "Contact record not found" }, { status: 404 });
+    }
+    try {
+      await prisma.$transaction(async (tx) => {
+        await updateBusinessUserContact(tx, businessUserId, contactFields);
+      });
+    } catch (err) {
+      const message = err?.message ?? "Failed to update contact";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
 
   const becameQualified =
     data.status === "QUALIFIED" && campaignContact.status !== "QUALIFIED";
 
-  await prisma.campaignContact.update({
-    where: { id: campaignContactId },
-    data,
-  });
+  if (Object.keys(data).length > 0) {
+    const flat = flattenCampaignContact(campaignContact);
+    data.nextScheduledOutreachAt = computeNextOutreachAt({
+      campaign,
+      campaignContact: { ...flat, ...data },
+    });
 
-  if (becameQualified) {
-    enqueueQualifiedCrmPush(prisma, campaignContactId);
+    await prisma.campaignContact.update({
+      where: { id: campaignContactId },
+      data,
+    });
+
+    if (becameQualified) {
+      enqueueQualifiedCrmPush(prisma, campaignContactId);
+    }
   }
 
   const serialized = await fetchSerializedCampaign(campaignId, tenantId);
