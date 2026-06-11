@@ -162,6 +162,9 @@ Company {{companyData}}
 all contact details:
 {{contactData}}
 
+Clarwiz TOFU outreach context (campaign enrollment, score, persona, comm logs from pre-deal outreach):
+{{campaignContext}}
+
 Deal Information
 {{dealData}}
 
@@ -187,6 +190,8 @@ engagements: prior account interactions {{engagements}}
 companyData: firmographic + financial details {{companyData}}
 
 contactData: org chart + emails {{contactData}}
+
+campaignContext: TOFU outreach history — campaign name, engagement score, persona, qualification reason, and communication logs from before the deal was created {{campaignContext}}
 
 dealData: pipeline stage, deal health {{dealData}}
 

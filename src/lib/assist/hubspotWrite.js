@@ -5,6 +5,8 @@
  * throw — they return { ok, status, … } so callers can degrade gracefully when
  * a write scope is missing.
  */
+import { CLARWIZ_CAMPAIGN_CONTACT_ID_PROP } from "@/lib/crm/campaignContactBridge";
+
 const HUBSPOT_BASE = "https://api.hubapi.com";
 
 async function hsWrite(token, path, { method = "POST", body, fetchImpl = fetch } = {}) {
@@ -30,10 +32,11 @@ async function hsWrite(token, path, { method = "POST", body, fetchImpl = fetch }
 }
 
 // ── pure body builders ─────────────────────────────────────────────────────
-export function buildDealCreateBody({ name, stageId, amount, ownerId, pipeline = "default" }) {
+export function buildDealCreateBody({ name, stageId, amount, ownerId, pipeline = "default", campaignContactId }) {
   const properties = { dealname: name, dealstage: stageId, pipeline };
   if (amount !== undefined && amount !== null && amount !== "") properties.amount = String(amount);
   if (ownerId) properties.hubspot_owner_id = ownerId;
+  if (campaignContactId) properties[CLARWIZ_CAMPAIGN_CONTACT_ID_PROP] = String(campaignContactId);
   return { properties };
 }
 
@@ -53,7 +56,7 @@ export function buildNoteBody({ body, timestamp }) {
   return { properties: { hs_note_body: body, hs_timestamp: timestamp ?? Date.now() } };
 }
 
-export function buildContactCreateBody({ email, firstName, lastName, jobTitle, phone, companyName }) {
+export function buildContactCreateBody({ email, firstName, lastName, jobTitle, phone, companyName, campaignContactId }) {
   const properties = {};
   if (email) properties.email = email;
   if (firstName) properties.firstname = firstName;
@@ -61,14 +64,29 @@ export function buildContactCreateBody({ email, firstName, lastName, jobTitle, p
   if (jobTitle) properties.jobtitle = jobTitle;
   if (phone) properties.phone = phone;
   if (companyName) properties.company = companyName;
+  if (campaignContactId) properties[CLARWIZ_CAMPAIGN_CONTACT_ID_PROP] = String(campaignContactId);
   return { properties };
 }
 
-export function buildCompanyCreateBody({ name, domain, industry }) {
+export function buildCompanyCreateBody({ name, domain, industry, campaignContactId }) {
   const properties = { name: name || domain || "(unnamed company)" };
   if (domain) properties.domain = domain;
   if (industry) properties.industry = industry;
+  if (campaignContactId) properties[CLARWIZ_CAMPAIGN_CONTACT_ID_PROP] = String(campaignContactId);
   return { properties };
+}
+
+/** PATCH arbitrary properties onto a CRM object. Never throws. */
+export async function patchCrmObject(token, objectType, objectId, properties, { fetchImpl = fetch } = {}) {
+  if (!objectId || !properties || !Object.keys(properties).length) {
+    return { ok: false, status: 0, json: null };
+  }
+  const res = await hsWrite(token, `/crm/v3/objects/${objectType}/${objectId}`, {
+    method: "PATCH",
+    body: { properties },
+    fetchImpl,
+  });
+  return { ok: res.ok, status: res.status, json: res.json };
 }
 
 export function buildContactSearchByEmail(email) {

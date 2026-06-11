@@ -75,12 +75,18 @@ vi.mock("@/lib/assist/hubspot", () => ({
   }),
 }));
 
+vi.mock("@/lib/crm/campaignContactBridge", () => ({
+  CLARWIZ_CAMPAIGN_CONTACT_ID_PROP: "clarwiz_campaign_contact_id",
+  ensureClarwizCampaignContactProperties: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
 vi.mock("@/lib/assist/hubspotWrite", () => ({
   searchContactByEmail: vi.fn().mockResolvedValue(null),
   createContact: vi.fn().mockResolvedValue({ ok: true, id: "HS-CT-1" }),
   searchCompanyByDomain: vi.fn().mockResolvedValue(null),
   createCompany: vi.fn().mockResolvedValue({ ok: true, id: "HS-CO-1" }),
   createDeal: vi.fn().mockResolvedValue({ ok: true, id: "HS-DEAL-1" }),
+  patchCrmObject: vi.fn().mockResolvedValue({ ok: true }),
   associate: vi.fn().mockResolvedValue({ ok: true }),
   associateContactToCompany: vi.fn().mockResolvedValue({ ok: true }),
   addNote: vi.fn().mockResolvedValue({ ok: true, id: "HS-NOTE-1" }),
@@ -110,7 +116,11 @@ describe("pushQualifiedToHubspot", () => {
     expect(res.hubspotDealId).toBe("HS-DEAL-1");
     expect(createContact).toHaveBeenCalled();
     expect(createCompany).toHaveBeenCalled();
-    expect(createDeal).toHaveBeenCalled();
+    expect(createDeal).toHaveBeenCalledWith(
+      "hs-tok",
+      expect.objectContaining({ campaignContactId: CC_ID }),
+      expect.any(Object)
+    );
     expect(prisma.campaignContact.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ hubspotDealId: "HS-DEAL-1" }),

@@ -13,10 +13,15 @@ import {
   createCompany,
   createContact,
   createDeal,
+  patchCrmObject,
   searchCompanyByDomain,
   searchContactByEmail,
 } from "@/lib/assist/hubspotWrite";
 import { firstOpenStageId } from "@/lib/assist/tofuTimeline";
+import {
+  CLARWIZ_CAMPAIGN_CONTACT_ID_PROP,
+  ensureClarwizCampaignContactProperties,
+} from "@/lib/crm/campaignContactBridge";
 
 function buildDealName({ contactName, companyName, campaignName }) {
   const who = companyName || contactName || "Qualified lead";
@@ -73,15 +78,33 @@ function buildProvenanceNote({
   return lines.join("\n");
 }
 
-async function resolveHubspotContactId(token, { email, firstName, lastName, jobTitle, phone, companyName }, { fetchImpl }) {
+async function stampCampaignContactId(token, objectType, objectId, campaignContactId, { fetchImpl }) {
+  if (!objectId || !campaignContactId) return;
+  await patchCrmObject(
+    token,
+    objectType,
+    objectId,
+    { [CLARWIZ_CAMPAIGN_CONTACT_ID_PROP]: String(campaignContactId) },
+    { fetchImpl }
+  ).catch(() => {});
+}
+
+async function resolveHubspotContactId(
+  token,
+  { email, firstName, lastName, jobTitle, phone, companyName, campaignContactId },
+  { fetchImpl }
+) {
   if (!email) return { id: null, reason: "no_email" };
 
   let id = await searchContactByEmail(token, email, { fetchImpl });
-  if (id) return { id: String(id), created: false };
+  if (id) {
+    await stampCampaignContactId(token, "contacts", id, campaignContactId, { fetchImpl });
+    return { id: String(id), created: false };
+  }
 
   const created = await createContact(
     token,
-    { email, firstName, lastName, jobTitle, phone, companyName },
+    { email, firstName, lastName, jobTitle, phone, companyName, campaignContactId },
     { fetchImpl }
   );
   if (!created.ok || !created.id) {
@@ -90,15 +113,18 @@ async function resolveHubspotContactId(token, { email, firstName, lastName, jobT
   return { id: String(created.id), created: true };
 }
 
-async function resolveHubspotCompanyId(token, { name, domain, industry }, { fetchImpl }) {
+async function resolveHubspotCompanyId(token, { name, domain, industry, campaignContactId }, { fetchImpl }) {
   if (!name && !domain) return { id: null };
 
   if (domain) {
     const existing = await searchCompanyByDomain(token, domain, { fetchImpl });
-    if (existing) return { id: String(existing), created: false };
+    if (existing) {
+      await stampCampaignContactId(token, "companies", existing, campaignContactId, { fetchImpl });
+      return { id: String(existing), created: false };
+    }
   }
 
-  const created = await createCompany(token, { name, domain, industry }, { fetchImpl });
+  const created = await createCompany(token, { name, domain, industry, campaignContactId }, { fetchImpl });
   if (!created.ok || !created.id) {
     return { id: null, reason: "company_create_failed", status: created.status };
   }
@@ -144,6 +170,8 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
   const token = await getDecryptedHubspotToken(prisma, tenantId, { fetchImpl });
   if (!token) return { ok: false, skipped: true, reason: "hubspot_not_configured" };
 
+  await ensureClarwizCampaignContactProperties(token, { fetchImpl });
+
   const bu = cc.contact.businessUser;
   const company = bu?.company;
   const email = bu?.email ? String(bu.email).trim().toLowerCase() : null;
@@ -161,6 +189,7 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
       jobTitle: bu?.jobTitle,
       phone: bu?.phone || bu?.whatsapp,
       companyName: company?.name,
+      campaignContactId,
     },
     { fetchImpl }
   );
@@ -176,6 +205,7 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
         name: company.name,
         domain: company.domain,
         industry: company.industry,
+        campaignContactId,
       },
       { fetchImpl }
     );
@@ -199,6 +229,7 @@ export async function pushQualifiedToHubspot(prisma, campaignContactId, { fetchI
       name: dealName,
       stageId,
       ownerId: integration?.defaultOwnerId ?? cc.contact.ownerId ?? null,
+      campaignContactId,
     },
     { fetchImpl }
   );

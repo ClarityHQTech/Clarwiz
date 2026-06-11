@@ -3,6 +3,7 @@
  * No I/O — unit-tested in isolation; consumed by hubspot.js (live calls) and
  * syncGraph.js (H2 hydration).
  */
+import { CLARWIZ_CAMPAIGN_CONTACT_ID_PROP } from "@/lib/crm/campaignContactBridge";
 
 export const DEAL_PROPERTIES = [
   "dealname",
@@ -12,6 +13,7 @@ export const DEAL_PROPERTIES = [
   "hubspot_owner_id",
   "hs_lastmodifieddate",
   "closedate",
+  CLARWIZ_CAMPAIGN_CONTACT_ID_PROP,
 ];
 
 export const CONTACT_PROPERTIES = [
@@ -23,6 +25,7 @@ export const CONTACT_PROPERTIES = [
   "hubspot_owner_id",
   "phone",
   "company",
+  CLARWIZ_CAMPAIGN_CONTACT_ID_PROP,
 ];
 
 export const COMPANY_PROPERTIES = [
@@ -31,6 +34,7 @@ export const COMPANY_PROPERTIES = [
   "industry",
   "hubspot_owner_id",
   "lifecyclestage",
+  CLARWIZ_CAMPAIGN_CONTACT_ID_PROP,
 ];
 
 /** Flatten HubSpot deal pipelines into { stageId: { label, displayOrder, band, status } }. */

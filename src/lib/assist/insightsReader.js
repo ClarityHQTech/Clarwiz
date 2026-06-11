@@ -88,7 +88,20 @@ export async function getDealView(prisma, tenantId, dealId) {
     where: { id: dealId, tenantId },
     include: {
       account: { include: { company: true } },
-      dealContacts: { include: { contact: { include: { businessUser: true } } } },
+      campaignContact: {
+        include: {
+          campaign: { select: { id: true, name: true } },
+          contact: { select: { id: true, persona: true } },
+        },
+      },
+      dealContacts: {
+        include: {
+          contact: { include: { businessUser: true } },
+          campaignContact: {
+            include: { campaign: { select: { id: true, name: true } } },
+          },
+        },
+      },
     },
   });
   if (!deal) return null;

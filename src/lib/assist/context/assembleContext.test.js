@@ -29,6 +29,14 @@ vi.mock("@/lib/assist/mofuIntegration", () => ({
   ),
 }));
 
+vi.mock("@/lib/assist/campaignContactContext", () => ({
+  loadCampaignContextForDeal: vi.fn(async () => ({ campaignContactIds: [], campaignContexts: [] })),
+  loadCampaignContactContexts: vi.fn(async () => []),
+  collectCampaignContactIds: vi.fn(() => []),
+  campaignContextsToEngagements: vi.fn(() => []),
+  enrichContactsWithCampaignContext: vi.fn((contacts) => contacts),
+}));
+
 import { assembleDealContext, assembleCompanyContext } from "./assembleContext.js";
 import { getDealView, getCompanyView, getLatestCompanyInsight } from "@/lib/assist/insightsReader";
 import {
@@ -110,6 +118,7 @@ describe("assembleDealContext", () => {
     expect(vars.previousInsights).toBeTruthy();
     expect(vars.icpContext).toBeNull();
     expect(vars.bookingContext).toEqual({ calendlyBookingUrl: null, bookingLinkConfigured: false });
+    expect(vars.campaignContext).toEqual([]);
     expect(getTenantIcpContextForExecution).toHaveBeenCalledWith("t1");
     expect(getMofuIntegration).toHaveBeenCalled();
     // carries the resolved deal/account ids for the orchestrator

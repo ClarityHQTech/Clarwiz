@@ -21,6 +21,10 @@ describe("buildDealCreateBody", () => {
     expect(b.properties.amount).toBeUndefined();
     expect(b.properties.hubspot_owner_id).toBeUndefined();
   });
+  it("stamps clarwiz campaign contact id when provided", () => {
+    const b = buildDealCreateBody({ name: "X", stageId: "s1", campaignContactId: "cc-99" });
+    expect(b.properties.clarwiz_campaign_contact_id).toBe("cc-99");
+  });
 });
 
 describe("buildTaskBody / buildNoteBody", () => {

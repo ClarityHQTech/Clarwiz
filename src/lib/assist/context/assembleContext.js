@@ -2,7 +2,8 @@
  * Context assembly for the AURA intelligence prompts. Reads the hydrated graph
  * via the insightsReader view-models and shapes the `vars` object the prompt
  * templates expect: { ontology, engagements, companyData, contactData, dealData,
- * tenantData, icpContext, bookingContext, ownerData, signals, previousInsights }.
+ * tenantData, icpContext, bookingContext, ownerData, signals, previousInsights,
+ * campaignContext }.
  *
  * Everything here is null-safe and best-effort — a missing tenant row or a
  * CommunicationLog read failure must degrade gracefully, never throw, so a
@@ -16,6 +17,13 @@ import {
   getTenantIcpContextForExecution,
 } from "@/lib/tenantIcpContext";
 import { buildAssistBookingContext, getMofuIntegration } from "@/lib/assist/mofuIntegration";
+import {
+  loadCampaignContextForDeal,
+  campaignContextsToEngagements,
+  enrichContactsWithCampaignContext,
+  collectCampaignContactIds,
+  loadCampaignContactContexts,
+} from "@/lib/assist/campaignContactContext";
 
 const ENGAGEMENT_TAKE = 30;
 const HS_ENGAGEMENT_CAP = 25;
@@ -44,6 +52,31 @@ async function safeMofuIntegration(prisma, tenantId) {
     return await getMofuIntegration(prisma, tenantId);
   } catch {
     return null;
+  }
+}
+
+async function safeCampaignContext(prisma, tenantId, dealId, view) {
+  try {
+    if (dealId) {
+      return await loadCampaignContextForDeal(prisma, tenantId, dealId);
+    }
+    const ids = collectCampaignContactIds({
+      deal: view?.deal,
+      account: view?.account,
+      dealContacts: view?.dealContacts,
+    });
+    const campaignContexts = await loadCampaignContactContexts(prisma, tenantId, ids);
+    return { campaignContactIds: ids, campaignContexts };
+  } catch {
+    return { campaignContactIds: [], campaignContexts: [] };
+  }
+}
+
+async function safeCampaignContexts(prisma, tenantId, ids) {
+  try {
+    return await loadCampaignContactContexts(prisma, tenantId, ids);
+  } catch {
+    return [];
   }
 }
 
@@ -146,17 +179,23 @@ export async function assembleDealContext(prisma, tenantId, dealId, { token, fet
   const contactIds = contacts.map((c) => c?.id).filter(Boolean);
   const hubspotDealId = view.deal?.hubspotDealId ?? null;
 
-  const [tenant, tenantIcp, mofu, commLogs, hsEngagements, recordingEngagements] = await Promise.all([
-    safeTenant(prisma, tenantId),
-    safeTenantIcp(tenantId),
-    safeMofuIntegration(prisma, tenantId),
-    safeEngagements(prisma, tenantId, contactIds),
-    safeHubspotEngagements(token, hubspotDealId, fetchImpl),
-    safeDealRecordingEngagements(prisma, dealId),
-  ]);
+  const [tenant, tenantIcp, mofu, commLogs, hsEngagements, recordingEngagements, tofuBundle] =
+    await Promise.all([
+      safeTenant(prisma, tenantId),
+      safeTenantIcp(tenantId),
+      safeMofuIntegration(prisma, tenantId),
+      safeEngagements(prisma, tenantId, contactIds),
+      safeHubspotEngagements(token, hubspotDealId, fetchImpl),
+      safeDealRecordingEngagements(prisma, dealId),
+      safeCampaignContext(prisma, tenantId, dealId, view),
+    ]);
 
-  // Stored transcripts (post-sync) take priority over live HubSpot engagement snippets.
-  const engagements = [...recordingEngagements, ...hsEngagements, ...commLogs];
+  const { campaignContexts } = tofuBundle;
+  const tofuEngagements = campaignContextsToEngagements(campaignContexts);
+  const enrichedContacts = enrichContactsWithCampaignContext(contacts, campaignContexts);
+
+  // TOFU outreach history first (when linked), then HubSpot + generic comm logs.
+  const engagements = [...tofuEngagements, ...recordingEngagements, ...hsEngagements, ...commLogs];
 
   const ownerId = view.deal?.ownerId ?? view.account?.ownerId ?? null;
 
@@ -164,7 +203,8 @@ export async function assembleDealContext(prisma, tenantId, dealId, { token, fet
     ontology: ONTOLOGY,
     engagements,
     companyData: view.company ?? view.account ?? null,
-    contactData: contacts,
+    contactData: enrichedContacts,
+    campaignContext: campaignContexts,
     dealData: view.deal ?? null,
     tenantData: tenant,
     icpContext: buildAssistTenantIcpContext(tenantIcp),
@@ -195,12 +235,21 @@ export async function assembleCompanyContext(prisma, tenantId, accountId, { toke
     .map((d) => d?.hubspotDealId)
     .filter(Boolean);
 
-  const [tenant, tenantIcp, mofu, commLogs, hsLists] = await Promise.all([
+  const campaignContactIds = [
+    ...new Set(
+      [view.account?.campaignContactId, ...(view.deals ?? []).map((d) => d.campaignContactId)].filter(
+        Boolean
+      )
+    ),
+  ];
+
+  const [tenant, tenantIcp, mofu, commLogs, hsLists, campaignContexts] = await Promise.all([
     safeTenant(prisma, tenantId),
     safeTenantIcp(tenantId),
     safeMofuIntegration(prisma, tenantId),
     safeEngagements(prisma, tenantId, contactIds),
     Promise.all(hubspotDealIds.map((id) => safeHubspotEngagements(token, id, fetchImpl))),
+    safeCampaignContexts(prisma, tenantId, [...new Set(campaignContactIds)]),
   ]);
 
   const hsEngagements = hsLists
@@ -208,7 +257,9 @@ export async function assembleCompanyContext(prisma, tenantId, accountId, { toke
     .sort((a, b) => (b?.at ?? 0) - (a?.at ?? 0))
     .slice(0, HS_ENGAGEMENT_CAP);
 
-  const engagements = [...hsEngagements, ...commLogs];
+  const tofuEngagements = campaignContextsToEngagements(campaignContexts);
+  const enrichedContacts = enrichContactsWithCampaignContext(contacts, campaignContexts);
+  const engagements = [...tofuEngagements, ...hsEngagements, ...commLogs];
 
   const ownerId = view.account?.ownerId ?? null;
 
@@ -216,7 +267,8 @@ export async function assembleCompanyContext(prisma, tenantId, accountId, { toke
     ontology: ONTOLOGY,
     engagements,
     companyData: view.company ?? view.account ?? null,
-    contactData: contacts,
+    contactData: enrichedContacts,
+    campaignContext: campaignContexts,
     dealData: view.deals ?? [],
     tenantData: tenant,
     icpContext: buildAssistTenantIcpContext(tenantIcp),

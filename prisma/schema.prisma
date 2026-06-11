@@ -449,8 +449,12 @@ model CampaignContact {
   contact                 Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
   campaign                Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   commLogs                CommunicationLog[]
+  deals                   Deal[]
+  accounts                Account[]
+  dealContacts            DealContact[]
 
   @@unique([contactId, campaignId])
+  @@index([hubspotDealId])
   @@index([campaignId])
   @@index([campaignId, nextScheduledOutreachAt])
   @@index([campaignId, status])
@@ -575,18 +579,21 @@ model Account {
   hubspotCompanyId String
   ownerId          String?
   lifecycleStage   String?
-  payload          Json?
-  syncedAt         DateTime         @default(now())
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  deals            Deal[]
-  companyInsights  CompanyInsight[]
-  signals          Signal[]
+  payload            Json?
+  campaignContactId  String?
+  campaignContact    CampaignContact? @relation(fields: [campaignContactId], references: [id], onDelete: SetNull)
+  syncedAt           DateTime         @default(now())
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deals              Deal[]
+  companyInsights    CompanyInsight[]
+  signals            Signal[]
 
   @@unique([tenantId, hubspotCompanyId])
   @@index([tenantId])
   @@index([tenantId, ownerId])
   @@index([companyId])
+  @@index([campaignContactId])
 }
 
 /// Tenant-scoped deal mirror + the anchor for all deal intelligence.
@@ -604,36 +611,42 @@ model Deal {
   status         DealStatus          @default(OPEN)
   ownerId        String?
   score          Int?
-  lastActivityAt DateTime?
-  payload        Json?
-  syncedAt       DateTime            @default(now())
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  insights       DealInsight[]
-  nbas           NbaRecommendation[]
-  signals        Signal[]
-  dealContacts   DealContact[]
-  recordings     DealRecording[]
+  lastActivityAt     DateTime?
+  payload            Json?
+  campaignContactId  String?
+  campaignContact    CampaignContact? @relation(fields: [campaignContactId], references: [id], onDelete: SetNull)
+  syncedAt           DateTime            @default(now())
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  insights           DealInsight[]
+  nbas               NbaRecommendation[]
+  signals            Signal[]
+  dealContacts       DealContact[]
+  recordings         DealRecording[]
 
   @@unique([tenantId, hubspotDealId])
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([accountId])
   @@index([tenantId, ownerId])
+  @@index([campaignContactId])
 }
 
 /// Deal ↔ Contact stakeholders (reuses the shared Contact graph).
 model DealContact {
-  id        String   @id @default(cuid())
-  dealId    String
-  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  contactId String
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  role      String?
-  createdAt DateTime @default(now())
+  id                String           @id @default(cuid())
+  dealId            String
+  deal              Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId         String
+  contact           Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaignContactId String?
+  campaignContact   CampaignContact? @relation(fields: [campaignContactId], references: [id], onDelete: SetNull)
+  role              String?
+  createdAt         DateTime         @default(now())
 
   @@unique([dealId, contactId])
   @@index([contactId])
+  @@index([campaignContactId])
 }
 
 /// Stored computed deal intelligence (AURA-structured payload, computed in Clarwiz).

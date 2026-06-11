@@ -23,6 +23,7 @@ import {
 } from "@/lib/assist/hubspot";
 import { resolveCompanyForContact } from "@/lib/assist/companyResolve";
 import { getTenantInternalDomains } from "@/lib/assist/internalDomains";
+import { resolveCampaignContactId } from "@/lib/crm/campaignContactBridge";
 
 /** Resolve (find-or-create) the global Company; deduped by domain when present, else by name. */
 async function resolveCompanyId(prisma, m) {
@@ -54,14 +55,18 @@ async function resolveCompanyId(prisma, m) {
 }
 
 /** Upsert the tenant-scoped Account (+ its global Company). Returns the Account row. */
-export async function upsertAccount(prisma, tenantId, hsCompany) {
+export async function upsertAccount(prisma, tenantId, hsCompany, { campaignContactId = null } = {}) {
   const m = mapHsCompany(hsCompany);
   const companyId = await resolveCompanyId(prisma, m);
+  const resolvedCcId =
+    campaignContactId ??
+    (await resolveCampaignContactId(prisma, tenantId, { payload: m.payload }));
   const data = {
     companyId,
     ownerId: m.ownerId,
     lifecycleStage: m.lifecycleStage,
     payload: m.payload,
+    campaignContactId: resolvedCcId,
     syncedAt: new Date(),
   };
   return prisma.account.upsert({
@@ -136,8 +141,14 @@ export async function upsertContact(prisma, tenantId, hsContact, { internalDomai
 }
 
 /** Upsert the tenant-scoped Deal. Returns the Deal row. */
-export async function upsertDeal(prisma, tenantId, hsDeal, stageMap, accountId) {
+export async function upsertDeal(prisma, tenantId, hsDeal, stageMap, accountId, { campaignContactId = null } = {}) {
   const m = mapHsDeal(hsDeal, stageMap);
+  const resolvedCcId =
+    campaignContactId ??
+    (await resolveCampaignContactId(prisma, tenantId, {
+      payload: m.payload,
+      hubspotDealId: m.hubspotDealId,
+    }));
   const data = {
     accountId,
     name: m.name,
@@ -148,6 +159,7 @@ export async function upsertDeal(prisma, tenantId, hsDeal, stageMap, accountId) 
     ownerId: m.ownerId,
     lastActivityAt: m.lastActivityAt,
     payload: m.payload,
+    campaignContactId: resolvedCcId,
     syncedAt: new Date(),
   };
   return prisma.deal.upsert({
@@ -157,12 +169,12 @@ export async function upsertDeal(prisma, tenantId, hsDeal, stageMap, accountId) 
   });
 }
 
-async function linkDealContacts(prisma, dealId, contactIds) {
-  for (const contactId of contactIds) {
+async function linkDealContacts(prisma, dealId, contactLinks) {
+  for (const { contactId, campaignContactId } of contactLinks) {
     await prisma.dealContact.upsert({
       where: { dealId_contactId: { dealId, contactId } },
-      create: { dealId, contactId },
-      update: {},
+      create: { dealId, contactId, campaignContactId: campaignContactId ?? null },
+      update: { campaignContactId: campaignContactId ?? undefined },
     });
   }
 }
@@ -186,29 +198,42 @@ export async function syncCrmGraph(prisma, tenantId, token, { fetchImpl = fetch 
   for (const hsDeal of dealsRes.results) {
     const assoc = dedupeAssociations(await getDealAssociations(token, hsDeal.id, { fetchImpl }));
 
+    const dealCampaignContactId = await resolveCampaignContactId(prisma, tenantId, {
+      payload: hsDeal.properties ?? {},
+      hubspotDealId: hsDeal.id,
+    });
+
     let accountId = null;
+    let accountCampaignContactId = dealCampaignContactId;
     if (assoc.companies.length) {
       const companies = await getCompaniesByIds(token, assoc.companies, { fetchImpl });
       for (const hsCo of companies) {
-        const account = await upsertAccount(prisma, tenantId, hsCo);
+        const account = await upsertAccount(prisma, tenantId, hsCo, {
+          campaignContactId: accountCampaignContactId,
+        });
         counts.accounts++;
         if (!accountId) accountId = account.id; // first associated company is primary
       }
     }
 
-    const deal = await upsertDeal(prisma, tenantId, hsDeal, stageMap, accountId);
+    const deal = await upsertDeal(prisma, tenantId, hsDeal, stageMap, accountId, {
+      campaignContactId: dealCampaignContactId,
+    });
     counts.deals++;
 
     if (assoc.contacts.length) {
       const contacts = await getContactsByIds(token, assoc.contacts, { fetchImpl });
-      const contactIds = [];
+      const contactLinks = [];
       for (const hsC of contacts) {
         const contact = await upsertContact(prisma, tenantId, hsC, { internalDomains });
-        contactIds.push(contact.id);
+        const contactCcId =
+          dealCampaignContactId ??
+          (await resolveCampaignContactId(prisma, tenantId, { payload: hsC.properties ?? {} }));
+        contactLinks.push({ contactId: contact.id, campaignContactId: contactCcId });
         counts.contacts++;
       }
-      await linkDealContacts(prisma, deal.id, contactIds);
-      counts.dealContacts += contactIds.length;
+      await linkDealContacts(prisma, deal.id, contactLinks);
+      counts.dealContacts += contactLinks.length;
     }
   }
 
