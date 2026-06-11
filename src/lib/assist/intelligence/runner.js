@@ -3,6 +3,89 @@
  * Kept LLM-agnostic so compute.js can be unit-tested with a fake `llm`.
  */
 
+/** Default output budget for AURA JSON prompts (signals/NBA/insight are large). */
+export const INTELLIGENCE_MAX_TOKENS = (() => {
+  const n = Number(process.env.INTELLIGENCE_MAX_TOKENS);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 64000) : 16384;
+})();
+
+const AURA_SALVAGE_KEYS = [
+  "signals",
+  "nba_action",
+  "core_entities",
+  "account_score",
+  "account_level_briefing",
+  "brief_summary",
+  "your_coach_speaks",
+];
+
+function stripMarkdownFence(text) {
+  const closed = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (closed) return closed[1].trim();
+  const open = text.match(/^```(?:json)?\s*([\s\S]*)$/i);
+  if (open) return open[1].trim();
+  return text;
+}
+
+/** Extract a JSON array value for `key` using bracket matching (truncation-safe). */
+export function extractJsonArray(text, key) {
+  const marker = `"${key}"`;
+  const idx = text.indexOf(marker);
+  if (idx === -1) return null;
+  const arrStart = text.indexOf("[", idx);
+  if (arrStart === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = arrStart; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "[") depth++;
+    else if (ch === "]") {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(arrStart, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** Best-effort recovery when the model truncates mid-object. */
+export function salvageAuraJson(text) {
+  const out = {};
+  for (const key of AURA_SALVAGE_KEYS) {
+    if (key === "signals" || key === "nba_action") {
+      const arr = extractJsonArray(text, key);
+      if (Array.isArray(arr) && arr.length) out[key] = arr;
+      continue;
+    }
+    const re = new RegExp(`"${key}"\\s*:\\s*("(?:[^"\\\\]|\\\\.)*"|\\{[\\s\\S]*?\\}|[^,\\n}]+)`);
+    const m = text.match(re);
+    if (!m) continue;
+    try {
+      out[key] = JSON.parse(m[1]);
+    } catch {
+      out[key] = String(m[1]).replace(/^"|"$/g, "");
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /**
  * Robustly parse a model's JSON reply: strips ```json / ``` fences, then falls
  * back to extracting the first {...} object found in prose. Returns null on
@@ -10,11 +93,7 @@
  */
 export function parseJsonLoose(raw) {
   if (raw == null) return null;
-  let text = String(raw).trim();
-
-  // Strip a leading ```json / ``` fence and a trailing ``` fence.
-  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  if (fenced) text = fenced[1].trim();
+  let text = stripMarkdownFence(String(raw).trim());
 
   try {
     return JSON.parse(text);
@@ -28,8 +107,11 @@ export function parseJsonLoose(raw) {
     try {
       return JSON.parse(text.slice(start, end + 1));
     } catch {
-      return null;
+      return salvageAuraJson(text.slice(start, end + 1)) ?? salvageAuraJson(text.slice(start));
     }
+  }
+  if (start !== -1) {
+    return salvageAuraJson(text.slice(start));
   }
   return null;
 }
@@ -69,10 +151,17 @@ function extractTextContent(res) {
  * Call messages.create with a system+user message pair; expect JSON in the reply.
  * Returns { data: parsedObject|null, tokensUsed }.
  */
-export async function runJsonPrompt({ llm, model, system, user, temperature = 0.3 }) {
+export async function runJsonPrompt({
+  llm,
+  model,
+  system,
+  user,
+  temperature = 0.3,
+  max_tokens = INTELLIGENCE_MAX_TOKENS,
+}) {
   const res = await llm.messages.create({
     model,
-    max_tokens: 4096,
+    max_tokens,
     system: `${system}\n\nRespond with valid JSON only — no markdown fences or prose.`,
     messages: [{ role: "user", content: user }],
     temperature,

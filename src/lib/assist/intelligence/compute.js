@@ -51,18 +51,70 @@ export function deriveActionType(nba) {
   return "draft_email";
 }
 
+/** TOFU fallback signals when the model output is empty but campaign history exists. */
+export function bootstrapSignalsFromTofuCampaign(campaignContexts = []) {
+  const signals = [];
+  for (const ctx of campaignContexts) {
+    if (!ctx || ctx.status !== "QUALIFIED") continue;
+    const name = ctx.contact?.businessUser?.name || "Contact";
+    const campaign = ctx.campaign?.name || "outreach campaign";
+    const reason = ctx.qualifiedReason || "qualified";
+    const logs = ctx.commLogs ?? [];
+    const lastInbound = [...logs].reverse().find((l) => l.responseContent?.trim());
+    const lastOutbound = [...logs].reverse().find((l) => l.message?.trim());
+
+    signals.push({
+      signal_type: "Intent::Qualified_Lead",
+      signal_score: String(Math.min(100, Math.max(50, ctx.score ?? 75))),
+      confidence: "85",
+      context: `${name} qualified in Clarwiz campaign "${campaign}" (${reason}).`,
+      supporting_quote_customer: lastInbound?.responseContent?.trim() || null,
+      supporting_quote_ae: lastOutbound?.message?.trim()?.slice(0, 500) || null,
+      raised_by: name,
+    });
+
+    if (lastInbound?.responseContent?.trim()) {
+      signals.push({
+        signal_type: "Behavior::Positive_Reply",
+        signal_score: "80",
+        confidence: "80",
+        context: "Prospect responded during TOFU outreach.",
+        supporting_quote_customer: lastInbound.responseContent.trim(),
+        raised_by: name,
+      });
+    }
+  }
+  return signals;
+}
+
+/** User-facing summary for a deal recompute result. */
+export function formatRecomputeSummary(summary) {
+  if (!summary) return "Intelligence refreshed";
+  const parts = [];
+  if (summary.signals > 0) parts.push(`${summary.signals} signal${summary.signals === 1 ? "" : "s"}`);
+  if (summary.nbas > 0) parts.push(`${summary.nbas} NBA${summary.nbas === 1 ? "" : "s"}`);
+  if (summary.insight) parts.push("briefing");
+  if (!parts.length) {
+    return summary.errors?.length
+      ? `Intelligence run failed: ${summary.errors.join("; ")}`
+      : "No signals or actions were generated — check outreach history and try again.";
+  }
+  return `Intelligence refreshed — ${parts.join(", ")}`;
+}
+
 /** Shape a Signal create-payload from one AURA signal object (no DB write). */
 export function buildSignalData(tenantId, dealId, accountId, sig) {
   const type = sig?.signal_type ?? "Unknown::Signal";
+  const headline = String(sig?.context || sig?.signal_type || "Signal").slice(0, 500);
   return {
     tenantId,
     dealId: dealId ?? null,
     accountId: accountId ?? null,
-    type,
+    type: String(type).slice(0, 200),
     category: categoryOf(type),
     score: toInt(sig?.signal_score),
     confidence: toInt(sig?.confidence),
-    headline: sig?.context || sig?.signal_type || "Signal",
+    headline,
     evidence: sig?.supporting_quote_customer ?? null,
     suggestedAngle: sig?.supporting_quote_ae ?? null,
     payload: sig ?? {},
@@ -169,7 +221,10 @@ export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, f
 
   const user = fillTemplate(SIGNAL_USER, { ...vars, ontology: ONTOLOGY });
   const { data } = await runJsonPrompt({ llm: client, model, system: SIGNAL_SYSTEM, user });
-  const signals = arr(data?.signals);
+  let signals = arr(data?.signals);
+  if (!signals.length) {
+    signals = bootstrapSignalsFromTofuCampaign(vars.campaignContext);
+  }
   if (!signals.length) return [];
 
   const accountId = vars._accountId ?? null;
@@ -197,14 +252,37 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetc
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return [];
 
-  const topSignals = arr(vars.signals)
+  let topSignals = arr(vars.signals)
     .slice()
     .sort((a, b) => (b?.score ?? 0) - (a?.score ?? 0))
     .slice(0, 3);
 
+  if (!topSignals.length) {
+    const boot = bootstrapSignalsFromTofuCampaign(vars.campaignContext);
+    topSignals = boot.slice(0, 3);
+  }
+
   const user = fillTemplate(NBA_USER, { ...vars, signals: topSignals, ontology: ONTOLOGY });
   const { data } = await runJsonPrompt({ llm: client, model, system: NBA_SYSTEM, user });
-  const actions = arr(data?.nba_action);
+  let actions = arr(data?.nba_action);
+  if (!actions.length && topSignals.length) {
+    actions = [
+      {
+        action_title: "Follow up on qualified outreach lead",
+        core_action: "Draft a personalized follow-up email referencing the TOFU campaign conversation",
+        action_verb: "Sales::Follow_Up",
+        action_score: "85",
+        justification: "Contact qualified in Clarwiz outreach; continue the conversation toward a meeting.",
+      },
+      {
+        action_title: "Schedule discovery call",
+        core_action: "Invite the champion to book a discovery meeting",
+        action_verb: "Sales::Schedule_Meeting",
+        action_score: "80",
+        justification: "Qualified lead with prior engagement — move to live conversation.",
+      },
+    ];
+  }
   if (!actions.length) return [];
 
   const created = [];

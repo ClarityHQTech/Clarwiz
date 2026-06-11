@@ -6,6 +6,7 @@ import {
   buildSignalData,
   buildNbaData,
   buildDealInsightData,
+  bootstrapSignalsFromTofuCampaign,
   recomputeDeal,
   recomputeCompany,
 } from "./compute.js";
@@ -45,6 +46,26 @@ describe("deriveActionType", () => {
     expect(deriveActionType({ action_verb: "Sales::Escalate" })).toBe("create_task");
     expect(deriveActionType({ core_action: "Clarify technical integration" })).toBe("clarify_technical");
     expect(deriveActionType({ action_title: "Email the buyer" })).toBe("draft_email");
+  });
+});
+
+describe("bootstrapSignalsFromTofuCampaign", () => {
+  it("builds qualified-lead signals from campaign context", () => {
+    const signals = bootstrapSignalsFromTofuCampaign([
+      {
+        status: "QUALIFIED",
+        score: 92,
+        qualifiedReason: "positive_reply",
+        campaign: { name: "Summer Launch" },
+        contact: { businessUser: { name: "Jane Buyer" } },
+        commLogs: [
+          { message: "Hi Jane", responseContent: "Sounds good — let's talk" },
+        ],
+      },
+    ]);
+    expect(signals.length).toBeGreaterThanOrEqual(2);
+    expect(signals[0].signal_type).toBe("Intent::Qualified_Lead");
+    expect(signals[0].context).toContain("Summer Launch");
   });
 });
 

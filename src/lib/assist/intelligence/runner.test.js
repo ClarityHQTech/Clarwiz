@@ -31,6 +31,12 @@ describe("parseJsonLoose", () => {
   it("returns null on garbage rather than throwing", () => {
     expect(parseJsonLoose("not json at all")).toBeNull();
   });
+  it("parses unclosed ```json fences (truncated model output)", () => {
+    const raw = '```json\n{"signals":[{"signal_type":"Intent::Demo","signal_score":"80"}]';
+    expect(parseJsonLoose(raw)).toEqual({
+      signals: [{ signal_type: "Intent::Demo", signal_score: "80" }],
+    });
+  });
 });
 
 describe("runJsonPrompt", () => {

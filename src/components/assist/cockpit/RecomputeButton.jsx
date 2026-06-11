@@ -23,7 +23,18 @@ export default function RecomputeButton({ id, scope = "deal", label = "Recompute
         toast.error(data.error || "Recompute failed");
         return;
       }
-      toast.success("Intelligence refreshed");
+      const summary = data.summary;
+      const parts = [];
+      if (summary?.signals > 0) parts.push(`${summary.signals} signal${summary.signals === 1 ? "" : "s"}`);
+      if (summary?.nbas > 0) parts.push(`${summary.nbas} NBA${summary.nbas === 1 ? "" : "s"}`);
+      if (summary?.insight) parts.push("briefing");
+      if (parts.length) {
+        toast.success(`Intelligence refreshed — ${parts.join(", ")}`);
+      } else if (summary?.errors?.length) {
+        toast.error(summary.errors.join("; "));
+      } else {
+        toast.warning("No signals or actions were generated — check outreach history and try again.");
+      }
       router.refresh();
     } catch {
       toast.error("Recompute failed");
