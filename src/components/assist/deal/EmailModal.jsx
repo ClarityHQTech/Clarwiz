@@ -12,6 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { toast } from "sonner";
 import CollateralEditorModal from "@/components/assist/collateral/CollateralEditorModal";
+import { stripCollateralViewerLinks } from "@/lib/assist/nbaEmailCollateral";
 import { modalShell, modalUi, ui } from "@/lib/brandUi";
 
 /**
@@ -51,7 +52,7 @@ export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose
     const existing = nba?.draftPayload;
     if (existing?.emailHtml) {
       setSubject(existing.subject || "");
-      setHtml(existing.emailHtml || "");
+      setHtml(stripCollateralViewerLinks(existing.emailHtml || ""));
       setDrafted(true);
       setDocumentId(existing.documentId || null);
       setCollateralTitle(existing.collateralTitle || "");
@@ -80,7 +81,7 @@ export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose
         return;
       }
       setSubject(data.draft?.subject || "");
-      setHtml(data.draft?.emailHtml || "");
+      setHtml(stripCollateralViewerLinks(data.draft?.emailHtml || ""));
       setDrafted(true);
       setDocumentId(data.draft?.documentId || null);
       setCollateralTitle(data.draft?.collateralTitle || "");

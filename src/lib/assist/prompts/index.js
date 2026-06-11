@@ -175,7 +175,7 @@ deal owner data
 // NBA
 // ---------------------------------------------------------------------------
 
-export const NBA_SYSTEM = `You are AURA's Action Reasoning Core++. You synthesize GTM Verbs, internal resources, and strategic  alignment to decide how best to act on  signal.`;
+export const NBA_SYSTEM = `You are AURA's Action Reasoning Core++. You synthesize GTM Verbs, internal resources, and strategic  alignment to decide how best to act on  signal. When icpContext is provided, align every NBA with the tenant's ICP workbook, value proposition, and persona definitions — same grounding as the TOFU execution layer.`;
 
 export const NBA_USER = `Inputs
 ontology: GTM verb ontology {{ontology}}
@@ -192,6 +192,10 @@ dealData: pipeline stage, deal health {{dealData}}
 
 tenantData: internal team & AE mapping {{tenantData}}
 
+icpContext: tenant ICP workbook, gap analysis, market research, value proposition {{icpContext}}
+
+bookingContext: tenant Calendly scheduling link for meeting CTAs in outbound emails {{bookingContext}}
+
 Critical Requirements
 Analyze only top 3 signals by signal_score.
 
@@ -204,6 +208,10 @@ Use ontology verbs for action_verb.
 Be simple, clear, actionable for an AE (no jargon).
 
 Integrate historical outcome data, team capacity, and product capabilities.
+
+When icpContext is non-empty, ground action titles, justification, and email guidance in the tenant's ICP workbook and value proposition — do not recommend generic outreach that contradicts the tenant's positioning.
+
+When bookingContext.bookingLinkConfigured is true and an NBA involves emailing a deal contact, include a scheduling CTA in email_detail (e.g. invite them to book a meeting). Reference the Calendly link conceptually — the execution layer appends the tracked booking URL. Prefer draft_email or schedule_meeting style actions when a meeting would advance the deal.
 
 Specify asset requirements under "asset" key  (battlecard, ROI calc, etc.) or confirm "email only."
 

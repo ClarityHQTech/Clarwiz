@@ -7,6 +7,8 @@ import {
   buildTokenRefreshBody,
   getHubspotAccessToken,
   upsertHubspotOAuth,
+  getAssistCalendlyBookingUrl,
+  buildAssistBookingContext,
 } from "./mofuIntegration.js";
 import { encryptMofuToken, decryptMofuToken } from "@/lib/encryptSecret";
 
@@ -32,9 +34,36 @@ describe("isHubspotOAuthConnected", () => {
   });
 });
 
+describe("getAssistCalendlyBookingUrl", () => {
+  it("returns trimmed URL or null", () => {
+    expect(getAssistCalendlyBookingUrl({ calendlyBookingUrl: "  https://calendly.com/x  " })).toBe(
+      "https://calendly.com/x"
+    );
+    expect(getAssistCalendlyBookingUrl({ calendlyBookingUrl: "  " })).toBeNull();
+    expect(getAssistCalendlyBookingUrl(null)).toBeNull();
+  });
+});
+
+describe("buildAssistBookingContext", () => {
+  it("flags bookingLinkConfigured when a URL is set", () => {
+    expect(buildAssistBookingContext({ calendlyBookingUrl: "https://calendly.com/x" })).toEqual({
+      calendlyBookingUrl: "https://calendly.com/x",
+      bookingLinkConfigured: true,
+    });
+    expect(buildAssistBookingContext(null)).toEqual({
+      calendlyBookingUrl: null,
+      bookingLinkConfigured: false,
+    });
+  });
+});
+
 describe("toDisplayConfig", () => {
   it("returns not-configured for a null row", () => {
-    expect(toDisplayConfig(null)).toEqual({ configured: false });
+    expect(toDisplayConfig(null)).toEqual({
+      configured: false,
+      calendlyBookingUrl: null,
+      bookingLinkConfigured: false,
+    });
   });
   it("returns configured=false for a row without oauth tokens", () => {
     const out = toDisplayConfig({ connectionMode: "pat", status: "connected" });

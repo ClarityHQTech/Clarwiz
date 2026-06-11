@@ -54,6 +54,8 @@ describe("prompt templates", () => {
     expect(SIGNAL_USER).toContain("{{ontology}}");
     expect(SIGNAL_USER).toContain("{{engagements}}");
     expect(NBA_USER).toContain("{{signals}}");
+    expect(NBA_USER).toContain("{{icpContext}}");
+    expect(NBA_USER).toContain("{{bookingContext}}");
     expect(COMPANY_USER).toContain("{{previousInsights}}");
   });
 });

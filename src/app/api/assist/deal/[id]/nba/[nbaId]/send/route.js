@@ -4,6 +4,10 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { deliverNbaEmail } from "@/lib/assist/nbaEmailSend";
 import { logAssistAction } from "@/lib/assist/logAction";
+import {
+  loadCollateralEmailAttachment,
+  stripCollateralViewerLinks,
+} from "@/lib/assist/nbaEmailCollateral";
 
 /**
  * POST — SEND an NBA email.
@@ -57,7 +61,11 @@ export async function POST(request, { params }) {
 
   const prev = nba.draftPayload && typeof nba.draftPayload === "object" ? nba.draftPayload : {};
   const subject = typeof body.subject === "string" && body.subject.trim() ? body.subject : prev.subject;
-  const html = typeof body.html === "string" && body.html.trim() ? body.html : prev.emailHtml;
+  const rawHtml = typeof body.html === "string" && body.html.trim() ? body.html : prev.emailHtml;
+  const html = stripCollateralViewerLinks(rawHtml);
+  const documentId =
+    (typeof body.documentId === "string" && body.documentId) || prev.documentId || null;
+  const collateralTitle = prev.collateralTitle ?? null;
 
   if (!subject || !html) {
     return NextResponse.json({ ok: false, error: "no_draft" }, { status: 400 });
@@ -90,6 +98,11 @@ export async function POST(request, { params }) {
     return NextResponse.json({ ok: false, error: "no_recipients" }, { status: 400 });
   }
 
+  const collateralAttachment = documentId
+    ? await loadCollateralEmailAttachment(prisma, ctx.tenantId, documentId)
+    : null;
+  const attachments = collateralAttachment ? [collateralAttachment] : [];
+
   const result = await deliverNbaEmail(prisma, {
     tenantId: ctx.tenantId,
     userId: ctx.user?.id ?? null,
@@ -98,6 +111,8 @@ export async function POST(request, { params }) {
     html,
     recipientEmails,
     recipientContactIds,
+    attachments,
+    collateralTitle,
   });
 
   if (!result.ok) {
@@ -121,6 +136,8 @@ export async function POST(request, { params }) {
         ...prev,
         subject,
         emailHtml: html,
+        documentId,
+        collateralTitle,
         sentAt,
         hubspotEmailId: result.hubspotEmailId ?? null,
         delivered: result.delivered,

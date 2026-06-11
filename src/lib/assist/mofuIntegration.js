@@ -147,11 +147,27 @@ export async function upsertHubspotOAuth(
   });
 }
 
+/** Resolve the tenant's AE Assist Calendly URL (trimmed), or null. */
+export function getAssistCalendlyBookingUrl(row) {
+  const url = row?.calendlyBookingUrl?.trim();
+  return url || null;
+}
+
+/** Booking context for NBA prompts and email drafts (mirrors TOFU tenantContext shape). */
+export function buildAssistBookingContext(row) {
+  const calendlyBookingUrl = getAssistCalendlyBookingUrl(row);
+  return {
+    calendlyBookingUrl,
+    bookingLinkConfigured: Boolean(calendlyBookingUrl),
+  };
+}
+
 /** Safe-for-client view: exposes config + status only (no tokens). */
 export function toDisplayConfig(row) {
-  if (!row) return { configured: false };
+  if (!row) return { configured: false, calendlyBookingUrl: null, bookingLinkConfigured: false };
   const connected = isHubspotOAuthConnected(row);
   const singleSendEmailId = row.hubspotSingleSendEmailId ?? null;
+  const calendlyBookingUrl = getAssistCalendlyBookingUrl(row);
   const hubspotScopes = Array.isArray(row.hubspotScopes) ? row.hubspotScopes : [];
   const recordingScopes = assessRecordingScopes(hubspotScopes);
   return {
@@ -166,6 +182,8 @@ export function toDisplayConfig(row) {
     scopeCount: hubspotScopes.length,
     singleSendEmailId,
     canDeliverEmail: !!singleSendEmailId,
+    calendlyBookingUrl,
+    bookingLinkConfigured: Boolean(calendlyBookingUrl),
     canFetchCallTranscripts: recordingScopes.hasTranscriptsRead,
     recordingScopes,
   };

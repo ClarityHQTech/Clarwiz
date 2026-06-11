@@ -5,6 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { getDealView } from "@/lib/assist/insightsReader";
 import { logAssistAction } from "@/lib/assist/logAction";
+import {
+  buildAssistTenantIcpContext,
+  getTenantIcpContextForExecution,
+} from "@/lib/tenantIcpContext";
+import {
+  buildAssistBookingContext,
+  getMofuIntegration,
+} from "@/lib/assist/mofuIntegration";
 
 const BRIEF_MODEL = ANTHROPIC_MODEL_SIMPLE;
 
@@ -12,7 +20,7 @@ const BRIEF_MODEL = ANTHROPIC_MODEL_SIMPLE;
  * Assemble a compact context string from the deal view + the NBA. Pure-ish
  * (reads `getDealView` output) so the prompt builder is easy to reason about.
  */
-function buildBriefMessages({ nba, view }) {
+function buildBriefMessages({ nba, view, icpContext = null, bookingContext = null }) {
   const deal = view?.deal;
   const company = view?.company;
   const insight = view?.insight?.payload ?? {};
@@ -42,15 +50,26 @@ function buildBriefMessages({ nba, view }) {
     attendees ? `Attendees:\n${attendees}` : "Attendees: (none on file)",
     insight?.account_level_briefing ? `Account briefing: ${insight.account_level_briefing}` : null,
     sigLines ? `Recent signals:\n${sigLines}` : null,
+    icpContext
+      ? `Tenant ICP context (align goals and talking points with value prop and personas):\n${JSON.stringify(icpContext, null, 2)}`
+      : null,
+    bookingContext?.bookingLinkConfigured
+      ? `Scheduling: Calendly booking is configured — consider offering a follow-up meeting if appropriate.`
+      : null,
   ]
     .filter(Boolean)
     .join("\n\n");
+
+  const icpRule = icpContext
+    ? "When tenant ICP context is provided, ground goals and talking points in the ICP workbook and value proposition. "
+    : "";
 
   return [
     {
       role: "system",
       content:
         "You are a sharp B2B sales coach preparing an account executive for an upcoming meeting. " +
+        icpRule +
         "Write a concise PRE-MEETING BRIEF in clean markdown with these sections: " +
         "**Who's attending**, **Deal state**, **Goals for this meeting**, **Risks / objections to navigate**, " +
         "**3 talking points** (a numbered list), and **The one ask**. " +
@@ -90,10 +109,17 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
     return NextResponse.json({ error: "deal_not_found" }, { status: 404 });
   }
 
+  const [tenantIcp, mofu] = await Promise.all([
+    getTenantIcpContextForExecution(ctx.tenantId).catch(() => null),
+    getMofuIntegration(prisma, ctx.tenantId),
+  ]);
+  const icpContext = buildAssistTenantIcpContext(tenantIcp);
+  const bookingContext = buildAssistBookingContext(mofu);
+
   let brief;
   try {
     const client = _anthropicClientFactory();
-    const messages = buildBriefMessages({ nba, view });
+    const messages = buildBriefMessages({ nba, view, icpContext, bookingContext });
     const system = messages.find((m) => m.role === "system")?.content ?? "";
     const user = messages.find((m) => m.role === "user")?.content ?? "";
     const completion = await client.messages.create({

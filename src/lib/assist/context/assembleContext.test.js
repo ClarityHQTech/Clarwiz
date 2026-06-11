@@ -7,8 +7,35 @@ vi.mock("@/lib/assist/insightsReader", () => ({
   getLatestCompanyInsight: vi.fn(),
 }));
 
+vi.mock("@/lib/tenantIcpContext", () => ({
+  getTenantIcpContextForExecution: vi.fn(async () => null),
+  buildAssistTenantIcpContext: vi.fn((icp) =>
+    icp
+      ? {
+          companyName: icp.companyName,
+          companyDomain: icp.companyDomain,
+          icp: { workbook: "ICP workbook excerpt" },
+        }
+      : null
+  ),
+}));
+
+vi.mock("@/lib/assist/mofuIntegration", () => ({
+  getMofuIntegration: vi.fn(async () => null),
+  buildAssistBookingContext: vi.fn((row) =>
+    row?.calendlyBookingUrl
+      ? { calendlyBookingUrl: row.calendlyBookingUrl, bookingLinkConfigured: true }
+      : { calendlyBookingUrl: null, bookingLinkConfigured: false }
+  ),
+}));
+
 import { assembleDealContext, assembleCompanyContext } from "./assembleContext.js";
 import { getDealView, getCompanyView, getLatestCompanyInsight } from "@/lib/assist/insightsReader";
+import {
+  getTenantIcpContextForExecution,
+  buildAssistTenantIcpContext,
+} from "@/lib/tenantIcpContext";
+import { getMofuIntegration, buildAssistBookingContext } from "@/lib/assist/mofuIntegration";
 import { ONTOLOGY } from "@/lib/assist/prompts/ontology.js";
 
 // HubSpot fetch stub keyed by deal id → associations + batch-read for emails.
@@ -81,10 +108,63 @@ describe("assembleDealContext", () => {
     expect(vars.engagements.length).toBe(1);
     expect(Array.isArray(vars.signals)).toBe(true);
     expect(vars.previousInsights).toBeTruthy();
+    expect(vars.icpContext).toBeNull();
+    expect(vars.bookingContext).toEqual({ calendlyBookingUrl: null, bookingLinkConfigured: false });
+    expect(getTenantIcpContextForExecution).toHaveBeenCalledWith("t1");
+    expect(getMofuIntegration).toHaveBeenCalled();
     // carries the resolved deal/account ids for the orchestrator
     expect(vars._dealId).toBe("d1");
     expect(vars._accountId).toBe("a1");
     expect(vars._hsObjectId).toBe("555");
+  });
+
+  it("includes booking context when a Calendly URL is configured", async () => {
+    getMofuIntegration.mockResolvedValueOnce({
+      calendlyBookingUrl: "https://calendly.com/acme/30min",
+    });
+    getDealView.mockResolvedValue({
+      deal: { id: "d1", name: "Acme Deal" },
+      account: { id: "a1" },
+      company: null,
+      contacts: [],
+      insight: null,
+      signals: [],
+    });
+    const prisma = makePrisma({ id: "t1", name: "SellerCo" });
+
+    const vars = await assembleDealContext(prisma, "t1", "d1");
+
+    expect(buildAssistBookingContext).toHaveBeenCalled();
+    expect(vars.bookingContext).toEqual({
+      calendlyBookingUrl: "https://calendly.com/acme/30min",
+      bookingLinkConfigured: true,
+    });
+  });
+
+  it("includes tenant ICP context when the workbook is complete", async () => {
+    getTenantIcpContextForExecution.mockResolvedValueOnce({
+      companyName: "SellerCo",
+      companyDomain: "seller.com",
+      icpWorkbook: "Full workbook",
+      status: "complete",
+    });
+    getDealView.mockResolvedValue({
+      deal: { id: "d1", name: "Acme Deal" },
+      account: { id: "a1" },
+      company: null,
+      contacts: [],
+      insight: null,
+      signals: [],
+    });
+    const prisma = makePrisma({ id: "t1", name: "SellerCo" });
+
+    const vars = await assembleDealContext(prisma, "t1", "d1");
+
+    expect(buildAssistTenantIcpContext).toHaveBeenCalled();
+    expect(vars.icpContext).toMatchObject({
+      companyName: "SellerCo",
+      icp: { workbook: "ICP workbook excerpt" },
+    });
   });
 
   it("merges injected HubSpot engagements (token+fetch) ahead of commlog rows", async () => {

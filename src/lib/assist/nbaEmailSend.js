@@ -6,6 +6,7 @@ import { getDecryptedHubspotToken, getMofuIntegration } from "@/lib/assist/mofuI
 import { logEmailEngagement, associateEmailTo, sendSingleSendEmail } from "@/lib/assist/hubspotWrite";
 import { getGmailAccessToken } from "@/lib/gmail/gmailIntegration";
 import { sendGmailMessage } from "@/lib/gmail/gmailSend";
+import { embedCollateralInline } from "@/lib/assist/nbaEmailCollateral";
 
 /**
  * @param {object} params
@@ -16,13 +17,31 @@ import { sendGmailMessage } from "@/lib/gmail/gmailSend";
  * @param {string} params.html
  * @param {string[]} params.recipientEmails
  * @param {string[]} params.recipientContactIds - HubSpot contact ids
+ * @param {Array<{ filename: string, content: string, mimeType?: string }>} [params.attachments]
+ * @param {string} [params.collateralTitle] - label when inlining collateral for Single Send
  */
 export async function deliverNbaEmail(
   prisma,
-  { tenantId, userId, hubspotDealId, subject, html, recipientEmails, recipientContactIds },
+  {
+    tenantId,
+    userId,
+    hubspotDealId,
+    subject,
+    html,
+    recipientEmails,
+    recipientContactIds,
+    attachments = [],
+    collateralTitle = null,
+  },
   { fetchImpl = fetch } = {}
 ) {
+  const emailAttachments = Array.isArray(attachments) ? attachments.filter((a) => a?.content) : [];
+  const collateralFile = emailAttachments[0] ?? null;
+  const singleSendHtml = collateralFile
+    ? embedCollateralInline(html, collateralFile.content, collateralTitle || collateralFile.filename)
+    : html;
   let delivered = false;
+  let loggedHtml = html;
   let sentCount = 0;
   let failedCount = 0;
   let deliveryChannel = null;
@@ -35,7 +54,7 @@ export async function deliverNbaEmail(
       for (const to of recipientEmails) {
         const r = await sendGmailMessage(
           gmail.accessToken,
-          { from: gmail.email, to, subject, html },
+          { from: gmail.email, to, subject, html, attachments: emailAttachments },
           { fetchImpl }
         );
         if (r.ok) {
@@ -63,12 +82,13 @@ export async function deliverNbaEmail(
         for (const to of recipientEmails) {
           const r = await sendSingleSendEmail(
             hubspotToken,
-            { emailId: singleSendEmailId, to, subject, html },
+            { emailId: singleSendEmailId, to, subject, html: singleSendHtml },
             { fetchImpl }
           );
           if (r.ok) {
             sentCount += 1;
             deliveryChannel = "hubspot_single_send";
+            loggedHtml = singleSendHtml;
           } else {
             failedCount += 1;
             if (r.reason === "write_scope") forbiddenCount += 1;
@@ -103,7 +123,7 @@ export async function deliverNbaEmail(
 
   const logResult = await logEmailEngagement(
     hubspotToken,
-    { dealId: hubspotDealId, contactId: null, subject, html },
+    { dealId: hubspotDealId, contactId: null, subject, html: loggedHtml },
     { fetchImpl }
   );
 

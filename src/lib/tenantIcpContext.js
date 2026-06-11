@@ -291,6 +291,25 @@ export async function runAccountSignalExtraction(tenantId) {
   }
 }
 
+/**
+ * Truncated tenant ICP workbook for LLM prompts (MOFU NBA / AE Assist and TOFU execution).
+ * Returns null when no complete ICP record is available.
+ */
+export function buildAssistTenantIcpContext(tenantIcp) {
+  if (!tenantIcp) return null;
+  return {
+    companyName: tenantIcp.companyName ?? null,
+    companyDomain: tenantIcp.companyDomain ?? null,
+    icp: {
+      gapAnalysis: truncateForPrompt(tenantIcp.icpGapAnalysis, 2000),
+      marketResearch: truncateForPrompt(tenantIcp.marketResearch, 2500),
+      valueProposition: truncateForPrompt(tenantIcp.valueProposition, 2000),
+      workbook: truncateForPrompt(tenantIcp.icpWorkbook, 4000),
+      accountSignals: truncateForPrompt(tenantIcp.accountSignals, 1500),
+    },
+  };
+}
+
 export function buildExecutionTenantContext(campaign, tenantIcp) {
   const base = {
     campaignName: campaign.name,
@@ -300,20 +319,10 @@ export function buildExecutionTenantContext(campaign, tenantIcp) {
     brandTone: "professional, concise, value-led",
   };
 
-  if (!tenantIcp) return base;
+  const icpContext = buildAssistTenantIcpContext(tenantIcp);
+  if (!icpContext) return base;
 
-  return {
-    ...base,
-    companyName: tenantIcp.companyName,
-    companyDomain: tenantIcp.companyDomain,
-    icp: {
-      gapAnalysis: truncateForPrompt(tenantIcp.icpGapAnalysis, 2000),
-      marketResearch: truncateForPrompt(tenantIcp.marketResearch, 2500),
-      valueProposition: truncateForPrompt(tenantIcp.valueProposition, 2000),
-      workbook: truncateForPrompt(tenantIcp.icpWorkbook, 4000),
-      accountSignals: truncateForPrompt(tenantIcp.accountSignals, 1500),
-    },
-  };
+  return { ...base, ...icpContext };
 }
 
 function truncateForPrompt(text, max) {

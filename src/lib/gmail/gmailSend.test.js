@@ -16,6 +16,20 @@ describe("buildGmailRawMessage", () => {
     expect(decoded).toContain("To: buyer@acme.com");
     expect(decoded).toContain("<p>Hi</p>");
   });
+
+  it("builds multipart/mixed when attachments are present", () => {
+    const raw = buildGmailRawMessage({
+      from: "ae@company.com",
+      to: "buyer@acme.com",
+      subject: "Hello",
+      html: "<p>Hi</p>",
+      attachments: [{ filename: "deck.html", content: "<html><body>Deck</body></html>", mimeType: "text/html" }],
+    });
+    const decoded = Buffer.from(raw.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    expect(decoded).toContain("multipart/mixed");
+    expect(decoded).toContain('filename="deck.html"');
+    expect(decoded).toContain("Content-Disposition: attachment");
+  });
 });
 
 describe("sendGmailMessage", () => {

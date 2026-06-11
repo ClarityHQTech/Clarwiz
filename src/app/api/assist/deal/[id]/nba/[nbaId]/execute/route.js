@@ -13,6 +13,15 @@ import {
   storeGeneratedCollateral,
 } from "@/lib/assist/collateralGen";
 import { rankCollateral } from "@/lib/assist/collateralRank";
+import {
+  buildAssistTenantIcpContext,
+  getTenantIcpContextForExecution,
+} from "@/lib/tenantIcpContext";
+import {
+  buildAssistBookingContext,
+  getMofuIntegration,
+} from "@/lib/assist/mofuIntegration";
+import { appendAssistBookingLink } from "@/lib/assist/appendNbaBookingLink";
 
 const DRAFT_MODEL = process.env.NBA_DRAFT_MODEL?.trim() || ANTHROPIC_MODEL_SIMPLE;
 
@@ -131,7 +140,10 @@ async function storePersonalizedInstance(
  * Build the prompt for the email draft from an NBA's email_detail block.
  * Pure so it is easy to reason about; the LLM call itself is injectable.
  */
-function buildDraftMessages(nba, { postMeeting = false } = {}) {
+export function buildDraftMessages(
+  nba,
+  { postMeeting = false, icpContext = null, bookingContext = null } = {}
+) {
   const detail = nba?.payload?.resource_requirements?.email_detail ?? {};
   const theme = typeof detail.theme === "string" ? detail.theme : "";
   const bullets = Array.isArray(detail.content)
@@ -143,6 +155,10 @@ function buildDraftMessages(nba, { postMeeting = false } = {}) {
     nba?.rationale ? `Why: ${nba.rationale}` : null,
     theme ? `Email theme: ${theme}` : null,
     bullets.length ? `Key points to cover:\n- ${bullets.join("\n- ")}` : null,
+    icpContext ? `Tenant ICP context (align tone, value prop, and positioning):\n${JSON.stringify(icpContext, null, 2)}` : null,
+    bookingContext?.bookingLinkConfigured
+      ? `Scheduling: a tracked Calendly booking link will be appended automatically — invite the recipient to schedule if a meeting would help. Do not paste raw Calendly URLs.`
+      : null,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -152,12 +168,21 @@ function buildDraftMessages(nba, { postMeeting = false } = {}) {
       "discussed and agreed, confirm the next steps and owners, and end with one clear call to action. "
     : "";
 
+  const icpRule = icpContext
+    ? "When tenant ICP context is provided, align messaging with the ICP workbook, value proposition, and persona definitions — same as the TOFU execution layer. "
+    : "";
+  const bookingRule = bookingContext?.bookingLinkConfigured
+    ? "When scheduling is configured, include a warm invitation to book a meeting; the app appends the tracked booking link after generation. Never paste raw Calendly URLs. "
+    : "";
+
   return [
     {
       role: "system",
       content:
         "You are an expert B2B account executive writing concise, warm, professional sales follow-up emails. " +
         framing +
+        icpRule +
+        bookingRule +
         "Return STRICT JSON only, no prose, no markdown fences, shaped exactly as " +
         '{"subject": string, "emailHtml": string}. ' +
         "emailHtml must be clean inline HTML (<p>, <ul>, <li>, <strong> only — no <html>/<head>/<style>). " +
@@ -226,11 +251,18 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
     return NextResponse.json({ ok: true, alreadyExecuted: true, draft: nba.draftPayload ?? null });
   }
 
+  const [tenantIcp, mofu] = await Promise.all([
+    getTenantIcpContextForExecution(ctx.tenantId).catch(() => null),
+    getMofuIntegration(prisma, ctx.tenantId),
+  ]);
+  const icpContext = buildAssistTenantIcpContext(tenantIcp);
+  const bookingContext = buildAssistBookingContext(mofu);
+
   // Draft via LLM, isolated so a provider failure never 500s the route.
   let draft;
   try {
     const client = _anthropicClientFactory();
-    const messages = buildDraftMessages(nba, { postMeeting });
+    const messages = buildDraftMessages(nba, { postMeeting, icpContext, bookingContext });
     const system = messages.find((m) => m.role === "system")?.content ?? "";
     const user = messages.find((m) => m.role === "user")?.content ?? "";
     const { data } = await runJsonPrompt({
@@ -256,6 +288,15 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
 
   if (!draft) {
     return NextResponse.json({ ok: false, error: "draft_unparseable" }, { status: 502 });
+  }
+
+  if (bookingContext.bookingLinkConfigured) {
+    draft.emailHtml = appendAssistBookingLink({
+      html: draft.emailHtml,
+      calendlyBookingUrl: bookingContext.calendlyBookingUrl,
+      dealId,
+      nbaId: nba.id,
+    });
   }
 
   // (B) If this NBA genuinely needs a document, attach hyper-personalized
@@ -336,10 +377,8 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
       const document = stored.document;
       draftPayload.documentId = document.id;
       draftPayload.collateralTitle = document.title;
-      draftPayload.emailHtml =
-        `${draft.emailHtml}` +
-        `<p style="margin-top:16px"><a href="/assist/collaterals?open=${document.id}">` +
-        `View / edit asset →</a></p>`;
+      // Collateral is attached as a real .html file on send — no in-app viewer URLs.
+      draftPayload.emailHtml = draft.emailHtml;
 
       await logAssistAction(prisma, {
         tenantId: ctx.tenantId,

@@ -11,6 +11,7 @@ import { ui } from "@/lib/brandUi";
 
 const EMPTY_FORM = {
   singleSendEmailId: "",
+  calendlyBookingUrl: "",
 };
 
 const EMPTY_BRAND = {
@@ -53,6 +54,8 @@ function MofuSettingsPage() {
   const [brand, setBrand] = useState(EMPTY_BRAND);
   const [savingBrand, setSavingBrand] = useState(false);
   const [savingSingleSend, setSavingSingleSend] = useState(false);
+  const [calendlyConnected, setCalendlyConnected] = useState(false);
+  const [savingCalendlyUrl, setSavingCalendlyUrl] = useState(false);
   const [internalDomainsText, setInternalDomainsText] = useState("");
   const [detectedDomains, setDetectedDomains] = useState([]);
   const [savingDomains, setSavingDomains] = useState(false);
@@ -71,9 +74,12 @@ function MofuSettingsPage() {
       const sData = await sRes.json();
       const integ = sData.integration ?? { configured: false };
       setIntegration(integ);
-      if (integ.singleSendEmailId) {
-        setForm((f) => ({ ...f, singleSendEmailId: String(integ.singleSendEmailId) }));
-      }
+      setCalendlyConnected(Boolean(sData.calendlyConnected));
+      setForm((f) => ({
+        ...f,
+        singleSendEmailId: integ.singleSendEmailId ? String(integ.singleSendEmailId) : "",
+        calendlyBookingUrl: integ.calendlyBookingUrl ?? "",
+      }));
       if (bRes.ok) {
         const bData = await bRes.json();
         if (bData.brand) {
@@ -109,6 +115,37 @@ function MofuSettingsPage() {
 
   const onChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const onBrandChange = (key) => (e) => setBrand((b) => ({ ...b, [key]: e.target.value }));
+
+  const onSaveCalendlyUrl = async (e) => {
+    e.preventDefault();
+    setSavingCalendlyUrl(true);
+    try {
+      const res = await fetch("/api/assist/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ calendlyBookingUrl: form.calendlyBookingUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Could not save Calendly URL");
+        return;
+      }
+      setIntegration(data.integration);
+      setForm((f) => ({
+        ...f,
+        calendlyBookingUrl: data.integration?.calendlyBookingUrl ?? "",
+      }));
+      toast.success(
+        data.integration?.bookingLinkConfigured
+          ? "Calendly URL saved — NBA emails can include a scheduling link"
+          : "Calendly URL cleared"
+      );
+    } catch {
+      toast.error("Could not save Calendly URL");
+    } finally {
+      setSavingCalendlyUrl(false);
+    }
+  };
 
   const onSaveSingleSend = async (e) => {
     e.preventDefault();
@@ -255,9 +292,39 @@ function MofuSettingsPage() {
       <div>
         <h1 className={ui.title}>AE Assist settings</h1>
         <p className={ui.subtitle}>
-          Brand, email delivery, and internal domain settings for AE Assist.
+          Brand, scheduling, email delivery, and internal domain settings for AE Assist.
         </p>
       </div>
+
+      <SettingsSection
+        title="Calendly booking URL"
+        description="Used in NBA email drafts so deal contacts can schedule a meeting. Connect Calendly in Integrations for auto-qualify on book."
+      >
+        {!calendlyConnected ? (
+          <div className={ui.alertWarn}>
+            Connect Calendly in{" "}
+            <Link href="/integrations" className="font-medium underline text-brand-ink">
+              Integrations
+            </Link>{" "}
+            to auto-qualify prospects when meetings are booked from outreach campaigns.
+          </div>
+        ) : null}
+        <form onSubmit={onSaveCalendlyUrl} className="space-y-4">
+          <div>
+            <FieldLabel>Booking URL</FieldLabel>
+            <input
+              type="url"
+              className={ui.inputSurface}
+              placeholder="https://calendly.com/your-team/30min"
+              value={form.calendlyBookingUrl}
+              onChange={onChange("calendlyBookingUrl")}
+            />
+          </div>
+          <button type="submit" className={ui.btnPrimary} disabled={savingCalendlyUrl}>
+            {savingCalendlyUrl ? "Saving…" : "Save URL"}
+          </button>
+        </form>
+      </SettingsSection>
 
       <SettingsSection title="Gmail (recommended)">
         <GmailIntegrationSection

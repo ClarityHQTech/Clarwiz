@@ -1434,6 +1434,10 @@ logos, customers, or compliance certs. Keep copy short and sharp; no fluff.`;
 
 import { getAnthropicClient, ASSIST_AGENT_MODEL } from "@/lib/anthropicClient";
 import { renderDocumentHtml } from "@/lib/assist/renderDocument";
+import {
+  buildAssistTenantIcpContext,
+  getTenantIcpContextForExecution,
+} from "@/lib/tenantIcpContext";
 
 /** Identifies which prompt revision produced a stored Document. */
 export const COLLATERAL_PROMPT_VERSION = "aura-collateral-v2-docmodel";
@@ -1860,10 +1864,14 @@ export async function assembleCollateralVars(
   tenantId,
   { dealId = null, accountId = null, nbaId = null } = {}
 ) {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { id: true, name: true, company_details: true },
-  });
+  const [tenant, tenantIcp] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true, company_details: true },
+    }),
+    getTenantIcpContextForExecution(tenantId).catch(() => null),
+  ]);
+  const icpContext = buildAssistTenantIcpContext(tenantIcp);
 
   let deal = null;
   if (dealId) {
@@ -1893,6 +1901,7 @@ export async function assembleCollateralVars(
   const tenantData = {
     name: tenant?.name ?? null,
     company_details: tenant?.company_details ?? null,
+    ...(icpContext ?? {}),
   };
 
   const prospectData = account
@@ -2199,10 +2208,14 @@ export async function assembleProspectContext(
   tenantId,
   { dealId = null, accountId = null, nbaId = null } = {}
 ) {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { id: true, name: true, company_details: true },
-  });
+  const [tenant, tenantIcp] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true, company_details: true },
+    }),
+    getTenantIcpContextForExecution(tenantId).catch(() => null),
+  ]);
+  const icpContext = buildAssistTenantIcpContext(tenantIcp);
 
   let deal = null;
   if (dealId) {
@@ -2293,6 +2306,7 @@ export async function assembleProspectContext(
     name: tenant?.name ?? null,
     company_details: tenant?.company_details ?? null,
     brand,
+    ...(icpContext ?? {}),
   };
 
   const companyRow = account?.company ?? null;

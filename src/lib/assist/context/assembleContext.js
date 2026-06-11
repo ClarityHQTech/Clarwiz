@@ -2,7 +2,7 @@
  * Context assembly for the AURA intelligence prompts. Reads the hydrated graph
  * via the insightsReader view-models and shapes the `vars` object the prompt
  * templates expect: { ontology, engagements, companyData, contactData, dealData,
- * tenantData, ownerData, signals, previousInsights }.
+ * tenantData, icpContext, bookingContext, ownerData, signals, previousInsights }.
  *
  * Everything here is null-safe and best-effort — a missing tenant row or a
  * CommunicationLog read failure must degrade gracefully, never throw, so a
@@ -11,6 +11,11 @@
 import { getDealView, getCompanyView } from "@/lib/assist/insightsReader";
 import { ONTOLOGY } from "@/lib/assist/prompts/ontology.js";
 import { fetchDealEngagements } from "@/lib/assist/hubspotRead.js";
+import {
+  buildAssistTenantIcpContext,
+  getTenantIcpContextForExecution,
+} from "@/lib/tenantIcpContext";
+import { buildAssistBookingContext, getMofuIntegration } from "@/lib/assist/mofuIntegration";
 
 const ENGAGEMENT_TAKE = 30;
 const HS_ENGAGEMENT_CAP = 25;
@@ -19,6 +24,24 @@ const HS_ENGAGEMENT_CAP = 25;
 async function safeTenant(prisma, tenantId) {
   try {
     return await prisma.tenant.findUnique({ where: { id: tenantId } });
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort complete tenant ICP (workbook, value prop, …). Null on any failure. */
+async function safeTenantIcp(tenantId) {
+  try {
+    return await getTenantIcpContextForExecution(tenantId);
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort MOFU integration row (Calendly URL, email delivery, …). */
+async function safeMofuIntegration(prisma, tenantId) {
+  try {
+    return await getMofuIntegration(prisma, tenantId);
   } catch {
     return null;
   }
@@ -123,8 +146,10 @@ export async function assembleDealContext(prisma, tenantId, dealId, { token, fet
   const contactIds = contacts.map((c) => c?.id).filter(Boolean);
   const hubspotDealId = view.deal?.hubspotDealId ?? null;
 
-  const [tenant, commLogs, hsEngagements, recordingEngagements] = await Promise.all([
+  const [tenant, tenantIcp, mofu, commLogs, hsEngagements, recordingEngagements] = await Promise.all([
     safeTenant(prisma, tenantId),
+    safeTenantIcp(tenantId),
+    safeMofuIntegration(prisma, tenantId),
     safeEngagements(prisma, tenantId, contactIds),
     safeHubspotEngagements(token, hubspotDealId, fetchImpl),
     safeDealRecordingEngagements(prisma, dealId),
@@ -142,6 +167,8 @@ export async function assembleDealContext(prisma, tenantId, dealId, { token, fet
     contactData: contacts,
     dealData: view.deal ?? null,
     tenantData: tenant,
+    icpContext: buildAssistTenantIcpContext(tenantIcp),
+    bookingContext: buildAssistBookingContext(mofu),
     ownerData: deriveOwnerData(tenant, ownerId),
     signals: view.signals ?? [],
     previousInsights: view.insight?.payload ?? null,
@@ -168,8 +195,10 @@ export async function assembleCompanyContext(prisma, tenantId, accountId, { toke
     .map((d) => d?.hubspotDealId)
     .filter(Boolean);
 
-  const [tenant, commLogs, hsLists] = await Promise.all([
+  const [tenant, tenantIcp, mofu, commLogs, hsLists] = await Promise.all([
     safeTenant(prisma, tenantId),
+    safeTenantIcp(tenantId),
+    safeMofuIntegration(prisma, tenantId),
     safeEngagements(prisma, tenantId, contactIds),
     Promise.all(hubspotDealIds.map((id) => safeHubspotEngagements(token, id, fetchImpl))),
   ]);
@@ -190,6 +219,8 @@ export async function assembleCompanyContext(prisma, tenantId, accountId, { toke
     contactData: contacts,
     dealData: view.deals ?? [],
     tenantData: tenant,
+    icpContext: buildAssistTenantIcpContext(tenantIcp),
+    bookingContext: buildAssistBookingContext(mofu),
     ownerData: deriveOwnerData(tenant, ownerId),
     signals: view.signals ?? [],
     previousInsights: view.insight?.payload ?? null,

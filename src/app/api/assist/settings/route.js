@@ -7,9 +7,19 @@ import {
   isHubspotOAuthConnected,
   toDisplayConfig,
 } from "@/lib/assist/mofuIntegration";
+import { getCalendlyIntegration } from "@/lib/calendlyIntegration";
 
 // MOFU settings are configured before payment gating and managed by tenant admins.
 const AUTH = { permission: PERMISSIONS.ASSIST_VIEW, requirePaid: false };
+
+function validateCalendlyUrl(raw) {
+  const url = raw?.trim() || null;
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) {
+    return { error: "Calendly URL must start with http:// or https://" };
+  }
+  return { url };
+}
 
 /** GET — integration status for the settings UI. */
 export async function GET() {
@@ -17,11 +27,18 @@ export async function GET() {
   if (auth.error) return auth.error;
   const { ctx } = auth;
 
-  const row = await getMofuIntegration(prisma, ctx.tenantId);
-  return NextResponse.json({ integration: toDisplayConfig(row) });
+  const [row, calendly] = await Promise.all([
+    getMofuIntegration(prisma, ctx.tenantId),
+    getCalendlyIntegration(ctx.tenantId).catch(() => null),
+  ]);
+
+  return NextResponse.json({
+    integration: toDisplayConfig(row),
+    calendlyConnected: calendly?.status === "connected",
+  });
 }
 
-/** POST — update OAuth-connected integration settings (e.g. Single Send email ID). */
+/** POST — update AE Assist settings (Single Send email ID, Calendly booking URL). */
 export async function POST(request) {
   const auth = await resolveApiAuth({ ...AUTH, tenantAdmin: true });
   if (auth.error) return auth.error;
@@ -34,24 +51,38 @@ export async function POST(request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const existing = await getMofuIntegration(prisma, ctx.tenantId);
-  if (!existing) {
-    return NextResponse.json({ error: "not_configured" }, { status: 400 });
+  const data = {};
+
+  if (body?.singleSendEmailId !== undefined) {
+    const raw = body.singleSendEmailId;
+    data.hubspotSingleSendEmailId = raw ? String(raw).trim() || null : null;
   }
 
-  if (body?.singleSendEmailId === undefined) {
+  if (body?.calendlyBookingUrl !== undefined) {
+    const parsed = validateCalendlyUrl(body.calendlyBookingUrl);
+    if (parsed?.error) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    data.calendlyBookingUrl = parsed.url;
+  }
+
+  if (!Object.keys(data).length) {
     return NextResponse.json({ error: "no_updates" }, { status: 400 });
   }
 
-  const raw = body.singleSendEmailId;
-  const row = await prisma.mofuIntegration.update({
-    where: { tenantId: ctx.tenantId },
-    data: { hubspotSingleSendEmailId: raw ? String(raw).trim() || null : null },
-  });
+  const existing = await getMofuIntegration(prisma, ctx.tenantId);
+  const row = existing
+    ? await prisma.mofuIntegration.update({
+        where: { tenantId: ctx.tenantId },
+        data,
+      })
+    : await prisma.mofuIntegration.create({
+        data: { tenantId: ctx.tenantId, ...data },
+      });
 
   return NextResponse.json({
     success: true,
-    verified: { hubspot: isHubspotOAuthConnected(existing) },
+    verified: { hubspot: isHubspotOAuthConnected(existing ?? row) },
     integration: toDisplayConfig(row),
   });
 }

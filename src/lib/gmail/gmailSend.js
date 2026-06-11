@@ -12,17 +12,50 @@ function encodeSubject(subject) {
 }
 
 /** Build a minimal RFC 2822 HTML message and return base64url for Gmail API. */
-export function buildGmailRawMessage({ from, to, subject, html }) {
-  const lines = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${encodeSubject(subject)}`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/html; charset=UTF-8",
-    "Content-Transfer-Encoding: 7bit",
-    "",
-    html,
-  ];
+export function buildGmailRawMessage({ from, to, subject, html, attachments = [] }) {
+  const att = Array.isArray(attachments) ? attachments.filter((a) => a?.content) : [];
+  let body;
+
+  if (!att.length) {
+    body = [
+      "MIME-Version: 1.0",
+      "Content-Type: text/html; charset=UTF-8",
+      "Content-Transfer-Encoding: 7bit",
+      "",
+      html,
+    ].join("\r\n");
+  } else {
+    const boundary = `clarwiz_${Date.now().toString(36)}`;
+    const parts = [
+      `--${boundary}`,
+      "Content-Type: text/html; charset=UTF-8",
+      "Content-Transfer-Encoding: 7bit",
+      "",
+      html,
+    ];
+    for (const file of att) {
+      const filename = String(file.filename || "attachment.html").replace(/"/g, "");
+      const mimeType = file.mimeType || "application/octet-stream";
+      const b64 = Buffer.from(String(file.content), "utf8").toString("base64");
+      parts.push(
+        `--${boundary}`,
+        `Content-Type: ${mimeType}; charset=UTF-8`,
+        `Content-Disposition: attachment; filename="${filename}"`,
+        "Content-Transfer-Encoding: base64",
+        "",
+        b64
+      );
+    }
+    parts.push(`--${boundary}--`);
+    body = [
+      "MIME-Version: 1.0",
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      "",
+      ...parts,
+    ].join("\r\n");
+  }
+
+  const lines = [`From: ${from}`, `To: ${to}`, `Subject: ${encodeSubject(subject)}`, "", body];
   const raw = lines.join("\r\n");
   return Buffer.from(raw, "utf8")
     .toString("base64")
@@ -37,7 +70,7 @@ export function buildGmailRawMessage({ from, to, subject, html }) {
  */
 export async function sendGmailMessage(
   accessToken,
-  { from, to, subject, html },
+  { from, to, subject, html, attachments },
   { fetchImpl = fetch } = {}
 ) {
   if (!accessToken || !from || !to || !subject || !html) {
@@ -51,7 +84,7 @@ export async function sendGmailMessage(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        raw: buildGmailRawMessage({ from, to, subject, html }),
+        raw: buildGmailRawMessage({ from, to, subject, html, attachments }),
       }),
     });
     let json = null;
