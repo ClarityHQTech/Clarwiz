@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MobileDashMenu from "./MobileDashMenu";
 import Sidebar from "./Sidebar";
 import { useUser } from "@/context/UserContext";
@@ -11,11 +11,27 @@ import TenantWorkspaces from "@/components/profile/TenantWorkspaces";
 
 const PAYMENT_ALLOWED_PATHS = ["/pricing", "/profile"];
 const TENANT_SETUP_PATHS = ["/profile"];
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
 function DashboardShell({ children }) {
   const user = useUser();
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (stored === "true") {
+      setSidebarCollapsed(true);
+    }
+  }, []);
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
 
   if (user === undefined) {
     return <Loader fullScreen />;
@@ -76,7 +92,7 @@ function DashboardShell({ children }) {
       >
         <Sidebar
           collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          onToggleCollapse={toggleSidebarCollapse}
         />
       </div>
 

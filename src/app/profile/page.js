@@ -3,12 +3,22 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import TenantWorkspaces from "@/components/profile/TenantWorkspaces";
 import TenantDetailsSection from "@/components/profile/TenantDetailsSection";
+import ConfirmBox from "@/components/dialog/ConfirmBox";
 import { ui } from "@/lib/brandUi";
 import { useUser } from "@/context/UserContext";
+import { useDisclosure } from "@chakra-ui/react";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
+import { IoIosLogOut } from "react-icons/io";
 
 const ProfilePage = () => {
   const user = useUser();
+  const logout = useDisclosure();
+
+  const logoutHandler = () => {
+    logout.onClose();
+    signOut({ callbackUrl: "/" });
+  };
 
   return (
     <div className={`${ui.page} ${ui.container} w-full space-y-6`}>
@@ -45,19 +55,33 @@ const ProfilePage = () => {
                 <span className="text-red-600 font-medium">Inactive</span>
               )}
             </p>
-            {user?.isSuperadmin ? (
-              <Link
-                href="/admin/dashboard"
-                className={`mt-3 inline-block ${ui.btnPrimary}`}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {user?.isSuperadmin ? (
+                <Link href="/admin/dashboard" className={ui.btnPrimary}>
+                  Admin Panel
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={logout.onOpen}
+                className={`${ui.btnSecondary} text-red-600 border-red-200 hover:bg-red-50`}
               >
-                Admin Panel
-              </Link>
-            ) : null}
+                <IoIosLogOut size={18} />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       <TenantDetailsSection />
+
+      <ConfirmBox
+        isOpen={logout.isOpen}
+        onClose={logout.onClose}
+        action="Logout"
+        handler={logoutHandler}
+      />
     </div>
   );
 };
