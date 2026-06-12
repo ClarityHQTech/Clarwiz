@@ -1,4 +1,5 @@
 import { resolveDocumentHtml } from "@/lib/assist/resolveDocumentHtml";
+import { ensureRenderableHtmlDocument, extractHtmlBodyForEmbed } from "@/lib/assist/ensureRenderableHtml";
 import { stripCollateralViewerLinks } from "@/lib/assist/stripCollateralViewerLinks";
 
 export { stripCollateralViewerLinks };
@@ -24,7 +25,7 @@ export async function loadCollateralEmailAttachment(prisma, tenantId, documentId
     select: { title: true, html: true, template: true, data: true },
   });
   if (!document) return null;
-  const content = resolveDocumentHtml(document);
+  const content = ensureRenderableHtmlDocument(resolveDocumentHtml(document));
   if (!content?.trim()) return null;
   return {
     filename: sanitizeAttachmentFilename(document.title),
@@ -39,11 +40,12 @@ export async function loadCollateralEmailAttachment(prisma, tenantId, documentId
 export function embedCollateralInline(emailHtml, collateralHtml, title) {
   if (!collateralHtml?.trim()) return emailHtml;
   const label = title?.trim() ? title.trim() : "Collateral";
+  const bodyMarkup = extractHtmlBodyForEmbed(collateralHtml);
   return (
     `${emailHtml || ""}` +
     `<hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb"/>` +
     `<p style="font-size:14px;color:#374151;margin:0 0 12px"><strong>${escapeHtml(label)}</strong></p>` +
-    collateralHtml
+    bodyMarkup
   );
 }
 

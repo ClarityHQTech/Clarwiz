@@ -228,7 +228,7 @@ bookingContext: tenant Calendly scheduling link for meeting CTAs in outbound ema
 Critical Requirements
 Analyze only top 3 signals by signal_score.
 
-Produce exactly 2 NBA actions.
+Produce one NBA per prioritized signal and any tightly related, non-redundant follow-on actions the AE should take now. Include only distinct, high-confidence actions — omit duplicates and low-impact busywork. Return as many as the deal warrants, but never more than 20 objects in nba_action (this is a ceiling, not a target; fewer is expected when the deal is early or thin on signals).
 
 Every action must:
 
@@ -296,7 +296,7 @@ Emotional Resonance Strategy → mirror affect, pace, energy.
 
 Action Construction
 
-Build JSON block for each NBA with: action, justification, execution plan, impact/effort scores, required assets, email content guidance, applied reasoning models.
+Build one JSON object per NBA with: action, justification, execution plan, impact/effort scores, required assets, email content guidance, applied reasoning models. Repeat the schema below for each action; the nba_action array may contain multiple objects (maximum 20).
 
 {
  "nba_action": [
@@ -340,45 +340,6 @@ Build JSON block for each NBA with: action, justification, execution plan, impac
        "feedback_loop_effect": "with help of mental model framework loop_type",
        "confidence_level": "with help of mental model framework confidence",
        "opportunity_cost_delta": "with help of mental model framework opportunity tradeoff"
-     }
-   },
-   {
-     "signal_reference_id": " ",
-     "signal_reference": "...",
-     "signal_score": "from the respective signal",
-     "action_verb": "...",
-     "asset": "information about the assest that need to created if some thing like onepager, battlecard,salesdeck,implementationguide,roicalculator,ppt then provide the information about the assest and if nothing is required the action can be done in email like a little information is to provide then descibe the email ",
-     "core_action": "...",
-     "justification": "...",
-     "execution_plan": "...",
-     "priority": "high/low/medium",
-     "estimated_impact": "...",
-     "estimated_effort": "...",
-     "impact_score": "score in between (0-100)",
-     "effort_score": "score in between (0-100)",
-     "action_score": "(impact_score/effort_score)",
-
-     "action_title": "appropriate precise text not more than 10 words shown to Account executive - what to do. Example: generate email regarding... and send to...",
-     "resource_requirements": {
-       "internal_contacts_with_email_who_will_trigger_this_action": "...",
-       "customer_contacts_with_email_to_whom_action_should_trigger": "...",
-       "raised_by": "...",
-       "raised_by_role": "...",
-       "raised_by_email": "...",
-       "email_detail": {
-         "content": [...],
-         "theme": "..."
-       },
-       "tools_required": [...]
-     },
-     "mental_model_reasoning_summary": {
-       "first_principles_target": "...",
-       "second_order_forecast": "...",
-       "inversion_risk_detected": "...",
-       "system_bottleneck_addressed": "...",
-       "feedback_loop_effect": "...",
-       "confidence_level": "...",
-       "opportunity_cost_delta": "..."
      }
    }
  ],

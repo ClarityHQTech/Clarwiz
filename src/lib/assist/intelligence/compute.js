@@ -11,6 +11,8 @@
  * separate "deal" prompt in the AURA spec.
  */
 import { getMofuIntegration } from "@/lib/assist/mofuIntegration";
+import { syncDealRecordings } from "@/lib/assist/hubspotRecordings.js";
+import { ensureRecordingSetupNbaForDeal } from "@/lib/assist/recordingSetupNba.js";
 import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { logAssistAction } from "@/lib/assist/logAction";
 import { assembleDealContext, assembleCompanyContext } from "@/lib/assist/context/assembleContext.js";
@@ -443,7 +445,8 @@ export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, f
 
 /**
  * Run the NBA prompt over the deal's top signals and create NbaRecommendation
- * rows (the spec produces exactly 2). Returns the created NBAs.
+ * rows (prompt asks for as many as warranted, up to 20 — no server-side cap).
+ * Returns the created NBAs.
  */
 export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
   const client = llm ?? getAnthropicClient();
@@ -496,7 +499,7 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetc
  * independently fault-isolated. Logs INSIGHT_COMPUTED. Returns a summary.
  */
 export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
-  const summary = { dealId, signals: 0, nbas: 0, insight: false, errors: [] };
+  const summary = { dealId, signals: 0, nbas: 0, setupNba: false, insight: false, errors: [] };
 
   // Resolve the deal's HubSpot object id once (best-effort) for the action log.
   let hsObjectId = null;
@@ -505,6 +508,18 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetc
     hsObjectId = ctx?._hsObjectId ?? null;
   } catch {
     /* ignore */
+  }
+
+  // Refresh HubSpot meetings/calls so recorder gaps are visible before signals/NBAs.
+  if (token) {
+    try {
+      const mofu = await getMofuIntegration(prisma, tenantId).catch(() => null);
+      const scopes = mofu?.hubspotScopes ?? [];
+      await syncDealRecordings(prisma, tenantId, dealId, { token, scopes, fetchImpl });
+      summary.setupNba = await ensureRecordingSetupNbaForDeal(prisma, tenantId, dealId);
+    } catch (err) {
+      summary.errors.push(`recording_setup: ${err.message}`);
+    }
   }
 
   try {

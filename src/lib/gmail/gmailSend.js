@@ -2,6 +2,8 @@
  * Send email via Gmail API (users.messages.send).
  */
 
+import { foldBase64 } from "@/lib/assist/ensureRenderableHtml";
+
 const GMAIL_SEND_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
 
 /** Encode a UTF-8 subject for RFC 2047 if non-ascii. */
@@ -11,21 +13,29 @@ function encodeSubject(subject) {
   return `=?UTF-8?B?${b64}?=`;
 }
 
-/** Build a minimal RFC 2822 HTML message and return base64url for Gmail API. */
+/**
+ * Build a minimal RFC 2822 message and return base64url for Gmail API.
+ * MIME-Version / Content-Type must live in the message headers (before the blank
+ * line), not in the body — otherwise clients show raw multipart text.
+ */
 export function buildGmailRawMessage({ from, to, subject, html, attachments = [] }) {
   const att = Array.isArray(attachments) ? attachments.filter((a) => a?.content) : [];
+  const headers = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${encodeSubject(subject)}`,
+    "MIME-Version: 1.0",
+  ];
+
   let body;
 
   if (!att.length) {
-    body = [
-      "MIME-Version: 1.0",
-      "Content-Type: text/html; charset=UTF-8",
-      "Content-Transfer-Encoding: 7bit",
-      "",
-      html,
-    ].join("\r\n");
+    headers.push("Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: 7bit");
+    body = html;
   } else {
     const boundary = `clarwiz_${Date.now().toString(36)}`;
+    headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+
     const parts = [
       `--${boundary}`,
       "Content-Type: text/html; charset=UTF-8",
@@ -35,11 +45,12 @@ export function buildGmailRawMessage({ from, to, subject, html, attachments = []
     ];
     for (const file of att) {
       const filename = String(file.filename || "attachment.html").replace(/"/g, "");
-      const mimeType = file.mimeType || "application/octet-stream";
-      const b64 = Buffer.from(String(file.content), "utf8").toString("base64");
+      const isHtml = (file.mimeType || "").toLowerCase().includes("html") || /\.html?$/i.test(filename);
+      const mimeType = isHtml ? "text/html" : file.mimeType || "application/octet-stream";
+      const b64 = foldBase64(Buffer.from(String(file.content), "utf8").toString("base64"));
       parts.push(
         `--${boundary}`,
-        `Content-Type: ${mimeType}; charset=UTF-8`,
+        `Content-Type: ${mimeType}; charset="UTF-8"; name="${filename}"`,
         `Content-Disposition: attachment; filename="${filename}"`,
         "Content-Transfer-Encoding: base64",
         "",
@@ -47,16 +58,10 @@ export function buildGmailRawMessage({ from, to, subject, html, attachments = []
       );
     }
     parts.push(`--${boundary}--`);
-    body = [
-      "MIME-Version: 1.0",
-      `Content-Type: multipart/mixed; boundary="${boundary}"`,
-      "",
-      ...parts,
-    ].join("\r\n");
+    body = parts.join("\r\n");
   }
 
-  const lines = [`From: ${from}`, `To: ${to}`, `Subject: ${encodeSubject(subject)}`, "", body];
-  const raw = lines.join("\r\n");
+  const raw = `${headers.join("\r\n")}\r\n\r\n${body}`;
   return Buffer.from(raw, "utf8")
     .toString("base64")
     .replace(/\+/g, "-")

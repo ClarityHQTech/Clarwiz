@@ -29,6 +29,25 @@ describe("buildGmailRawMessage", () => {
     expect(decoded).toContain("multipart/mixed");
     expect(decoded).toContain('filename="deck.html"');
     expect(decoded).toContain("Content-Disposition: attachment");
+    expect(decoded).toContain('Content-Type: text/html; charset="UTF-8"; name="deck.html"');
+  });
+
+  it("places MIME headers before the header/body separator (not in the visible body)", () => {
+    const raw = buildGmailRawMessage({
+      from: "ae@company.com",
+      to: "buyer@acme.com",
+      subject: "Hello",
+      html: "<p>Hi</p>",
+      attachments: [{ filename: "deck.html", content: "<html><body>Deck</body></html>", mimeType: "text/html" }],
+    });
+    const decoded = Buffer.from(raw.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    const headerBlock = decoded.split("\r\n\r\n")[0];
+    const bodyBlock = decoded.split("\r\n\r\n").slice(1).join("\r\n\r\n");
+
+    expect(headerBlock).toContain("MIME-Version: 1.0");
+    expect(headerBlock).toContain("multipart/mixed");
+    expect(bodyBlock.startsWith("--clarwiz_")).toBe(true);
+    expect(bodyBlock).not.toMatch(/^MIME-Version:/m);
   });
 });
 

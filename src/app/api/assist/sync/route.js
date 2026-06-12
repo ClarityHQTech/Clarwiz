@@ -34,10 +34,7 @@ export async function POST() {
     }
 
     const recordings = await syncTenantRecordings(prisma, ctx.tenantId, token, { scopes });
-    const setupNbas = await ensureRecordingSetupNbas(prisma, ctx.tenantId, {
-      scopes,
-      syncSummary: recordings,
-    });
+    const setupNbas = await ensureRecordingSetupNbas(prisma, ctx.tenantId);
 
     console.info(
       `[MOFU] sync ok tenant=${ctx.tenantId} counts=${JSON.stringify(res.counts ?? {})} recordings=${recordings.stored ?? 0}`

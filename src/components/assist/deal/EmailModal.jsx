@@ -117,7 +117,12 @@ export default function EmailModal({ dealId, nba, contacts = [], isOpen, onClose
       const res = await fetch(`/api/assist/deal/${dealId}/nba/${nba.id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, html, recipientContactIds: selectedIds }),
+        body: JSON.stringify({
+          subject,
+          html,
+          recipientContactIds: selectedIds,
+          ...(documentId ? { documentId } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 412) {
