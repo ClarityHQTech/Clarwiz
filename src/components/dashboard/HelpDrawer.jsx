@@ -481,7 +481,7 @@ export default function HelpDrawer({ isOpen, onClose }) {
   return (
     <Drawer placement="right" size="md" isOpen={isOpen} onClose={onClose}>
       <DrawerOverlay className="!bg-black/40" />
-      <DrawerContent className="!max-w-[520px] !bg-brand-surface flex flex-col">
+      <DrawerContent className="!max-w-[520px] !bg-brand-surface flex flex-col !overflow-hidden">
         <DrawerCloseButton className="!text-brand-stone" />
         <DrawerHeader
           className="!bg-brand-surface border-b border-brand-secondary/25 shrink-0"
@@ -497,9 +497,9 @@ export default function HelpDrawer({ isOpen, onClose }) {
           </p>
         </DrawerHeader>
 
-        <DrawerBody className="!bg-brand-surface flex flex-col gap-0 !p-0 overflow-hidden">
+        <DrawerBody className="!bg-brand-surface flex min-h-0 flex-1 flex-col gap-0 !p-0 overflow-hidden">
           <div className="shrink-0 border-b border-brand-secondary/25 bg-brand-bg/50">
-            <div className="flex gap-2 overflow-x-auto px-4 py-3 no-scrollbar">
+            <div className="thin-scrollbar flex gap-2 overflow-x-auto px-4 py-3 pb-2">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -517,7 +517,7 @@ export default function HelpDrawer({ isOpen, onClose }) {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-5">
+          <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5">
             <ActiveContent />
           </div>
         </DrawerBody>

@@ -17,5 +17,30 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  .thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #b8a68a #f2ead7;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-track {
+    background: #f2ead7;
+    border-radius: 9999px;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    background: #b8a68a;
+    border-radius: 9999px;
+    border: 2px solid #f2ead7;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #8b9a9c;
+  }
 }
 
