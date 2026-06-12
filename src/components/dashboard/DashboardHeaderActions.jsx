@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDisclosure } from "@chakra-ui/react";
 import {
   HiOutlineArrowRight,
@@ -101,6 +102,83 @@ function NotificationItem({ alert, unread, onNavigate }) {
   return <div className={`flex gap-3 px-4 py-3 ${style.bg}`}>{content}</div>;
 }
 
+function NotificationPanel({ open, panelRef, buttonRef, unreadCount, alerts, seenIds, onNavigate }) {
+  const [panelStyle, setPanelStyle] = useState(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) {
+      setPanelStyle(null);
+      return undefined;
+    }
+
+    const updatePosition = () => {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const width = Math.min(352, window.innerWidth - 32);
+      const right = Math.max(16, window.innerWidth - rect.right);
+
+      setPanelStyle({
+        position: "fixed",
+        top: rect.bottom + 8,
+        right,
+        width,
+        zIndex: 200,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, buttonRef]);
+
+  if (!open || !mounted || !panelStyle) return null;
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      style={panelStyle}
+      className="overflow-hidden rounded-xl border border-brand-secondary/30 bg-white shadow-lg shadow-brand-ink/10"
+      role="dialog"
+      aria-label="Notifications"
+    >
+      <div className="flex items-center justify-between border-b border-brand-secondary/25 px-4 py-3">
+        <h2 className="text-sm font-semibold text-brand-ink">Notifications</h2>
+        {unreadCount > 0 ? (
+          <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">
+            {unreadCount} new
+          </span>
+        ) : null}
+      </div>
+
+      {alerts.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-brand-stone">
+          You&apos;re all caught up — no notifications right now.
+        </p>
+      ) : (
+        <div className="max-h-[min(24rem,60vh)] overflow-y-auto divide-y divide-brand-secondary/15">
+          {alerts.map((alert) => (
+            <NotificationItem
+              key={alert.id}
+              alert={alert}
+              unread={!seenIds.has(alert.id)}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+}
+
 export default function DashboardHeaderActions({ alerts = [], tenantId }) {
   const help = useDisclosure();
   const [open, setOpen] = useState(false);
@@ -192,40 +270,15 @@ export default function DashboardHeaderActions({ alerts = [], tenantId }) {
           ) : null}
         </button>
 
-        {open ? (
-          <div
-            ref={panelRef}
-            className="absolute right-0 top-full z-50 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-xl border border-brand-secondary/30 bg-white shadow-lg shadow-brand-ink/10"
-            role="dialog"
-            aria-label="Notifications"
-          >
-            <div className="flex items-center justify-between border-b border-brand-secondary/25 px-4 py-3">
-              <h2 className="text-sm font-semibold text-brand-ink">Notifications</h2>
-              {unreadCount > 0 ? (
-                <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-600">
-                  {unreadCount} new
-                </span>
-              ) : null}
-            </div>
-
-            {alerts.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-brand-stone">
-                You&apos;re all caught up — no notifications right now.
-              </p>
-            ) : (
-              <div className="max-h-[min(24rem,60vh)] overflow-y-auto divide-y divide-brand-secondary/15">
-                {alerts.map((alert) => (
-                  <NotificationItem
-                    key={alert.id}
-                    alert={alert}
-                    unread={!seenIds.has(alert.id)}
-                    onNavigate={() => setOpen(false)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : null}
+        <NotificationPanel
+          open={open}
+          panelRef={panelRef}
+          buttonRef={buttonRef}
+          unreadCount={unreadCount}
+          alerts={alerts}
+          seenIds={seenIds}
+          onNavigate={() => setOpen(false)}
+        />
       </div>
     </div>
   );

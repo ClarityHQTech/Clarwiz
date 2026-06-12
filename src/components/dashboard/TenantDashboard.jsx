@@ -188,7 +188,7 @@ export default function TenantDashboard({ data }) {
   return (
     <div className={`${ui.page} ${ui.container} max-w-[1400px] space-y-6`}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wide text-brand-stone">
             Workspace overview
           </p>
@@ -199,8 +199,8 @@ export default function TenantDashboard({ data }) {
             Campaign outreach, qualified pipeline, and AE Assist activity in one place.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:pt-1">
-          <DashboardHeaderActions alerts={data?.alerts ?? []} tenantId={tenantId} />
+
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 shrink-0 lg:w-auto lg:pt-1">
           <Link href="/campaigns" className={ui.btnSecondary}>
             <HiOutlineMegaphone className="h-4 w-4" />
             Campaigns
@@ -209,6 +209,7 @@ export default function TenantDashboard({ data }) {
             <HiOutlineBriefcase className="h-4 w-4" />
             AE Assist
           </Link>
+          <DashboardHeaderActions alerts={data?.alerts ?? []} tenantId={tenantId} />
         </div>
       </div>
 
