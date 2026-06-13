@@ -202,6 +202,7 @@ model Tenant {
   assistActionLogs    AssistActionLog[]
   documents           Document[]
   dealRecordings      DealRecording[]
+  dealGtmTasks        DealGtmTask[]
   gmailConnections    UserGmailConnection[]
 }
 
@@ -623,6 +624,7 @@ model Deal {
   signals            Signal[]
   dealContacts       DealContact[]
   recordings         DealRecording[]
+  gtmTasks           DealGtmTask[]
 
   @@unique([tenantId, hubspotDealId])
   @@index([tenantId])
@@ -647,6 +649,27 @@ model DealContact {
   @@unique([dealId, contactId])
   @@index([contactId])
   @@index([campaignContactId])
+}
+
+/// GTM taskbook steps pushed to HubSpot — keeps UI in sync after reload.
+model DealGtmTask {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dealId        String
+  deal          Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  stepKey       String
+  pathIndex     Int
+  stepIndex     Int
+  subject       String
+  body          String?  @db.Text
+  hubspotTaskId String?
+  status        String   @default("created")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([dealId, stepKey])
+  @@index([tenantId, dealId])
 }
 
 /// Stored computed deal intelligence (AURA-structured payload, computed in Clarwiz).

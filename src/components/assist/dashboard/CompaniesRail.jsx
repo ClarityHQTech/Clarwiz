@@ -3,7 +3,7 @@
 import { useState } from "react";
 import CompanyDrawer from "../CompanyDrawer";
 import AssistBadge from "../ui/AssistBadge";
-import { asScore } from "../cockpit/format";
+import { asScore } from "../format";
 import { ui } from "@/lib/brandUi";
 
 export default function CompaniesRail({ accounts = [] }) {

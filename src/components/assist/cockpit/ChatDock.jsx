@@ -3,17 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * AE Chat Dock (C1) — floating dark copilot grounded in the AE's CRM context +
- * current page. Restyled to the AE Cockpit mockup. Thread + history live in
- * component state; each send POSTs recent history + pageContext to
- * /api/assist/chat (unchanged).
- *
- * Open-state is controlled by AssistShell (the topbar chat-toggle) via
- * `open` / `onOpenChange`; falls back to internal state if uncontrolled.
+ * Cockpit chat dock — internal AE assist for deal tasks and knowledge.
+ * Thread lives in component state; each send POSTs history + pageContext to
+ * /api/assist/chat. Only mounted from deal workrooms via CockpitChat.
  *
  * Message shape: { id, role: 'user'|'assistant', content, status?: 'pending'|'error' }
  */
-export default function ChatDock({ pageContext = { entityType: "pipeline" }, open, onOpenChange }) {
+export default function ChatDock({ pageContext = { entityType: "deal" }, open, onOpenChange }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = typeof open === "boolean";
   const isOpen = isControlled ? open : internalOpen;
@@ -117,9 +113,8 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" }, ope
 
   const contextLabel =
     pageContext?.label ||
-    (pageContext?.entityType && pageContext.entityType !== "pipeline"
-      ? pageContext.entityType
-      : "Pipeline");
+    pageContext?.name ||
+    (pageContext?.entityType === "deal" ? "This deal" : pageContext?.entityType || "Deal");
 
   if (!isOpen) {
     return (
@@ -127,7 +122,7 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" }, ope
         <button
           type="button"
           className="ck-chat-fab"
-          aria-label="Open AE Assist chat"
+          aria-label="Open Cockpit"
           onClick={() => setOpen(true)}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -143,68 +138,68 @@ export default function ChatDock({ pageContext = { entityType: "pipeline" }, ope
       <button
         type="button"
         className="ck-chat-backdrop"
-        aria-label="Close chat"
+        aria-label="Close Cockpit"
         onClick={() => setOpen(false)}
       />
-      <div className="ck-chat-dock" role="dialog" aria-label="AE Assist chat" aria-modal="true">
+      <div className="ck-chat-dock" role="dialog" aria-label="Cockpit" aria-modal="true">
         <div className="ck-chat-header">
           <div className="ck-chat-header-main">
-            <span className="ck-chat-title">Ask the cockpit</span>
+            <span className="ck-chat-title">Cockpit</span>
             <span className="ck-chat-context">Context: {contextLabel}</span>
           </div>
           <button
             type="button"
             className="ck-drawer-close"
             style={{ position: "relative", top: 0, right: 0, flexShrink: 0 }}
-            aria-label="Close chat"
+            aria-label="Close Cockpit"
             onClick={() => setOpen(false)}
           >
             ✕
           </button>
         </div>
 
-      <div className="ck-chat-body">
-        {messages.length === 0 && (
-          <div className="ck-chat-msg ai">
-            Grounded in your live HubSpot data + Clarwiz intelligence
-            {contextLabel ? ` for ${contextLabel}` : ""}. What do you need?
-          </div>
-        )}
-        {messages.map((m) => {
-          const isUser = m.role === "user";
-          const isError = m.status === "error";
-          return (
-            <div key={m.id} style={{ display: "contents" }}>
-              <div className={`ck-chat-msg ${isUser ? "user" : "ai"}${isError ? " err" : ""}`}>
-                {m.status === "pending" ? "Thinking…" : m.content}
-              </div>
-              {isError && (
-                <div className="ck-chat-error">
-                  Failed to send
-                  <button type="button" onClick={() => retry(m)}>
-                    Retry
-                  </button>
-                </div>
-              )}
+        <div className="ck-chat-body">
+          {messages.length === 0 && (
+            <div className="ck-chat-msg ai">
+              Internal AE assist for this deal — grounded in your CRM data and Clarwiz intelligence
+              {contextLabel ? ` (${contextLabel})` : ""}. What do you need?
             </div>
-          );
-        })}
-        <div ref={listEndRef} />
-      </div>
+          )}
+          {messages.map((m) => {
+            const isUser = m.role === "user";
+            const isError = m.status === "error";
+            return (
+              <div key={m.id} style={{ display: "contents" }}>
+                <div className={`ck-chat-msg ${isUser ? "user" : "ai"}${isError ? " err" : ""}`}>
+                  {m.status === "pending" ? "Thinking…" : m.content}
+                </div>
+                {isError && (
+                  <div className="ck-chat-error">
+                    Failed to send
+                    <button type="button" onClick={() => retry(m)}>
+                      Retry
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div ref={listEndRef} />
+        </div>
 
-      <form className="ck-chat-input-row" onSubmit={onSubmit}>
-        <input
-          className="ck-chat-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask anything about your pipeline…"
-          disabled={sending}
-          autoComplete="off"
-        />
-        <button type="submit" className="ck-chat-send" disabled={!input.trim() || sending}>
-          ↵
-        </button>
-      </form>
+        <form className="ck-chat-input-row" onSubmit={onSubmit}>
+          <input
+            className="ck-chat-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask about this deal, next steps, or internal context…"
+            disabled={sending}
+            autoComplete="off"
+          />
+          <button type="submit" className="ck-chat-send" disabled={!input.trim() || sending}>
+            ↵
+          </button>
+        </form>
       </div>
     </div>
   );

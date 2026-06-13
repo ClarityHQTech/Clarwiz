@@ -29,7 +29,7 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
       pathname === '/assist' ||
       pathname.startsWith('/assist/deal/') ||
       pathname.startsWith('/assist/lead/');
-    const collateralsActive = pathname.startsWith('/assist/collaterals');
+    const collateralsActive = pathname.startsWith('/collaterals');
     const profileActive = params === 'profile';
 
   return (
@@ -61,7 +61,7 @@ const Sidebar = ({ collapsed = false, onToggleCollapse }) => {
                 <LinkButton collapsed={collapsed} url='/campaigns' title='Campaigns' icon={<MdOutlineCampaign size={20}/>} active={campaignsActive} />
                 )}
                 <LinkButton collapsed={collapsed} url='/assist' title='AE Assist' icon={<HiOutlineBriefcase size={20}/>} active={assistActive} />
-                <LinkButton collapsed={collapsed} url='/assist/collaterals' title='Collaterals' icon={<HiOutlineDocumentDuplicate size={20}/>} active={collateralsActive} />
+                <LinkButton collapsed={collapsed} url='/collaterals' title='Collaterals' icon={<HiOutlineDocumentDuplicate size={20}/>} active={collateralsActive} />
                 <LinkButton collapsed={collapsed} url='/integrations' title='Integrations' icon={<HiOutlineLink size={20}/>} active={params === 'integrations'} />
                 <LinkButton collapsed={collapsed} url='/context' title='Context' icon={<HiOutlineSparkles size={20}/>} active={params === 'context'} />
                 {user?.canManageTeam ? (

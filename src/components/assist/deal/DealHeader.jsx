@@ -1,7 +1,7 @@
 "use client";
 
 import AssistBadge from "../ui/AssistBadge";
-import { fmtAmount, fmtDate, fmtStaleness } from "../cockpit/format";
+import { fmtAmount, fmtDate, fmtStaleness } from "../format";
 import { ui } from "@/lib/brandUi";
 
 function ScoreBlock({ label, value }) {
@@ -13,14 +13,13 @@ function ScoreBlock({ label, value }) {
   );
 }
 
-export default function DealHeader({ deal, accountName, accountScore, stakeholders = 0, lastActivityLabel }) {
+export default function DealHeader({ deal, accountScore, stakeholders = 0, lastActivityLabel }) {
   const score = typeof deal?.score === "number" ? deal.score : null;
 
   return (
     <div className={`${ui.cardSurface} p-4 sm:p-5 space-y-4`}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="min-w-0">
-          {accountName ? <p className={`${ui.label} mb-1 normal-case tracking-wide`}>{accountName}</p> : null}
           <h1 className={`${ui.titleSm} text-2xl`}>{deal?.name ?? "Untitled deal"}</h1>
           <div className="flex flex-wrap items-center gap-2 mt-2">
             {deal?.stageLabel ? <AssistBadge variant="accent">{deal.stageLabel}</AssistBadge> : null}

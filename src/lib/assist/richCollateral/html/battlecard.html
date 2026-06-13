@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{tenant_name}} — Battlecard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   {{tenant_name_upper}} BATTLECARD TOKENS — edit brand values here only
+   ============================================================ */
+:root{
+  --cream:#FAF5EC; --cream-deep:#F2EBDC; --ink:#211E17; --muted:#6E6757;
+  --olive:#5D6342; --olive-deep:#454B2E; --terracotta:#C2622E; --plum:#7A63A8; --gold:#B9892F;
+  --line:rgba(33,30,23,.14); --display:'Playfair Display',serif; --body:'Inter',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:#E9E2D2;color:var(--ink);-webkit-font-smoothing:antialiased}
+.page{max-width:1280px;aspect-ratio:16/9;margin:28px auto;background:var(--cream);border-radius:8px;box-shadow:0 8px 30px rgba(33,30,23,.10);padding:44px 52px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+@media(max-width:900px){.page{aspect-ratio:auto;padding:30px 22px}}
+@media print{body{background:#fff}.page{box-shadow:none;border-radius:0;margin:0;max-width:none;page-break-after:always}}
+h1,h2{font-family:var(--display)}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--terracotta);padding-bottom:6px;border-bottom:2px solid var(--gold);display:inline-block;margin-bottom:14px}
+.brandbar{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px}
+.logo{font-weight:700;letter-spacing:.3em;font-size:15px}
+.logo .sub{letter-spacing:.02em;font-weight:500;font-size:11px;color:var(--muted);margin-left:10px}
+.tagline{font-size:12.5px;font-weight:600}
+.tagline em{font-style:normal;color:var(--terracotta)}
+.sparkle{color:var(--gold)}
+
+/* ============ PAGE 1 — Category gap ============ */
+.p1-body{display:grid;grid-template-columns:380px 1fr;gap:40px;flex:1;align-items:center}
+.p1-left h1{font-size:44px;line-height:1.1;font-weight:700}
+.p1-left h1 .accent{color:var(--olive)}
+.p1-left h1 .dot{color:var(--terracotta)}
+.p1-left p{font-size:13.5px;line-height:1.7;color:var(--muted);margin-top:16px;max-width:34ch}
+.p1-left p b{color:var(--olive)}
+.arena{position:relative;height:380px}
+.monolith{position:absolute;left:50%;top:0;transform:translateX(-50%);width:230px;height:330px;border-radius:115px 115px 14px 14px;background:linear-gradient(165deg,#6E7450,var(--olive-deep));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;box-shadow:0 14px 36px rgba(69,75,46,.35)}
+.monolith .mark{font-size:22px;color:#E8D9A8}
+.monolith h2{font-size:20px;letter-spacing:.12em}
+.monolith ul{list-style:none;font-size:12px;line-height:2.1;opacity:.92}
+.orb{position:absolute;width:118px;height:118px;border-radius:50%;background:#fff;border:1px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.06em;text-align:center;box-shadow:0 6px 16px rgba(33,30,23,.08)}
+.orb small{font-weight:500;color:var(--muted);letter-spacing:0}
+.orb .dot-ic{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+.o1{top:0;left:4%} .o2{top:0;right:4%} .o3{bottom:34px;left:0} .o4{bottom:34px;right:0}
+.d-plum{background:var(--plum)} .d-olive{background:var(--olive)} .d-terra{background:var(--terracotta)} .d-gold{background:var(--gold)}
+.ledger{display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border:1px solid var(--line);border-radius:14px;margin-top:14px}
+.ledger .cell{padding:14px 10px;text-align:center;font-size:11px;color:var(--muted);border-right:1px solid var(--line)}
+.ledger .cell:last-child{border-right:none;background:var(--cream-deep);border-radius:0 14px 14px 0}
+.ledger b{display:block;font-size:12px;color:var(--ink);letter-spacing:.05em;margin-bottom:3px}
+.kicker{text-align:center;font-family:var(--display);font-size:22px;margin-top:14px}
+.kicker .accent{color:var(--olive)}
+
+/* ============ PAGE 2 — Where {{tenant_name}} wins ============ */
+.p2-body{display:grid;grid-template-columns:300px 1fr;gap:36px;flex:1}
+.p2-left h1{font-size:36px;line-height:1.15;font-weight:700}
+.p2-left h1 .accent{color:var(--terracotta)}
+.p2-left p{font-size:13px;line-height:1.7;color:var(--muted);margin-top:14px}
+.p2-left p b{color:var(--olive)}
+.pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.pillar{padding:0 14px;border-right:1px solid var(--line)}
+.pillar:last-child{border-right:none}
+.pillar .ic{width:46px;height:46px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;margin:0 auto 8px}
+.pillar h3{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;text-align:center}
+.pillar .sub{font-size:10.5px;color:var(--muted);text-align:center;margin:3px 0 12px}
+.tagrow{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.tag{font-size:9px;font-weight:700;padding:3px 8px;border-radius:999px;color:#fff}
+.tg-us{background:var(--olive-deep)} .tg-them{background:#CFC8B6;color:var(--ink)}
+.vs li{list-style:none;font-size:10px;line-height:1.5;padding:6px 0;border-bottom:1px dashed var(--line);display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vs li:last-child{border-bottom:none}
+.vs .us::before{content:"✓ ";color:var(--olive);font-weight:700}
+.vs .them{color:var(--muted)}
+.vs .them::before{content:"— "}
+.banner{background:var(--cream-deep);border-radius:14px;padding:14px 22px;display:flex;align-items:center;gap:18px;margin-top:18px}
+.banner .line{font-family:var(--display);font-size:16px}
+.banner .line i{color:var(--olive)}
+.banner .props{display:flex;gap:16px;margin-left:auto;font-size:10px;font-weight:600;color:var(--muted);white-space:nowrap}
+.takeaway{text-align:center;margin-top:14px}
+.takeaway .label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.takeaway p{font-family:var(--display);font-size:19px;margin-top:4px}
+.takeaway .g{color:var(--olive)} .takeaway .t{color:var(--terracotta)} .takeaway .p{color:var(--plum)}
+
+/* ============ PAGE 3 — Operating model + CTA ============ */
+.p3-body{display:grid;grid-template-columns:330px 1fr 260px;gap:34px;flex:1;align-items:center}
+.p3-left h1{font-size:33px;line-height:1.18;font-weight:700}
+.p3-left h1 .g{color:var(--olive)} .p3-left h1 .t{color:var(--terracotta)}
+.legacy{margin-top:20px}
+.legacy h4{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:10px}
+.legacy ul{list-style:none;font-size:12.5px;color:var(--muted);line-height:2.2}
+.legacy li::before{content:"◻ ";color:#CFC8B6}
+.orbit{position:relative;width:370px;height:350px;margin:0 auto}
+.orbit .core{position:absolute;inset:106px 116px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6E7450,var(--olive-deep));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-family:var(--display);font-size:17px;line-height:1.3;box-shadow:0 10px 26px rgba(69,75,46,.35)}
+.orbit .core small{font-family:var(--body);font-size:9.5px;margin-top:6px}
+.orbit .core small em{font-style:normal;color:#E8D9A8}
+.sat{position:absolute;width:86px;height:86px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center;box-shadow:0 6px 14px rgba(33,30,23,.08)}
+.sat span{font-size:15px}
+.sat.a{top:-6px;left:50%;transform:translateX(-50%)} .sat.b{top:26%;right:-10px} .sat.c{bottom:-2px;right:6%} .sat.d{bottom:-2px;left:6%} .sat.e{top:26%;left:-10px}
+.ones h4{font-size:11px;letter-spacing:.18em;font-weight:700;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:14px}
+.ones ul{list-style:none;display:flex;flex-direction:column;gap:12px;font-size:12.5px;font-weight:600}
+.ones li{display:flex;align-items:center;gap:10px}
+.ones .b{width:26px;height:26px;border-radius:50%;background:var(--olive-deep);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px}
+.verdict{text-align:center;font-family:var(--display);font-size:24px;margin:6px 0 16px}
+.verdict .accent{color:var(--olive)}
+.ctabar{background:#fff;border:1px solid var(--line);border-radius:16px;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:18px;padding:18px 24px;align-items:center}
+.ctabar h3{font-family:var(--display);font-size:17px;margin-bottom:4px}
+.ctabar p,.ctabar li{font-size:11px;color:var(--muted);line-height:1.8}
+.ctabar ul{list-style:none}
+.ctabar li::before{content:"✓ ";color:var(--olive)}
+.ctabar .cov h4{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.ctabar a{color:var(--ink);font-weight:600;text-decoration:none}
+</style>
+</head>
+<body>
+
+<!-- ==================== PAGE 1 : THE CATEGORY GAP ==================== -->
+<section class="page">
+  <div class="brandbar">
+    <div class="logo">{{tenant_name_upper}} <span class="sparkle">✦</span><span class="sub">by {{tenant_company}}</span></div>
+    <div class="tagline">Human-led. <em>AI-powered.</em></div>
+  </div>
+  <div class="p1-body">
+    <div class="p1-left">
+      <span class="eyebrow">The Category Gap</span>
+      <h1>{{battlecard_headline}}<span class="dot">.</span></h1>
+      <p>{{battlecard_intro}}</p>
+      <p>Positioning for <b>{{prospect_company}}</b> — {{prospect_industry}} · champion: {{champion_name}}</p>
+    </div>
+    <div class="arena">
+      <!-- EDIT: competitor names below -->
+      <div class="orb o1"><div class="dot-ic d-plum">🗄</div>ZOOMINFO<small>Data</small></div>
+      <div class="orb o2"><div class="dot-ic d-olive">✈</div>APOLLO<small>Outreach</small></div>
+      <div class="orb o3"><div class="dot-ic d-terra">⚗</div>CLAY<small>Enrichment</small></div>
+      <div class="orb o4"><div class="dot-ic d-gold">✉</div>OUTREACH.IO<small>Engagement</small></div>
+      <div class="monolith">
+        <div class="mark">✦</div>
+        <h2>{{tenant_name_upper}}</h2>
+        <ul>
+          <li>Account Intelligence</li>
+          <li>Signal Intelligence</li>
+          <li>Outreach Intelligence</li>
+          <li>Pipeline Intelligence</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="ledger">
+    <div class="cell"><b>ZOOMINFO</b>Owns Data</div>
+    <div class="cell"><b>CLAY</b>Owns Enrichment</div>
+    <div class="cell"><b>OUTREACH.IO</b>Owns Engagement</div>
+    <div class="cell"><b>APOLLO</b>Owns Sequences</div>
+    <div class="cell"><b>{{tenant_name_upper}} ✦</b>Owns the Entire Sales System</div>
+  </div>
+  <div class="kicker">Four tools. <span class="accent">One pipeline problem.</span></div>
+</section>
+
+<!-- ==================== PAGE 2 : WHERE {{tenant_name_upper}} WINS ==================== -->
+<section class="page">
+  <div class="brandbar">
+    <div class="logo">{{tenant_name_upper}} <span class="sparkle">✦</span><span class="sub">by {{tenant_company}}</span></div>
+    <div class="tagline">Human-led. <em>AI-powered.</em></div>
+  </div>
+  <div class="p2-body">
+    <div class="p2-left">
+      <span class="eyebrow" style="color:var(--olive);border-color:var(--olive)">Where {{tenant_name}} Wins</span>
+      <h1>Deeper intelligence. <span class="accent">Better pipeline.</span></h1>
+      <p>{{tenant_name}} goes beyond tools. We add <b>intelligence, strategy, human judgement, and accountability</b> at every step of outbound.</p>
+    </div>
+    <div class="pillars">
+      <!-- EDIT: each pillar = one competitive dimension; left col = {{tenant_name}}, right col = others -->
+      <div class="pillar">
+        <div class="ic" style="background:var(--olive)">◎</div>
+        <h3>Account Intelligence</h3>
+        <p class="sub">The right accounts, scored.</p>
+        <div class="tagrow"><span class="tag tg-us">{{tenant_name_upper}}</span><span class="tag tg-them">OTHERS</span></div>
+        <ul class="vs">
+          <li><span class="us">ICP-scored lists</span><span class="them">Database filters</span></li>
+          <li><span class="us">Fit + intent ranking</span><span class="them">Static exports</span></li>
+          <li><span class="us">Living ICP via BCP</span><span class="them">One-time setup</span></li>
+          <li><span class="us">Negative-signal mining</span><span class="them">Firmographics only</span></li>
+        </ul>
+      </div>
+      <div class="pillar">
+        <div class="ic" style="background:var(--plum)">⚡</div>
+        <h3>Signal Intelligence</h3>
+        <p class="sub">Know when to move.</p>
+        <div class="tagrow"><span class="tag tg-us">{{tenant_name_upper}}</span><span class="tag tg-them">OTHERS</span></div>
+        <ul class="vs">
+          <li><span class="us">Hiring &amp; funding triggers</span><span class="them">Generic intent feeds</span></li>
+          <li><span class="us">Review &amp; churn signals</span><span class="them">Not tracked</span></li>
+          <li><span class="us">Signal → action mapping</span><span class="them">Signals only</span></li>
+          <li><span class="us">Account timing score</span><span class="them">No prioritisation</span></li>
+        </ul>
+      </div>
+      <div class="pillar">
+        <div class="ic" style="background:var(--terracotta)">✉</div>
+        <h3>Outreach Intelligence</h3>
+        <p class="sub">Sound like your brand.</p>
+        <div class="tagrow"><span class="tag tg-us">{{tenant_name_upper}}</span><span class="tag tg-them">OTHERS</span></div>
+        <ul class="vs">
+          <li><span class="us">Voice-true drafting</span><span class="them">Generic sequences</span></li>
+          <li><span class="us">Positioning-aware angles</span><span class="them">Mail-merge tokens</span></li>
+          <li><span class="us">Human-reviewed sends</span><span class="them">No human oversight</span></li>
+          <li><span class="us">Reply-driven refinement</span><span class="them">No feedback loop</span></li>
+        </ul>
+      </div>
+      <div class="pillar">
+        <div class="ic" style="background:var(--gold)">📈</div>
+        <h3>Pipeline Intelligence</h3>
+        <p class="sub">From reply to revenue.</p>
+        <div class="tagrow"><span class="tag tg-us">{{tenant_name_upper}}</span><span class="tag tg-them">OTHERS</span></div>
+        <ul class="vs">
+          <li><span class="us">CRM-native workflows</span><span class="them">Activity logging</span></li>
+          <li><span class="us">Next Best Action</span><span class="them">Task lists</span></li>
+          <li><span class="us">Stage-level visibility</span><span class="them">Open-rate dashboards</span></li>
+          <li><span class="us">Outcome accountability</span><span class="them">Self-serve tools</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="banner">
+    <span class="sparkle" style="font-size:18px">✦</span>
+    <div class="line">Only {{tenant_name}} runs outbound on <i>live brand context</i> — and turns it into measurable pipeline.</div>
+    <div class="props">👥 Human-Led Strategy · ⚙ AI-Powered Execution · 🔍 Human Quality Control · ⏱ Outcome Accountability</div>
+  </div>
+  <div class="takeaway">
+    <span class="label">Key Takeaway</span>
+    <p>Competitors give you contacts. {{tenant_name}} gives you <span class="g">intelligence</span>, <span class="t">conversations</span>, and <span class="p">pipeline</span>.</p>
+  </div>
+</section>
+
+<!-- ==================== PAGE 3 : OPERATING MODEL + CTA ==================== -->
+<section class="page">
+  <div class="brandbar">
+    <div class="logo">{{tenant_name_upper}} <span class="sparkle">✦</span><span class="sub">by {{tenant_company}}</span></div>
+    <div class="tagline">Human-led. <em>AI-powered.</em></div>
+  </div>
+  <div class="p3-body">
+    <div class="p3-left">
+      <span class="eyebrow">The Operating Model</span>
+      <h1>Why teams choose {{tenant_name}}. <span class="g">Not because of AI.</span> <span class="t">Because of accountability.</span></h1>
+      <div class="legacy">
+        <h4>Traditional Sales Stack</h4>
+        <ul>
+          <li>Multiple tools</li>
+          <li>Multiple subscriptions</li>
+          <li>Multiple dashboards</li>
+          <li>Multiple vendors</li>
+          <li>Multiple handoffs</li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="orbit">
+        <div class="sat a"><span>◎</span>Account Intelligence</div>
+        <div class="sat b"><span>🎯</span>Strategy</div>
+        <div class="sat c"><span>🚀</span>Execution</div>
+        <div class="sat d"><span>👁</span>Human Review</div>
+        <div class="sat e"><span>📈</span>Outcomes</div>
+        <div class="core">✦<br>{{tenant_name_upper}}<small>Human-led. <em>AI-powered.</em></small></div>
+      </div>
+      <div class="verdict">Competitors sell software. <span class="accent">{{tenant_name}} delivers pipeline.</span></div>
+    </div>
+    <div class="ones">
+      <h4>{{tenant_name_upper}}</h4>
+      <ul>
+        <li><span class="b">✦</span>One partner</li>
+        <li><span class="b">⚙</span>One operating model</li>
+        <li><span class="b">🗄</span>One source of truth</li>
+        <li><span class="b">✓</span>One review process</li>
+        <li><span class="b">👥</span>One accountable team</li>
+      </ul>
+    </div>
+  </div>
+  <div class="ctabar">
+    <div>
+      <h3>📅 Schedule a Discovery Call</h3>
+      <p>Let's discuss your pipeline goals and the right path forward.</p>
+    </div>
+    <div class="cov">
+      <h4>We'll cover:</h4>
+      <ul>
+        <li>ICP &amp; account universe</li>
+        <li>Signal opportunities</li>
+        <li>Outreach readiness</li>
+        <li>Recommended modules</li>
+      </ul>
+    </div>
+    <div>
+      <p>✉ <a href="mailto:hello@clarityhq.ai">hello@clarityhq.ai</a><br>
+      in <a href="https://linkedin.com/company/clarityhq">linkedin.com/company/clarityhq</a></p>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

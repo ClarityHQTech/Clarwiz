@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{tenant_name}} — Brochure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   {{tenant_name_upper}} TEMPLATE TOKENS — edit brand values here only
+   ============================================================ */
+:root{
+  --cream:#FAF5EC;          /* page background */
+  --cream-deep:#F2EBDC;     /* card background */
+  --ink:#211E17;            /* primary text */
+  --muted:#6E6757;          /* secondary text */
+  --olive:#5D6342;          /* {{tenant_name}} primary (sales intelligence) */
+  --olive-deep:#454B2E;
+  --terracotta:#C2622E;     /* accent 1 */
+  --plum:#7A63A8;           /* accent 2 */
+  --gold:#B9892F;           /* eyebrow / sparkle */
+  --line:rgba(33,30,23,.14);
+  --radius:14px;
+  --display:'Playfair Display',serif;
+  --body:'Inter',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:#E9E2D2;color:var(--ink);-webkit-font-smoothing:antialiased}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--terracotta);padding-bottom:6px;border-bottom:2px solid var(--gold);display:inline-block;margin-bottom:14px}
+h1,h2,h3{font-family:var(--display)}
+.accent-olive{color:var(--olive)}
+.accent-terra{color:var(--terracotta)}
+.sparkle{color:var(--gold)}
+
+/* ---- Tri-fold layout: three vertical panels ---- */
+.brochure{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:1340px;margin:32px auto;padding:0 18px}
+.panel{background:var(--cream);border-radius:8px;padding:34px 30px;display:flex;flex-direction:column;gap:22px;box-shadow:0 8px 30px rgba(33,30,23,.10)}
+@media(max-width:980px){.brochure{grid-template-columns:1fr}}
+@media print{
+  body{background:#fff}
+  .brochure{display:block;margin:0;padding:0;max-width:none}
+  .panel{page-break-after:always;border-radius:0;box-shadow:none;min-height:100vh}
+}
+
+/* ---- Shared bits ---- */
+.logo{font-family:var(--body);font-weight:700;letter-spacing:.32em;font-size:17px}
+.logo small{display:block;letter-spacing:.01em;font-weight:500;font-size:11.5px;color:var(--muted);margin-top:6px}
+.tagline{font-size:13px;font-weight:600}
+.tagline em{font-style:normal;color:var(--terracotta)}
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.divider{border:none;border-top:1px solid var(--line)}
+.footnote{background:var(--cream-deep);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.footnote .sparkle{font-size:15px}
+
+/* ============ PANEL 1 — Hero + Flywheel ============ */
+.hero h1{font-size:42px;line-height:1.08;font-weight:700;margin:8px 0 16px}
+.hero p{font-size:13.5px;line-height:1.65;color:var(--muted);max-width:34ch}
+.hero .tagline{margin-top:14px}
+.fly-wrap{text-align:center;padding:6px 0}
+.fly-title{font-family:var(--display);font-size:23px;font-weight:600;margin-bottom:4px}
+.fly-title .accent-olive{font-style:italic}
+.fly-sub{font-size:12.5px;color:var(--muted);line-height:1.6;max-width:36ch;margin:0 auto 16px}
+/* CSS flywheel: conic ring + centre disc */
+.flywheel{position:relative;width:240px;height:240px;margin:0 auto}
+.ring{position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from -90deg,#8A8F69 0 33.3%,#CE7A45 33.3% 66.6%,#9B87C4 66.6% 100%);
+  -webkit-mask:radial-gradient(circle,transparent 58%,#000 59%);mask:radial-gradient(circle,transparent 58%,#000 59%)}
+.hub{position:absolute;inset:62px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6E7450,var(--olive-deep));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--display);font-size:15px;text-align:center;line-height:1.25;box-shadow:0 6px 18px rgba(69,75,46,.35)}
+.hub small{font-family:var(--body);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.8;margin-top:4px}
+.stage{position:absolute;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.18)}
+.stage.s1{top:18px;left:50%;transform:translateX(-50%)}
+.stage.s2{right:4px;top:50%;transform:translateY(-50%) rotate(90deg)}
+.stage.s3{bottom:18px;left:50%;transform:translateX(-50%)}
+.checks{list-style:none;display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.checks li{font-size:13px;font-weight:600;padding-left:14px;border-left:3px solid var(--gold)}
+
+/* ============ PANEL 2 — Capabilities grid ============ */
+.cap-head h2{font-size:30px;font-weight:700;margin:4px 0 6px}
+.cap-head p{font-size:12.5px;color:var(--muted)}
+.cap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.cap{display:flex;flex-direction:column;gap:8px;min-height:150px}
+.cap .icon{width:44px;height:44px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:19px}
+.cap h3{font-family:var(--body);font-size:13px;font-weight:700;color:var(--ink)}
+.cap p{font-size:11.5px;line-height:1.55;color:var(--muted)}
+.c-olive{color:var(--olive)} .c-terra{color:var(--terracotta)} .c-plum{color:var(--plum)} .c-gold{color:var(--gold)}
+.connect h4{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:4px}
+.connect p{font-size:12px;color:var(--muted);margin-bottom:12px}
+.tool-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.tool{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 4px;text-align:center;font-size:10.5px;font-weight:600;color:var(--muted)}
+.tool span{display:block;font-size:18px;margin-bottom:5px}
+.bcp{background:var(--cream-deep);border-radius:999px;padding:9px 16px;text-align:center;font-size:11.5px;color:var(--muted)}
+.bcp b{color:var(--terracotta)}
+
+/* ============ PANEL 3 — Workflow + Pricing + CTA ============ */
+.work-head h2{font-size:28px;font-weight:700;margin:4px 0}
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.step .num{font-family:var(--display);font-size:17px;font-weight:700;color:var(--gold);min-width:26px}
+.step h3{font-family:var(--body);font-size:12.5px;font-weight:700}
+.step p{font-size:11px;color:var(--muted);line-height:1.5;margin-top:2px}
+.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.price{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 12px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+.price .tier{width:26px;height:26px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.t1{background:var(--olive)} .t2{background:var(--gold)} .t3{background:var(--terracotta)}
+.price h3{font-family:var(--body);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.price .amt{font-family:var(--display);font-size:16px;font-weight:700;color:var(--terracotta)}
+.price .amt.free{color:var(--olive)}
+.price ul{list-style:none;font-size:10px;color:var(--muted);line-height:1.7}
+.price ul li::before{content:"✓ ";color:var(--olive)}
+.cta{background:var(--cream-deep);border-radius:var(--radius);padding:18px;display:flex;gap:14px;align-items:center}
+.cta .glass{font-size:30px}
+.cta h3{font-family:var(--body);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.cta p{font-size:11.5px;color:var(--muted);line-height:1.7}
+.cta a{color:var(--ink);font-weight:600;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="brochure">
+
+  <!-- ==================== PANEL 1 : HERO ==================== -->
+  <section class="panel">
+    <header>
+      <div class="logo">{{tenant_name_upper}} <span class="sparkle">✦</span>
+        <small>B2B Sales Intelligence by <b>{{tenant_company}}</b></small>
+      </div>
+    </header>
+
+    <div class="hero">
+      <span class="eyebrow">The Problem</span>
+      <h1>{{hero_headline}}<span class="accent-terra">.</span></h1>
+      <p>{{hero_subhead}}</p>
+      <p style="font-size:12px;font-weight:600;color:var(--olive);margin-top:12px">Prepared for {{prospect_company}} · {{prospect_industry}}</p>
+      <p class="tagline" style="margin-top:14px">Human-led. <em>AI-powered.</em></p>
+    </div>
+
+    <hr class="divider">
+
+    <div class="fly-wrap">
+      <span class="eyebrow" style="color:var(--olive);border-color:var(--olive)">The Solution</span>
+      <div class="fly-title">Not a sequence. <span class="accent-olive">A system.</span></div>
+      <p class="fly-sub">Sales Intelligence sits at the centre. Every account, touch, and reply feeds the brain — making the next move sharper.</p>
+      <div class="flywheel">
+        <span class="stage s1">Target</span>
+        <span class="stage s2">Engage</span>
+        <span class="stage s3">Convert</span>
+        <div class="ring"></div>
+        <div class="hub">Sales<br>Intelligence<small>the brain</small></div>
+      </div>
+    </div>
+
+    <ul class="checks">
+      <li>Intelligence over intuition</li>
+      <li>Human-reviewed before send</li>
+      <li>One source of truth</li>
+      <li>Pipeline accountability</li>
+    </ul>
+
+    <div class="footnote"><span class="sparkle">✦</span> Every touch feeds Sales Intelligence. Smarter today. Stronger tomorrow.</div>
+  </section>
+
+  <!-- ==================== PANEL 2 : CAPABILITIES ==================== -->
+  <section class="panel">
+    <div class="cap-head">
+      <span class="eyebrow">The Engine</span>
+      <h2>Your Sales Intelligence Layer</h2>
+      <p>Six capabilities. One pipeline of truth.</p>
+    </div>
+
+    <div class="cap-grid">
+      <div class="card cap c-olive">
+        <div class="icon">◎</div>
+        <h3>ICP-Driven Account Lists</h3>
+        <p>Scored, not scraped. Every account ranked against your Ideal Customer Profile.</p>
+      </div>
+      <div class="card cap c-terra">
+        <div class="icon">⚡</div>
+        <h3>Signal Intelligence</h3>
+        <p>Hiring, funding, tech-stack, and intent signals that tell you when to move.</p>
+      </div>
+      <div class="card cap c-plum">
+        <div class="icon">✉</div>
+        <h3>Personalised Outreach</h3>
+        <p>Messages drafted from your positioning and voice — never from a template.</p>
+      </div>
+      <div class="card cap c-gold">
+        <div class="icon">👁</div>
+        <h3>Human Review Gate</h3>
+        <p>Every message reviewed by a human before it reaches a prospect.</p>
+      </div>
+      <div class="card cap c-olive">
+        <div class="icon">⇄</div>
+        <h3>CRM &amp; Pipeline Sync</h3>
+        <p>Native HubSpot workflows, clean data, and full-funnel visibility.</p>
+      </div>
+      <div class="card cap c-terra">
+        <div class="icon">➤</div>
+        <h3>Next Best Action</h3>
+        <p>Guidance for every prospect — who to touch, when, and with what.</p>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="connect">
+      <h4>Grounded in your Brand Intelligence</h4>
+      <p>{{tenant_name}} reads from the same ICP, positioning, voice, and market intelligence as every {{tenant_company}} module.</p>
+      <div class="tool-row">
+        <div class="tool"><span>🧠</span>ICP</div>
+        <div class="tool"><span>🗺</span>Knowledge Graph</div>
+        <div class="tool"><span>🏆</span>Positioning</div>
+        <div class="tool"><span>💬</span>Voice of Customer</div>
+        <div class="tool"><span>📖</span>Brand Book</div>
+      </div>
+    </div>
+
+    <div class="bcp">Connected through Brand Context Protocol (<b>BCP</b>) · MCP-compatible</div>
+  </section>
+
+  <!-- ==================== PANEL 3 : WORKFLOW + PRICING ==================== -->
+  <section class="panel">
+    <div class="work-head">
+      <span class="eyebrow" style="color:var(--olive);border-color:var(--olive)">How It Works</span>
+      <h2>From ICP to pipeline<span class="accent-terra">.</span></h2>
+    </div>
+
+    <div class="steps">
+      <div class="step"><span class="num">01</span><div><h3>Define &amp; score</h3><p>Your ICP becomes a ranked account universe.</p></div></div>
+      <div class="step"><span class="num">02</span><div><h3>Detect signals</h3><p>{{tenant_name}} flags the accounts showing buying intent now.</p></div></div>
+      <div class="step"><span class="num">03</span><div><h3>Draft outreach</h3><p>AI writes in your voice; a human approves every send.</p></div></div>
+      <div class="step"><span class="num">04</span><div><h3>Work the pipeline</h3><p>Replies, meetings, and deals sync straight into your CRM.</p></div></div>
+      <div class="step"><span class="num">05</span><div><h3>Learn &amp; repeat</h3><p>Every outcome feeds Sales Intelligence for the next cycle.</p></div></div>
+    </div>
+
+    <span class="eyebrow">Pricing</span>
+    <div class="price-grid">
+      <div class="price">
+        <div class="tier t1">01</div>
+        <h3>Brand X-Ray</h3>
+        <div class="amt free">Free to Try</div>
+        <ul><li>AI readiness score</li><li>Recommended fixes</li></ul>
+      </div>
+      <div class="price">
+        <div class="tier t2">02</div>
+        <h3>Intelligence Layer</h3>
+        <div class="amt">USD 999<span style="font-size:10px;color:var(--muted)">/mo</span></div>
+        <ul><li>Living brand memory</li><li>BCP enabled</li></ul>
+      </div>
+      <div class="price">
+        <div class="tier t3">03</div>
+        <h3>{{tenant_name}} Module</h3>
+        <div class="amt">USD 999<span style="font-size:10px;color:var(--muted)">/mo</span></div>
+        <ul><li>Accounts &amp; outreach</li><li>CRM + pipeline</li></ul>
+      </div>
+    </div>
+
+    <div class="cta">
+      <div class="glass">🔍</div>
+      <div>
+        <h3>Start with a Brand X-Ray</h3>
+        <p>✉ <a href="mailto:hello@clarityhq.ai">hello@clarityhq.ai</a><br>
+        in <a href="https://linkedin.com/company/clarityhq">linkedin.com/company/clarityhq</a></p>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

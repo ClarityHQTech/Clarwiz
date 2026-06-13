@@ -54,7 +54,7 @@ function TemplateSelect({ label, templates, value, onChange, prospect }) {
   );
 }
 
-function EmailComposer({ prospect, campaign, templates, onSend, sending }) {
+function EmailComposer({ prospect, campaign, templates, onSend, sending, compact = false }) {
   const [templateId, setTemplateId] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -76,7 +76,13 @@ function EmailComposer({ prospect, campaign, templates, onSend, sending }) {
   }
 
   return (
-    <div className="space-y-3 pt-3 border-t border-brand-secondary/25">
+    <div
+      className={
+        compact
+          ? "space-y-2"
+          : "space-y-3 pt-3 border-t border-brand-secondary/25"
+      }
+    >
       <TemplateSelect
         label="email"
         templates={templates}
@@ -100,7 +106,7 @@ function EmailComposer({ prospect, campaign, templates, onSend, sending }) {
           Message
         </label>
         <textarea
-          rows={5}
+          rows={compact ? 3 : 5}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           className={`${ui.inputSurface} resize-y`}
@@ -130,6 +136,7 @@ function LinkedInComposer({
   communications,
   onSend,
   sending,
+  compact = false,
 }) {
   const [templateId, setTemplateId] = useState("");
   const [message, setMessage] = useState("");
@@ -164,7 +171,7 @@ function LinkedInComposer({
 
   if (linkedinState.connectionPending) {
     return (
-      <div className="pt-3 border-t border-brand-secondary/25">
+      <div className={compact ? "" : "pt-3 border-t border-brand-secondary/25"}>
         <p className="text-xs text-brand-stone">
           LinkedIn connection request pending — wait for acceptance before sending a
           message.
@@ -175,7 +182,13 @@ function LinkedInComposer({
 
   if (linkedinState.canSendConnection) {
     return (
-      <div className="space-y-3 pt-3 border-t border-brand-secondary/25">
+      <div
+        className={
+          compact
+            ? "space-y-2"
+            : "space-y-3 pt-3 border-t border-brand-secondary/25"
+        }
+      >
         <p className="text-xs text-brand-stone">
           Send a connection request first. Note max{" "}
           {LINKEDIN_CONNECTION_NOTE_MAX_CHARS} characters.
@@ -192,7 +205,7 @@ function LinkedInComposer({
             Connection note (optional)
           </label>
           <textarea
-            rows={3}
+            rows={compact ? 2 : 3}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={LINKEDIN_CONNECTION_NOTE_MAX_CHARS}
@@ -220,7 +233,13 @@ function LinkedInComposer({
 
   if (linkedinState.canSendMessage) {
     return (
-      <div className="space-y-3 pt-3 border-t border-brand-secondary/25">
+      <div
+        className={
+          compact
+            ? "space-y-2"
+            : "space-y-3 pt-3 border-t border-brand-secondary/25"
+        }
+      >
         <p className="text-xs text-brand-ink">
           Connection accepted — you can send a LinkedIn message.
         </p>
@@ -236,7 +255,7 @@ function LinkedInComposer({
             Message
           </label>
           <textarea
-            rows={4}
+            rows={compact ? 3 : 4}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className={`${ui.inputSurface} resize-y`}
@@ -272,7 +291,7 @@ function formatWindowExpiry(iso) {
   });
 }
 
-function WhatsAppComposer({ prospect, templates, communications, onSend, sending }) {
+function WhatsAppComposer({ prospect, templates, communications, onSend, sending, compact = false }) {
   const windowState = useMemo(
     () => getWhatsAppCopilotUiState(prospect, communications),
     [prospect, communications]
@@ -293,7 +312,13 @@ function WhatsAppComposer({ prospect, templates, communications, onSend, sending
 
   if (windowState.canSendFreeForm) {
     return (
-      <div className="space-y-3 pt-3 border-t border-brand-secondary/25">
+      <div
+        className={
+          compact
+            ? "space-y-2"
+            : "space-y-3 pt-3 border-t border-brand-secondary/25"
+        }
+      >
         <div className="rounded-md bg-brand-sage/15 border border-brand-sage/30 px-3 py-2">
           <p className="text-xs font-medium text-brand-ink">
             Contact replied on WhatsApp — free messages available for 24 hours
@@ -337,7 +362,7 @@ function WhatsAppComposer({ prospect, templates, communications, onSend, sending
                 Message
               </label>
               <textarea
-                rows={5}
+                rows={compact ? 3 : 5}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className={`${ui.inputSurface} resize-y`}
@@ -404,7 +429,13 @@ function WhatsAppComposer({ prospect, templates, communications, onSend, sending
 
   if (!templates.length) {
     return (
-      <div className="space-y-3 pt-3 border-t border-brand-secondary/25">
+      <div
+        className={
+          compact
+            ? "space-y-2"
+            : "space-y-3 pt-3 border-t border-brand-secondary/25"
+        }
+      >
         <p className="text-xs text-brand-stone">
           No WhatsApp templates on this campaign — add them in Settings. Free-form
           messages require the contact to message you first (24-hour window).
@@ -414,7 +445,13 @@ function WhatsAppComposer({ prospect, templates, communications, onSend, sending
   }
 
   return (
-    <div className="space-y-3 pt-3 border-t border-brand-secondary/25">
+    <div
+      className={
+        compact
+          ? "space-y-2"
+          : "space-y-3 pt-3 border-t border-brand-secondary/25"
+      }
+    >
       <p className="text-xs text-brand-stone">
         Outside the 24-hour window — only approved templates can be sent until the
         contact replies on WhatsApp.
@@ -476,6 +513,7 @@ export default function ContactCopilotComposer({
   campaignId,
   campaignContactId,
   onSent,
+  compact = false,
 }) {
   const [sending, setSending] = useState(false);
 
@@ -486,7 +524,11 @@ export default function ContactCopilotComposer({
 
   if (!channelEnabled) {
     return (
-      <div className="pt-3 border-t border-brand-secondary/25 mt-3">
+      <div
+        className={
+          compact ? "" : "pt-3 border-t border-brand-secondary/25 mt-3"
+        }
+      >
         <p className="text-xs text-brand-stone">
           {CHANNEL_LABELS[channel]} is not enabled for this campaign. Turn it on
           in campaign Settings → Outreach channels.
@@ -535,6 +577,7 @@ export default function ContactCopilotComposer({
         templates={channelTemplates}
         onSend={handleSend}
         sending={sending}
+        compact={compact}
       />
     );
   }
@@ -548,6 +591,7 @@ export default function ContactCopilotComposer({
         communications={communications}
         onSend={handleSend}
         sending={sending}
+        compact={compact}
       />
     );
   }
@@ -559,6 +603,7 @@ export default function ContactCopilotComposer({
       communications={communications}
       onSend={handleSend}
       sending={sending}
+      compact={compact}
     />
   );
 }

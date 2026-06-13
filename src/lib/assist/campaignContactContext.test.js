@@ -5,6 +5,7 @@ import {
   campaignContextsToEngagements,
   enrichContactsWithCampaignContext,
 } from "./campaignContactContext.js";
+import { campaignContextToTimeline } from "./tofuTimeline.js";
 
 describe("collectCampaignContactIds", () => {
   it("dedupes ids from deal, account, and deal contacts", () => {
@@ -75,11 +76,31 @@ describe("enrichContactsWithCampaignContext", () => {
           qualifiedReason: "demo",
           campaign: { name: "Summer" },
           contact: { id: "ct-1", persona: "DECISION_MAKER" },
+          commLogs: [{ id: "l1", channel: "email", sentAt: "2026-06-01" }],
         },
       ]
     );
     expect(out[0].persona).toBe("DECISION_MAKER");
     expect(out[0].tofuScore).toBe(88);
     expect(out[0].campaignName).toBe("Summer");
+    expect(out[0].tofuCommCount).toBe(1);
+  });
+});
+
+describe("campaignContextToTimeline", () => {
+  it("includes outbound and inbound comm rows", () => {
+    const rows = campaignContextToTimeline({
+      commLogs: [
+        {
+          id: "l1",
+          channel: "email",
+          sentAt: "2026-06-01T00:00:00Z",
+          responseContent: "yes",
+          responseAt: "2026-06-02T00:00:00Z",
+        },
+      ],
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[0].direction).toBe("inbound");
   });
 });

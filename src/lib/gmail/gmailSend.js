@@ -45,12 +45,26 @@ export function buildGmailRawMessage({ from, to, subject, html, attachments = []
     ];
     for (const file of att) {
       const filename = String(file.filename || "attachment.html").replace(/"/g, "");
-      const isHtml = (file.mimeType || "").toLowerCase().includes("html") || /\.html?$/i.test(filename);
-      const mimeType = isHtml ? "text/html" : file.mimeType || "application/octet-stream";
-      const b64 = foldBase64(Buffer.from(String(file.content), "utf8").toString("base64"));
+      const isPdf =
+        (file.mimeType || "").toLowerCase() === "application/pdf" ||
+        file.encoding === "base64" ||
+        /\.pdf$/i.test(filename);
+      const isHtml =
+        !isPdf &&
+        ((file.mimeType || "").toLowerCase().includes("html") || /\.html?$/i.test(filename));
+      const mimeType = isPdf
+        ? "application/pdf"
+        : isHtml
+          ? "text/html"
+          : file.mimeType || "application/octet-stream";
+      const b64 =
+        file.encoding === "base64" || isPdf
+          ? foldBase64(String(file.content).replace(/\s/g, ""))
+          : foldBase64(Buffer.from(String(file.content), "utf8").toString("base64"));
+      const charsetPart = isPdf ? "" : '; charset="UTF-8"';
       parts.push(
         `--${boundary}`,
-        `Content-Type: ${mimeType}; charset="UTF-8"; name="${filename}"`,
+        `Content-Type: ${mimeType}${charsetPart}; name="${filename}"`,
         `Content-Disposition: attachment; filename="${filename}"`,
         "Content-Transfer-Encoding: base64",
         "",

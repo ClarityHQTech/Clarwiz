@@ -4,7 +4,8 @@
  * Pipeline per deal: assemble context → run AURA prompts (signal / nba /
  * company) through an injectable LLM → normalize the model's JSON → write
  * Signal / NbaRecommendation / DealInsight rows. recomputeDeal orchestrates all
- * three with independent try/catch so one failing LLM call can't sink the rest.
+ * three with independent try/catch so one failing LLM call can't sink the rest,
+ * then refreshes CompanyInsight for every account tied to the deal.
  *
  * The COMPANY prompt is the account briefing; it ALSO drives the deal-level
  * insight (account_score, gtm paths, early warnings, coaching) — there is no
@@ -294,6 +295,11 @@ export function formatRecomputeSummary(summary) {
   if (summary.signals > 0) parts.push(`${summary.signals} signal${summary.signals === 1 ? "" : "s"}`);
   if (summary.nbas > 0) parts.push(`${summary.nbas} NBA${summary.nbas === 1 ? "" : "s"}`);
   if (summary.insight) parts.push("briefing");
+  if (summary.companyInsights > 0) {
+    parts.push(
+      `${summary.companyInsights} company brief${summary.companyInsights === 1 ? "" : "s"}`
+    );
+  }
   if (!parts.length) {
     return summary.errors?.length
       ? `Intelligence run failed: ${summary.errors.join("; ")}`
@@ -373,6 +379,49 @@ export async function resolveModel(prisma, tenantId) {
 
 function arr(v) {
   return Array.isArray(v) ? v : [];
+}
+
+// ---------------------------------------------------------------------------
+// deal → account resolution
+// ---------------------------------------------------------------------------
+
+/** All tenant Account ids linked to a deal (primary account + contact companies). */
+export async function resolveDealAccountIds(prisma, tenantId, dealId) {
+  const deal = await prisma.deal.findFirst({
+    where: { id: dealId, tenantId },
+    select: {
+      accountId: true,
+      dealContacts: {
+        select: {
+          contact: {
+            select: {
+              businessUser: { select: { companyId: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!deal) return [];
+
+  const accountIds = new Set();
+  if (deal.accountId) accountIds.add(deal.accountId);
+
+  const companyIds = [
+    ...new Set(
+      deal.dealContacts.map((dc) => dc.contact?.businessUser?.companyId).filter(Boolean)
+    ),
+  ];
+
+  if (companyIds.length) {
+    const accounts = await prisma.account.findMany({
+      where: { tenantId, companyId: { in: companyIds } },
+      select: { id: true },
+    });
+    for (const a of accounts) accountIds.add(a.id);
+  }
+
+  return [...accountIds];
 }
 
 // ---------------------------------------------------------------------------
@@ -495,11 +544,20 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetc
 }
 
 /**
- * Orchestrate a full deal recompute: signals → nbas → dealInsight, each
- * independently fault-isolated. Logs INSIGHT_COMPUTED. Returns a summary.
+ * Orchestrate a full deal recompute: signals → nbas → dealInsight → company
+ * insights for linked accounts, each independently fault-isolated.
+ * Logs INSIGHT_COMPUTED. Returns a summary.
  */
 export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetchImpl } = {}) {
-  const summary = { dealId, signals: 0, nbas: 0, setupNba: false, insight: false, errors: [] };
+  const summary = {
+    dealId,
+    signals: 0,
+    nbas: 0,
+    setupNba: false,
+    insight: false,
+    companyInsights: 0,
+    errors: [],
+  };
 
   // Resolve the deal's HubSpot object id once (best-effort) for the action log.
   let hsObjectId = null;
@@ -542,6 +600,20 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetc
     summary.insight = !!insight;
   } catch (err) {
     summary.errors.push(`insight: ${err.message}`);
+  }
+
+  const accountIds = await resolveDealAccountIds(prisma, tenantId, dealId);
+  for (const accountId of accountIds) {
+    try {
+      const companyInsight = await recomputeCompany(prisma, tenantId, accountId, {
+        llm,
+        token,
+        fetchImpl,
+      });
+      if (companyInsight) summary.companyInsights += 1;
+    } catch (err) {
+      summary.errors.push(`company:${accountId}: ${err.message}`);
+    }
   }
 
   await logAssistAction(prisma, {

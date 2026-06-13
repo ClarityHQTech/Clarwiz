@@ -5,7 +5,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { recomputeDeal } from "@/lib/assist/intelligence/compute.js";
 import { getDecryptedHubspotToken } from "@/lib/assist/mofuIntegration";
 
-/** POST: recompute signals + NBAs + deal insight for one deal. */
+/** POST: recompute signals + NBAs + deal insight + linked company insights for one deal. */
 export async function POST(_request, { params }) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.INSIGHT_RUN });
   if (auth.error) return auth.error;

@@ -65,7 +65,6 @@ function NbaStrip({ nbas = [] }) {
 
 function LeadWorkroomClient({ view, timeline, companyName, leadName }) {
   const { contact, businessUser, account, company, insight, signals, nbas } = view;
-  const chatContext = { entityType: "lead", contactId: contact?.id, label: leadName };
 
   return (
     <AssistWorkroomLayout
@@ -74,7 +73,6 @@ function LeadWorkroomClient({ view, timeline, companyName, leadName }) {
       title={leadName}
       subtitle={`${businessUser?.jobTitle ? `${businessUser.jobTitle} · ` : ""}Marketing-qualified lead — promote to a deal when a demo is booked.`}
       actions={<PromoteButton contactId={contact.id} companyName={companyName} />}
-      chatContext={chatContext}
     >
       <div className="grid lg:grid-cols-[1fr_360px] gap-4 items-start">
         <div className="space-y-4">

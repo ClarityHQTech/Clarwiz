@@ -1,5 +1,5 @@
 /**
- * Pure context-builder for the AE Chat Dock (C1).
+ * Pure context-builder for Cockpit (AE internal chat assist).
  *
  * `buildSnapshot(view)` compacts a deal / company / dashboard view-model (from
  * insightsReader) into a small, bounded JSON grounding object — ids, names,

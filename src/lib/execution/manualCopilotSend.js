@@ -265,12 +265,6 @@ export async function manualCopilotSend({
     throw new Error("Campaign not found");
   }
 
-  if (campaign.status === "active") {
-    throw new Error(
-      "Manual sends are disabled while the campaign is live. Pause the campaign for co-pilot mode."
-    );
-  }
-
   const cc = campaign.campaignContacts.find((row) => row.id === campaignContactId);
   if (!cc) {
     throw new Error("Contact not found in this campaign");

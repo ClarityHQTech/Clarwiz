@@ -45,6 +45,44 @@ export function formatStaleness(syncedAt, now = new Date()) {
   return `${days}d ago`;
 }
 
+function shapeDealRow(deal) {
+  return {
+    id: deal.id,
+    name: deal.name || "Untitled deal",
+    company: deal.account?.company?.name ?? null,
+    stageLabel: deal.stageLabel ?? null,
+    amount: deal.amount,
+    score: typeof deal.score === "number" ? deal.score : null,
+    contactCount: deal._count?.dealContacts ?? 0,
+    executedNbaCount: deal._count?.nbas ?? 0,
+    lastActivityAt: deal.lastActivityAt ?? null,
+  };
+}
+
+/** Newest Deal.syncedAt across the hydrated deals (or null). */
+export function latestSyncedAtFromDeals(deals) {
+  if (!Array.isArray(deals) || deals.length === 0) return null;
+  let latest = null;
+  for (const d of deals) {
+    const t = d?.syncedAt ? new Date(d.syncedAt) : null;
+    if (t && (!latest || t > latest)) latest = t;
+  }
+  return latest;
+}
+
+/** Shape getWorkingDealsPageData() output into the AE Assist deals table view model. */
+export function buildDealsPageView(data = {}) {
+  const rawDeals = Array.isArray(data.deals) ? data.deals : [];
+  const deals = rawDeals.map(shapeDealRow);
+
+  return {
+    deals,
+    count: deals.length,
+    isEmpty: deals.length === 0,
+    latestSyncedAt: latestSyncedAtFromDeals(rawDeals),
+  };
+}
+
 /** Shape getDashboardData() output into the dashboard view model. */
 export function buildDashboardView(data = {}) {
   const deals = Array.isArray(data.deals) ? data.deals : [];

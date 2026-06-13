@@ -3,7 +3,7 @@
 import AssistBadge from "../ui/AssistBadge";
 import { AssistPanel, AssistEmpty } from "../ui/AssistPanel";
 import { BriefingBlock } from "../ui/AssistPrimitives";
-import { asScore } from "../cockpit/format";
+import { asScore } from "../format";
 import { ui } from "@/lib/brandUi";
 
 function asString(v) {

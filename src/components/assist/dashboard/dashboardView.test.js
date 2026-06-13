@@ -4,7 +4,9 @@ import {
   stageColor,
   formatStaleness,
   latestSyncedAt,
+  latestSyncedAtFromDeals,
   buildDashboardView,
+  buildDealsPageView,
 } from "./dashboardView";
 
 describe("formatAmount", () => {
@@ -96,5 +98,71 @@ describe("buildDashboardView", () => {
     const v = buildDashboardView({});
     expect(v.isEmpty).toBe(true);
     expect(v.counts).toEqual({ deals: 0, leads: 0, accounts: 0 });
+  });
+});
+
+describe("buildDealsPageView", () => {
+  const data = {
+    deals: [
+      {
+        id: "d1",
+        name: "Acme expansion",
+        stageLabel: "Negotiation",
+        amount: 120000,
+        score: 72,
+        lastActivityAt: new Date("2026-06-01"),
+        syncedAt: new Date("2026-06-07"),
+        account: { company: { name: "Acme Corp" } },
+        _count: { dealContacts: 3, nbas: 2 },
+      },
+      {
+        id: "d2",
+        name: "Beta pilot",
+        stageLabel: "Discovery",
+        amount: null,
+        score: null,
+        lastActivityAt: new Date("2026-06-05"),
+        syncedAt: new Date("2026-06-08"),
+        account: null,
+        _count: { dealContacts: 0, nbas: 0 },
+      },
+    ],
+  };
+
+  it("shapes deal rows with company, contacts, score, and executed NBAs", () => {
+    const v = buildDealsPageView(data);
+    expect(v.count).toBe(2);
+    expect(v.isEmpty).toBe(false);
+    expect(v.latestSyncedAt).toEqual(new Date("2026-06-08"));
+    expect(v.deals[0]).toEqual({
+      id: "d1",
+      name: "Acme expansion",
+      company: "Acme Corp",
+      stageLabel: "Negotiation",
+      amount: 120000,
+      score: 72,
+      contactCount: 3,
+      executedNbaCount: 2,
+      lastActivityAt: new Date("2026-06-01"),
+    });
+    expect(v.deals[1].company).toBeNull();
+    expect(v.deals[1].executedNbaCount).toBe(0);
+  });
+
+  it("flags an empty list when no deals are hydrated", () => {
+    const v = buildDealsPageView({ deals: [] });
+    expect(v.isEmpty).toBe(true);
+    expect(v.count).toBe(0);
+    expect(v.latestSyncedAt).toBeNull();
+  });
+});
+
+describe("latestSyncedAtFromDeals", () => {
+  it("returns the newest syncedAt across deals", () => {
+    const deals = [
+      { syncedAt: new Date("2026-01-01T00:00:00Z") },
+      { syncedAt: new Date("2026-03-01T00:00:00Z") },
+    ];
+    expect(latestSyncedAtFromDeals(deals)).toEqual(new Date("2026-03-01T00:00:00Z"));
   });
 });

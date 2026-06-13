@@ -37,7 +37,10 @@ export async function deliverNbaEmail(
 ) {
   const emailAttachments = Array.isArray(attachments) ? attachments.filter((a) => a?.content) : [];
   const collateralFile = emailAttachments[0] ?? null;
-  const singleSendHtml = collateralFile
+  const isHtmlCollateral =
+    collateralFile &&
+    (collateralFile.mimeType || "").toLowerCase().includes("html");
+  const singleSendHtml = isHtmlCollateral
     ? embedCollateralInline(html, collateralFile.content, collateralTitle || collateralFile.filename)
     : html;
   let delivered = false;

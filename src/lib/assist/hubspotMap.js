@@ -7,6 +7,7 @@ import { CLARWIZ_CAMPAIGN_CONTACT_ID_PROP } from "@/lib/crm/campaignContactBridg
 
 export const DEAL_PROPERTIES = [
   "dealname",
+  "description",
   "amount",
   "dealstage",
   "pipeline",

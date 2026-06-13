@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
-import AssistChatLayer from "@/components/assist/AssistChatLayer";
+import CockpitChat from "@/components/assist/cockpit/CockpitChat";
 import { ui } from "@/lib/brandUi";
 
 export default function AssistWorkroomLayout({
@@ -11,7 +11,7 @@ export default function AssistWorkroomLayout({
   subtitle,
   eyebrow,
   actions,
-  chatContext,
+  cockpitContext,
   children,
 }) {
   const trail = crumbs.length ? crumbs : [];
@@ -42,7 +42,7 @@ export default function AssistWorkroomLayout({
 
       {children}
 
-      {chatContext ? <AssistChatLayer pageContext={chatContext} /> : null}
+      {cockpitContext ? <CockpitChat pageContext={cockpitContext} /> : null}
     </div>
   );
 }

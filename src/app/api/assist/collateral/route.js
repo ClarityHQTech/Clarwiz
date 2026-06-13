@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-
 const TYPES = [
   "MARKETING_DOC",
   "PITCH_DECK",
@@ -31,11 +30,13 @@ export async function GET(request) {
   const funnelStage = sp.get("funnelStage");
   const q = sp.get("q")?.trim();
   const templatesOnly = sp.get("templates") === "1";
+  const instancesOnly = sp.get("instances") === "1";
 
   const where = { tenantId: ctx.tenantId };
   if (type && TYPES.includes(type)) where.type = type;
   if (funnelStage && STAGES.includes(funnelStage)) where.funnelStage = funnelStage;
   if (templatesOnly) where.isTemplate = true;
+  if (instancesOnly) where.isTemplate = false;
   if (q) {
     where.OR = [
       { title: { contains: q, mode: "insensitive" } },
@@ -159,7 +160,7 @@ export async function POST(request) {
   return NextResponse.json({ item: row }, { status: 201 });
 }
 
-/** DELETE ?id= (COLLATERAL_MANAGE) — remove a tenant-scoped item. */
+/** DELETE ?id= (COLLATERAL_MANAGE) — remove a template and its linked Document. */
 export async function DELETE(request) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.COLLATERAL_MANAGE });
   if (auth.error) return auth.error;
@@ -170,10 +171,45 @@ export async function DELETE(request) {
 
   const existing = await prisma.collateralIndex.findFirst({
     where: { id, tenantId: ctx.tenantId },
-    select: { id: true },
+    select: { id: true, isTemplate: true, externalId: true, slug: true, tags: true },
   });
   if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!existing.isTemplate) {
+    return NextResponse.json({ error: "not_a_template" }, { status: 400 });
+  }
 
-  await prisma.collateralIndex.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  const { isPredefinedCollateralRow, suppressPredefinedSlug } = await import(
+    "@/lib/assist/richCollateral/predefinedTemplates"
+  );
+  const isPredefined = isPredefinedCollateralRow(existing);
+  const documentId = existing.externalId;
+
+  await prisma.$transaction(async (tx) => {
+    if (isPredefined && existing.slug) {
+      const tenant = await tx.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: { company_details: true },
+      });
+      await tx.tenant.update({
+        where: { id: ctx.tenantId },
+        data: {
+          company_details: suppressPredefinedSlug(tenant?.company_details ?? null, existing.slug),
+        },
+      });
+    }
+
+    await tx.collateralIndex.delete({ where: { id } });
+
+    if (documentId) {
+      await tx.document.deleteMany({
+        where: { id: documentId, tenantId: ctx.tenantId },
+      });
+    }
+  });
+
+  return NextResponse.json({
+    ok: true,
+    documentId: documentId ?? null,
+    removedPredefined: isPredefined,
+  });
 }

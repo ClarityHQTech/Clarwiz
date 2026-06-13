@@ -115,9 +115,9 @@ export default function NbaRail({ dealId, nbas, contacts = [], isOpen, onClose }
 
   return (
     <>
-      <Drawer placement="right" size="md" isOpen={isOpen} onClose={onClose}>
+      <Drawer placement="right" size="xl" isOpen={isOpen} onClose={onClose}>
         <DrawerOverlay />
-        <DrawerContent className="!max-w-[420px] !bg-brand-surface">
+        <DrawerContent className="!max-w-[720px] !bg-brand-surface">
           <DrawerCloseButton />
           <DrawerHeader
             className={`${ui.titleSm} text-base !bg-brand-surface border-b border-brand-secondary/25`}

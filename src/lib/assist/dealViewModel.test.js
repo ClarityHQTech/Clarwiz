@@ -8,12 +8,28 @@ const fullView = {
     hubspotDealId: "hs_99",
     name: "Acme Expansion",
     stageLabel: "Negotiation",
+    stageBand: "DEAL_LATE",
     amount: 48000.5,
     status: "OPEN",
     score: 72,
     lastActivityAt: new Date("2026-05-01T10:00:00Z"),
+    syncedAt: new Date("2026-05-01T08:00:00Z"),
+    createdAt: new Date("2026-04-01T08:00:00Z"),
+    ownerId: "owner_1",
+    payload: {
+      description: "Expand data platform to 3 regions.",
+      pipeline: "default",
+      closedate: "2026-09-30",
+      hubspot_owner_id: "owner_1",
+    },
   },
-  account: { id: "acc_1", name: "Acme Co" },
+  account: {
+    id: "acc_1",
+    hubspotCompanyId: "hs_co_1",
+    lifecycleStage: "customer",
+    syncedAt: new Date("2026-05-01T09:00:00Z"),
+    company: { id: "co_1", name: "Acme Co", domain: "acme.com", industry: "Software" },
+  },
   company: { id: "co_1", name: "Acme Co", domain: "acme.com" },
   contacts: [
     { id: "c1", email: "a@acme.com", businessUser: { name: "Ann Buyer", title: "VP" } },
@@ -95,6 +111,14 @@ describe("toDealViewModel", () => {
     expect(vm.deal.name).toBe("Acme Expansion");
     expect(vm.deal.amount).toBe(48000.5);
     expect(vm.deal.stageLabel).toBe("Negotiation");
+    expect(vm.deal.description).toBe("Expand data platform to 3 regions.");
+    expect(vm.deal.pipeline).toBe("default");
+    expect(vm.deal.stageBand).toBe("DEAL_LATE");
+    expect(vm.deal.ownerId).toBe("owner_1");
+
+    expect(vm.account.id).toBe("acc_1");
+    expect(vm.account.lifecycleStage).toBe("customer");
+    expect(vm.account.company.name).toBe("Acme Co");
 
     expect(vm.hasInsight).toBe(true);
     expect(vm.accountScore).toBe(81);
@@ -157,6 +181,7 @@ describe("toDealViewModel", () => {
     expect(vm.hasInsight).toBe(false);
     expect(vm.deal).toBeNull();
     expect(vm.gtmPaths).toEqual([]);
+    expect(vm.gtmTasks).toEqual({});
   });
 
   it("tolerates a partial insight payload (some nested objects missing)", () => {

@@ -183,8 +183,63 @@ export function enrichContactsWithCampaignContext(contacts = [], campaignContext
       tofuScore: ctx.score,
       tofuStatus: ctx.status,
       tofuQualifiedReason: ctx.qualifiedReason ?? null,
+      tofuQualifiedAt: ctx.qualifiedAt ?? null,
       campaignContactId: ctx.id,
       campaignName: ctx.campaign?.name ?? null,
+      tofuCommCount: ctx.commLogs?.length ?? 0,
     };
   });
+}
+
+/** Load TOFU campaign contexts linked to a tenant account (deal + contact bridge ids). */
+export async function loadCampaignContextForAccount(prisma, tenantId, accountId) {
+  const [account, deals] = await Promise.all([
+    prisma.account.findFirst({
+      where: { id: accountId, tenantId },
+      select: { campaignContactId: true },
+    }),
+    prisma.deal.findMany({
+      where: { tenantId, accountId },
+      select: {
+        campaignContactId: true,
+        dealContacts: { select: { campaignContactId: true } },
+      },
+    }),
+  ]);
+
+  const ids = new Set();
+  if (account?.campaignContactId) ids.add(account.campaignContactId);
+  for (const deal of deals) {
+    if (deal.campaignContactId) ids.add(deal.campaignContactId);
+    for (const dc of deal.dealContacts) {
+      if (dc.campaignContactId) ids.add(dc.campaignContactId);
+    }
+  }
+
+  const campaignContactIds = [...ids];
+  const campaignContexts = await loadCampaignContactContexts(prisma, tenantId, campaignContactIds);
+  return { campaignContactIds, campaignContexts };
+}
+
+/**
+ * Load TOFU campaign contexts for a CRM contact — merges explicit bridge ids
+ * (from deal/account sync) with any CampaignContact rows for that contact.
+ */
+export async function loadCampaignContextForContact(
+  prisma,
+  tenantId,
+  contactId,
+  { seedIds = [] } = {}
+) {
+  const ids = new Set(seedIds.filter(Boolean));
+  const rows = await prisma.campaignContact.findMany({
+    where: { contactId, campaign: { tenantId } },
+    select: { id: true },
+    orderBy: [{ score: "desc" }, { scoreUpdatedAt: "desc" }],
+  });
+  for (const row of rows) ids.add(row.id);
+
+  const campaignContactIds = [...ids];
+  const campaignContexts = await loadCampaignContactContexts(prisma, tenantId, campaignContactIds);
+  return { campaignContactIds, campaignContexts };
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useUser } from "@/context/UserContext";
 import { STATUS_STYLES, ui } from "@/lib/brandUi";
-import { fmtAmountShort } from "@/components/assist/cockpit/format";
+import { fmtAmountShort } from "@/components/assist/format";
 import { actionDot, actionLabel } from "@/components/assist/dashboard/ActivityFeed";
 import DashboardHeaderActions from "@/components/dashboard/DashboardHeaderActions";
 import {

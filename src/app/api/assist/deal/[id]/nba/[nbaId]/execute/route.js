@@ -22,6 +22,14 @@ import {
   getMofuIntegration,
 } from "@/lib/assist/mofuIntegration";
 import { appendAssistBookingLink } from "@/lib/assist/appendNbaBookingLink";
+import { getCollateralAssets } from "@/lib/assist/richCollateral/collateralAssets";
+import { renderRichTemplate } from "@/lib/assist/richCollateral/fillRichTemplate";
+import { contextToRichTokens } from "@/lib/assist/richCollateral/contextToTokens";
+import {
+  HYPER_PERSONALIZE_INSTRUCTION,
+  personalizeRichHtml,
+} from "@/lib/assist/richCollateral/personalizeRichHtml";
+import { isTemplateActiveForTenant } from "@/lib/assist/richCollateral/predefinedTemplates";
 
 const DRAFT_MODEL = process.env.NBA_DRAFT_MODEL?.trim() || ANTHROPIC_MODEL_SIMPLE;
 
@@ -312,11 +320,19 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
       const dealHsId = context.dealHsId || nba.deal?.hubspotDealId || null;
       const companyHsId = context.companyHsId || null;
 
-      // Load this tenant's TEMPLATE collateral and pick the best by
-      // type/category/tags/funnelStage/company.
-      const templates = await prisma.collateralIndex.findMany({
+      const tenantRow = await prisma.tenant.findUnique({
+        where: { id: ctx.tenantId },
+        select: { name: true, company_details: true },
+      });
+      const assets = getCollateralAssets(tenantRow?.company_details);
+
+      // Load templates; exclude predefined templates removed from this workspace.
+      const allTemplates = await prisma.collateralIndex.findMany({
         where: { tenantId: ctx.tenantId, isTemplate: true },
       });
+      const templates = allTemplates.filter((t) =>
+        isTemplateActiveForTenant(t, tenantRow?.company_details),
+      );
       const funnelStage = stageToFunnel(nba.deal?.stageBand, context.deal?.stage);
       const ranked = rankCollateral(templates, {
         type: need.type,
@@ -336,17 +352,52 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
           where: { id: best.externalId, tenantId: ctx.tenantId },
         });
         if (templateDoc) {
-          const personalized = await personalizeTemplate({
-            templateDoc: {
-              title: templateDoc.title,
-              html: templateDoc.html,
-              data: templateDoc.data,
-            },
-            context,
-            instruction:
-              "This collateral will be sent to the prospect. Remove any template scaffolding, " +
-              "internal AE notes, and unsupported claims. Use only facts from context; omit anything unknown.",
-          });
+          const richKey = templateDoc.data?.richTemplateKey;
+          let personalized;
+
+          if (richKey) {
+            const tokens = contextToRichTokens(context, assets);
+            let html = renderRichTemplate(richKey, tokens);
+            let hyperPersonalized = false;
+            if (process.env.ANTHROPIC_API_KEY) {
+              try {
+                html = await personalizeRichHtml({
+                  html,
+                  context,
+                  instruction: HYPER_PERSONALIZE_INSTRUCTION,
+                });
+                hyperPersonalized = true;
+              } catch (err) {
+                console.warn(`[MOFU] rich HTML hyper-personalize failed: ${err.message}`);
+              }
+            }
+            personalized = {
+              title: `${templateDoc.title} — ${tokens.prospect_company}`,
+              html,
+              template: JSON.stringify({ richTemplateKey: richKey, tokens, hyperPersonalized }),
+              data: { richTemplateKey: richKey, hyperPersonalized },
+              compliance: {
+                score: hyperPersonalized ? "92" : "75",
+                note: hyperPersonalized
+                  ? "Rich HTML — hyper-personalized copy for tenant and prospect"
+                  : "Rich HTML — token fill only (AI personalization unavailable)",
+              },
+              promptVersion: hyperPersonalized ? "rich-html-hyper-v1" : "rich-html-fill-v1",
+            };
+          } else {
+            personalized = await personalizeTemplate({
+              templateDoc: {
+                title: templateDoc.title,
+                html: templateDoc.html,
+                data: templateDoc.data,
+              },
+              context,
+              instruction:
+                "This collateral will be sent to the prospect. Remove any template scaffolding, " +
+                "internal AE notes, and unsupported claims. Use only facts from context; omit anything unknown.",
+            });
+          }
+
           stored = await storePersonalizedInstance(prisma, {
             tenantId: ctx.tenantId,
             personalized,

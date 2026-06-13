@@ -1,6 +1,6 @@
 /**
- * Pure formatting helpers for the AE Cockpit UI. No React. Keeps the cockpit
- * components terse and consistent with the mockup's amount/score/time styling.
+ * Shared formatting helpers for AE Assist UI (amounts, dates, scores).
+ * Not part of Cockpit — Cockpit is the internal chat assist only.
  */
 
 /** Whole-USD amount ($240,000). Dash for non-numbers. */
@@ -56,12 +56,4 @@ export function asScore(v) {
   const n = typeof v === "string" ? Number(v.replace(/[^0-9.-]/g, "")) : v;
   if (n == null || Number.isNaN(n)) return null;
   return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-/** Stroke color var for a score ring by band. */
-export function scoreVar(score) {
-  if (score == null) return "var(--muted)";
-  if (score >= 70) return "var(--ok)";
-  if (score >= 40) return "var(--warn)";
-  return "var(--danger)";
 }

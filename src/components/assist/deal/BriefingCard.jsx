@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtStaleness } from "../cockpit/format";
+import { fmtStaleness } from "../format";
 import { AssistPanel } from "../ui/AssistPanel";
 import { AssistEmpty } from "../ui/AssistPanel";
 import { BriefingBlock } from "../ui/AssistPrimitives";

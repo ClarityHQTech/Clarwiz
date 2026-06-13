@@ -55,8 +55,14 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const { isPredefinedDocument } = await import("@/lib/assist/richCollateral/predefinedTemplates");
+  const docData = document.data && typeof document.data === "object" ? document.data : {};
+  if (isPredefinedDocument(docData)) {
+    return NextResponse.json({ error: "predefined_read_only" }, { status: 403 });
+  }
+
   // The doc model (Document.data) is the source of truth we patch.
-  const currentDoc = document.data && typeof document.data === "object" ? document.data : {};
+  const currentDoc = docData;
 
   // Claude edit is fenced — any failure becomes a 502, never an unhandled 500.
   let edited;

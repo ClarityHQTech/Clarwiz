@@ -11,10 +11,11 @@ import {
   DrawerOverlay,
 } from "@chakra-ui/react";
 import { toast } from "sonner";
+import TofuCampaignPanel from "./TofuCampaignPanel";
 import AssistBadge from "./ui/AssistBadge";
 import { AssistEmpty } from "./ui/AssistPanel";
 import { SectionTitle, InsightRow, KvGrid, initials, BriefingBlock } from "./ui/AssistPrimitives";
-import { fmtAmountShort, fmtStaleness, asScore } from "./cockpit/format";
+import { fmtAmountShort, fmtStaleness, asScore } from "./format";
 import { tierDot, signalLabel } from "./deal/SignalsStrip";
 import { ui } from "@/lib/brandUi";
 
@@ -446,6 +447,7 @@ export default function CompanyDrawer({ accountId, isOpen, onClose }) {
   const signals = arr(view?.signals);
   const contacts = arr(view?.contacts);
   const deals = arr(view?.deals);
+  const campaignContexts = arr(view?.campaignContexts);
   const score = asScore(payload.account_score);
 
   const tabProps = { payload, insight, signals, contacts, deals };
@@ -501,6 +503,18 @@ export default function CompanyDrawer({ accountId, isOpen, onClose }) {
               {analyzing ? "Analyzing…" : insight ? "Re-analyze" : "Analyze"}
             </button>
           </div>
+
+          {campaignContexts.length > 0 ? (
+            <div className="px-4 py-4 border-b border-brand-secondary/25">
+              <div className="flex items-center gap-2 mb-3">
+                <AssistBadge variant="accent">TOFU linked</AssistBadge>
+                <p className="text-xs text-brand-stone">
+                  Outreach history from Clarwiz campaigns connected via CRM sync.
+                </p>
+              </div>
+              <TofuCampaignPanel contexts={campaignContexts} />
+            </div>
+          ) : null}
 
           <div className="flex gap-1 overflow-x-auto px-4 py-2 border-b border-brand-secondary/25 no-scrollbar">
             {TABS.map((t) => (

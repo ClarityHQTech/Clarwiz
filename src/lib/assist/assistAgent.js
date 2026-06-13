@@ -1,8 +1,6 @@
 /**
- * AE Assist agent — a Claude (Anthropic SDK) tool-use agent grounded in the
- * AE's CRM context. It can call read-only tools to pull pipeline / deal /
- * account detail mid-conversation, then answer. Uses claude-opus-4-8 with
- * adaptive thinking (no temperature — removed on Opus 4.8).
+ * AE Assist agent — Claude tool-use agent for Cockpit (internal AE chat assist).
+ * Grounded in the AE's CRM context via read-only tools, then answers.
  */
 import { getAnthropicClient, ASSIST_AGENT_MODEL } from "@/lib/anthropicClient";
 import { getDashboardData, getDealView, getCompanyView } from "@/lib/assist/insightsReader";

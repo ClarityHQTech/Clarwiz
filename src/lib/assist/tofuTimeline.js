@@ -65,6 +65,38 @@ export async function getTofuTimeline(prisma, tenantId, email) {
   return entries;
 }
 
+/** Convert a formatted CampaignContact context into timeline entries. */
+export function campaignContextToTimeline(ctx) {
+  if (!ctx) return [];
+  const entries = [];
+  for (const log of ctx.commLogs ?? []) {
+    entries.push({
+      id: log.id,
+      channel: log.channel ?? null,
+      direction: "outbound",
+      subject: log.subject ?? null,
+      message: log.message ?? null,
+      cta: log.ctaType ?? null,
+      status: log.status ?? null,
+      timestamp: log.sentAt ?? null,
+    });
+    if (log.responseType || log.responseAt || log.responseContent) {
+      entries.push({
+        id: `${log.id}-reply`,
+        channel: log.channel ?? null,
+        direction: "inbound",
+        subject: log.subject ?? null,
+        message: log.responseContent ?? null,
+        cta: log.ctaType ?? null,
+        status: log.responseType ?? "responded",
+        timestamp: log.responseAt ?? log.sentAt ?? null,
+      });
+    }
+  }
+  entries.sort((a, b) => toMs(b.timestamp) - toMs(a.timestamp));
+  return entries;
+}
+
 function toMs(ts) {
   if (!ts) return 0;
   const t = ts instanceof Date ? ts.getTime() : new Date(ts).getTime();

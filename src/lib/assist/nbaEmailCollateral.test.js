@@ -8,7 +8,7 @@ import {
 describe("stripCollateralViewerLinks", () => {
   it("removes in-app collateral viewer links", () => {
     const html =
-      '<p>Hello</p><p style="margin-top:16px"><a href="/assist/collaterals?open=doc1">View / edit asset →</a></p>';
+      '<p>Hello</p><p style="margin-top:16px"><a href="/collaterals?open=doc1">View / edit asset →</a></p>';
     expect(stripCollateralViewerLinks(html)).toBe("<p>Hello</p>");
   });
 });

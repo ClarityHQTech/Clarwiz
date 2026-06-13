@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import CollateralPreviewFrame from "@/components/assist/collateral/CollateralPreviewFrame";
 import { ui } from "@/lib/brandUi";
 
 export default function CollateralLiveEditor({ documentId, onClose }) {
@@ -143,14 +144,8 @@ export default function CollateralLiveEditor({ documentId, onClose }) {
       </div>
 
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
-        <div className="flex-[1.5] min-h-[280px] lg:min-h-0 bg-white border-b lg:border-b-0 lg:border-r border-brand-secondary/25">
-          <iframe
-            key={iframeSrc}
-            src={iframeSrc}
-            title="Collateral preview"
-            sandbox="allow-same-origin"
-            className="w-full h-full min-h-[280px] border-0 bg-white"
-          />
+        <div className="flex-[1.5] min-h-[280px] lg:min-h-0 flex flex-col border-b lg:border-b-0 lg:border-r border-brand-secondary/25">
+          <CollateralPreviewFrame key={iframeSrc} src={iframeSrc} title="Collateral preview" />
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col bg-brand-bg/40 min-h-[320px]">

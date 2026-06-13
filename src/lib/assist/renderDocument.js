@@ -344,7 +344,13 @@ function styles(accent) {
   .cta { background: var(--ink); color: #fff; border-radius: 16px; padding: 28px 32px; margin-top: 12px; }
   .cta-label { font-family: "Instrument Serif", Georgia, serif; font-size: 24px; color: var(--accent); }
   .cta-detail { font-size: 15px; color: #d8cfc4; margin-top: 6px; }
-  @media print { body { background: #fff; } .sheet { padding: 24px; } }
+  @page { size: letter; margin: 0.65in; }
+  @media print {
+    body { background: #fff; }
+    .sheet { max-width: none; padding: 0; }
+    .block, .metric, .objection, .cta, .quote { page-break-inside: avoid; }
+    .hero { page-break-after: avoid; }
+  }
   @media (max-width: 640px) { .sheet { padding: 28px 20px 40px; } .headline { font-size: 34px; } }
   `;
 }

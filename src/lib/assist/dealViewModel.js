@@ -10,8 +10,51 @@
  * unit-tested in isolation.
  */
 
+import { mapGtmTasksByStepKey } from "@/lib/assist/gtmTaskbook";
+
 function asString(v) {
   return typeof v === "string" && v.trim() ? v : null;
+}
+
+function asDate(v) {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function dealPayloadField(payload, key) {
+  if (!payload || typeof payload !== "object") return null;
+  return asString(payload[key]);
+}
+
+function mapAccount(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const company = raw.company && typeof raw.company === "object" ? raw.company : null;
+  return {
+    id: raw.id ?? null,
+    hubspotCompanyId: asString(raw.hubspotCompanyId),
+    lifecycleStage: asString(raw.lifecycleStage),
+    ownerId: asString(raw.ownerId),
+    syncedAt: asDate(raw.syncedAt),
+    company: company
+      ? {
+          id: company.id ?? null,
+          name: asString(company.name),
+          domain: asString(company.domain),
+          industry: asString(company.industry),
+        }
+      : null,
+  };
+}
+
+function mapCompany(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    id: raw.id ?? null,
+    name: asString(raw.name),
+    domain: asString(raw.domain),
+    industry: asString(raw.industry),
+  };
 }
 
 function asNumber(v) {
@@ -49,9 +92,18 @@ function mapContacts(raw) {
     const bu = c?.businessUser ?? null;
     return {
       id: c?.id ?? null,
-      email: asString(c?.email),
-      name: asString(bu?.name) ?? asString(c?.email) ?? "Unknown contact",
-      title: asString(bu?.title),
+      email: asString(bu?.email) ?? asString(c?.email),
+      name: asString(bu?.name) ?? asString(bu?.email) ?? asString(c?.email) ?? "Unknown contact",
+      title: asString(bu?.jobTitle),
+      persona: asString(c?.persona),
+      lifecycleStage: asString(c?.lifecycleStage),
+      phone: asString(bu?.phone),
+      companyName: asString(bu?.company?.name),
+      tofuScore: asNumber(c?.tofuScore),
+      tofuStatus: asString(c?.tofuStatus),
+      tofuQualifiedReason: asString(c?.tofuQualifiedReason),
+      campaignName: asString(c?.campaignName),
+      tofuCommCount: asNumber(c?.tofuCommCount),
       businessUser: bu,
     };
   });
@@ -83,18 +135,26 @@ export function toDealViewModel(view) {
         hubspotDealId: d.hubspotDealId ?? null,
         name: asString(d.name) ?? "Untitled deal",
         stageLabel: asString(d.stageLabel),
+        stageBand: asString(d.stageBand),
         amount: asNumber(d.amount),
         status: asString(d.status),
         score: asNumber(d.score),
         lastActivityAt: d.lastActivityAt ?? null,
+        syncedAt: asDate(d.syncedAt),
+        createdAt: asDate(d.createdAt),
+        description: dealPayloadField(d.payload, "description"),
+        pipeline: dealPayloadField(d.payload, "pipeline"),
+        closeDate: asDate(d.payload?.closedate),
+        ownerId: asString(d.ownerId) ?? dealPayloadField(d.payload, "hubspot_owner_id"),
       }
     : null;
 
   return {
     deal,
-    account: v.account ?? null,
-    company: v.company ?? null,
+    account: mapAccount(v.account),
+    company: mapCompany(v.company) ?? mapAccount(v.account)?.company ?? null,
     contacts: mapContacts(v.contacts),
+    campaignContexts: asArray(v.campaignContexts),
 
     hasInsight: Boolean(insight),
     insightComputedAt: insight?.computedAt ?? null,
@@ -127,5 +187,6 @@ export function toDealViewModel(view) {
 
     nbas: asArray(v.nbas),
     signals: asArray(v.signals),
+    gtmTasks: mapGtmTasksByStepKey(v.gtmTasks),
   };
 }

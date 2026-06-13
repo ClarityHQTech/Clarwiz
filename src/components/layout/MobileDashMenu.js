@@ -33,7 +33,7 @@ const MobileDashMenu = () => {
     pathname === "/assist" ||
     pathname.startsWith("/assist/deal/") ||
     pathname.startsWith("/assist/lead/");
-  const collateralsActive = pathname.startsWith("/assist/collaterals");
+  const collateralsActive = pathname.startsWith("/collaterals");
   const { isOpen, onClose, onOpen } = useDisclosure();
   const logout = useDisclosure();
 
@@ -106,7 +106,7 @@ const MobileDashMenu = () => {
                 icon={<HiOutlineDocumentDuplicate size={20} />}
                 active={collateralsActive}
                 onClose={onClose}
-                url="/assist/collaterals"
+                url="/collaterals"
                 title="Collaterals"
               />
               <LinkButton

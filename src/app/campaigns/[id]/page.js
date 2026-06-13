@@ -517,12 +517,13 @@ const Page = () => {
       {isCopilot && (
         <div className={`${ui.alertInfo} space-y-1`}>
           <p>
-            Copilot mode — run outreach manually. Opens, replies, and inbound
-            messages are tracked in real time via webhooks (configure in{" "}
+            Copilot mode — daily outreach cron is off. Run outreach manually or
+            send from any contact drawer. Opens, replies, and inbound messages
+            are tracked in real time via webhooks (configure in{" "}
             <Link href="/integrations" className="font-medium underline text-brand-ink">
               Integrations
             </Link>
-            ). Messages are not sent automatically.
+            ).
           </p>
         </div>
       )}
@@ -530,14 +531,15 @@ const Page = () => {
       {isAutopilot && (
         <div className={`${ui.alertInfo} space-y-1`}>
           <p>
-            Autopilot is on. Outreach runs once per prospect per day at{" "}
+            Autopilot is on. Outreach also runs once per prospect per day at{" "}
             {campaign.defaultOutreachTime ?? "11:00"}{" "}
             {outreachTimezoneLabel(campaign.outreachTimezone)} (
             {localTimeToUtcHHmm(
               campaign.defaultOutreachTime ?? "11:00",
               campaign.outreachTimezone
             )}{" "}
-            UTC). Engagement is tracked via webhooks — configure them in{" "}
+            UTC). You can still send manually from any contact drawer. Engagement
+            is tracked via webhooks — configure them in{" "}
             <Link href="/integrations" className="font-medium underline text-brand-ink">
               Integrations
             </Link>
@@ -1044,7 +1046,6 @@ const Page = () => {
                   <div className="flex-1 min-h-0">
                     <ContactCommThread
                     communications={selectedProspect.communications}
-                    copilotMode={canStart}
                     campaign={campaign}
                     prospect={selectedProspect}
                     campaignId={id}

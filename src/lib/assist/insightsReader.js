@@ -8,9 +8,37 @@
  * Every function is tenant-scoped. SIGNATURES ARE A CONTRACT — keep stable.
  */
 
+import {
+  loadCampaignContextForDeal,
+  loadCampaignContextForAccount,
+  loadCampaignContextForContact,
+  enrichContactsWithCampaignContext,
+} from "@/lib/assist/campaignContactContext";
 import { getTenantInternalDomains } from "@/lib/assist/internalDomains";
+import { buildTofuProspectView } from "@/lib/assist/tofuProspectView";
 
 const MQL_STAGES = ["lead", "marketingqualifiedlead", "salesqualifiedlead", "subscriber", "opportunity"];
+
+/** Working deals list for the AE Assist home page (open deals only). */
+export async function getWorkingDealsPageData(prisma, tenantId, { ownerId = null } = {}) {
+  const dealWhere = { tenantId, status: "OPEN", ...(ownerId ? { ownerId } : {}) };
+
+  const deals = await prisma.deal.findMany({
+    where: dealWhere,
+    orderBy: { lastActivityAt: "desc" },
+    include: {
+      account: { include: { company: true } },
+      _count: {
+        select: {
+          dealContacts: true,
+          nbas: { where: { status: "EXECUTED" } },
+        },
+      },
+    },
+  });
+
+  return { deals };
+}
 
 /** Dashboard: open leads (MQL contacts with no open deal), open deals, accounts. */
 export async function getDashboardData(prisma, tenantId, { ownerId = null } = {}) {
@@ -106,23 +134,36 @@ export async function getDealView(prisma, tenantId, dealId) {
   });
   if (!deal) return null;
 
-  const [insight, nbas, signals] = await Promise.all([
+  const [{ campaignContexts }, insight, nbas, signals, gtmTasks] = await Promise.all([
+    loadCampaignContextForDeal(prisma, tenantId, dealId),
     getLatestDealInsight(prisma, dealId),
     prisma.nbaRecommendation.findMany({
       where: { tenantId, dealId },
       orderBy: [{ status: "asc" }, { score: "desc" }],
     }),
     prisma.signal.findMany({ where: { tenantId, dealId }, orderBy: { score: "desc" } }),
+    prisma.dealGtmTask.findMany({
+      where: { tenantId, dealId },
+      orderBy: [{ pathIndex: "asc" }, { stepIndex: "asc" }],
+    }),
   ]);
+
+  const contacts = enrichContactsWithCampaignContext(
+    deal.dealContacts.map((dc) => dc.contact),
+    campaignContexts
+  );
 
   return {
     deal,
     account: deal.account,
     company: deal.account?.company ?? null,
-    contacts: deal.dealContacts.map((dc) => dc.contact),
+    contacts,
+    dealContacts: deal.dealContacts,
+    campaignContexts,
     insight,
     nbas,
     signals,
+    gtmTasks,
   };
 }
 
@@ -134,7 +175,8 @@ export async function getCompanyView(prisma, tenantId, accountId) {
   });
   if (!account) return null;
 
-  const [insight, signals, deals] = await Promise.all([
+  const [{ campaignContexts }, insight, signals, deals] = await Promise.all([
+    loadCampaignContextForAccount(prisma, tenantId, accountId),
     getLatestCompanyInsight(prisma, accountId),
     prisma.signal.findMany({ where: { tenantId, accountId }, orderBy: { score: "desc" } }),
     prisma.deal.findMany({ where: { tenantId, accountId }, orderBy: { lastActivityAt: "desc" } }),
@@ -146,7 +188,15 @@ export async function getCompanyView(prisma, tenantId, accountId) {
     include: { businessUser: true },
   });
 
-  return { account, company: account.company, insight, signals, deals, contacts };
+  return {
+    account,
+    company: account.company,
+    insight,
+    signals,
+    deals,
+    contacts: enrichContactsWithCampaignContext(contacts, campaignContexts),
+    campaignContexts,
+  };
 }
 
 /** Lead Workroom view model (no deal yet). */
@@ -174,4 +224,57 @@ export async function getLeadView(prisma, tenantId, contactId) {
   ]);
 
   return { contact, businessUser: contact.businessUser, account, company: account?.company ?? null, insight, signals, nbas };
+}
+
+/** Contact drawer view model — reuses lead enrichment; optional dealId adds stakeholder role. */
+export async function getContactView(prisma, tenantId, contactId, { dealId = null } = {}) {
+  const base = await getLeadView(prisma, tenantId, contactId);
+  if (!base) return null;
+
+  let dealContact = null;
+  const seedIds = [];
+
+  if (dealId) {
+    dealContact = await prisma.dealContact.findFirst({
+      where: { dealId, contactId },
+      include: {
+        campaignContact: {
+          include: { campaign: { select: { id: true, name: true } } },
+        },
+      },
+    });
+    if (dealContact?.campaignContactId) seedIds.push(dealContact.campaignContactId);
+  }
+
+  const { campaignContexts } = await loadCampaignContextForContact(prisma, tenantId, contactId, {
+    seedIds,
+  });
+
+  const tofuProspectViews = (
+    await Promise.all(
+      campaignContexts.map((ctx) => buildTofuProspectView(prisma, tenantId, ctx.id))
+    )
+  ).filter(Boolean);
+
+  const primaryTofu =
+    tofuProspectViews.find((v) => v.campaignContactId === dealContact?.campaignContactId) ??
+    tofuProspectViews[0] ??
+    null;
+
+  const primaryContext =
+    campaignContexts.find((ctx) => ctx.id === dealContact?.campaignContactId) ??
+    campaignContexts[0] ??
+    null;
+
+  return {
+    ...base,
+    dealContact,
+    campaignContexts,
+    campaignContext: primaryContext,
+    tofuProspectViews,
+    tofuProspectView: primaryTofu,
+    contact: primaryContext
+      ? enrichContactsWithCampaignContext([base.contact], [primaryContext])[0]
+      : base.contact,
+  };
 }

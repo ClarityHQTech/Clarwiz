@@ -120,12 +120,20 @@ function InboundBubble({ log }) {
   );
 }
 
-function ChannelThread({ logs }) {
+function ChannelThread({ logs, scrollable = false }) {
   const events = useMemo(() => buildThreadEvents(logs), [logs]);
+
+  const shellClass = scrollable
+    ? "rounded-lg border border-brand-secondary/25 bg-brand-bg/30 flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-4"
+    : "rounded-lg border border-brand-secondary/25 bg-brand-bg/30 min-h-[280px] max-h-[min(52vh,480px)] overflow-y-auto px-3 py-4";
 
   if (!events.length) {
     return (
-      <div className="flex items-center justify-center min-h-[280px] rounded-lg border border-dashed border-brand-secondary/35 bg-brand-bg/40">
+      <div
+        className={`flex items-center justify-center rounded-lg border border-dashed border-brand-secondary/35 bg-brand-bg/40 ${
+          scrollable ? "flex-1 min-h-[120px]" : "min-h-[280px]"
+        }`}
+      >
         <p className="text-sm text-brand-stone px-4 text-center">
           No messages on this channel yet.
         </p>
@@ -134,7 +142,7 @@ function ChannelThread({ logs }) {
   }
 
   return (
-    <div className="rounded-lg border border-brand-secondary/25 bg-brand-bg/30 min-h-[280px] max-h-[min(52vh,480px)] overflow-y-auto px-3 py-4">
+    <div className={shellClass}>
       <div className="space-y-4">
         {events.map((event) =>
           event.kind === "outbound" ? (
@@ -150,7 +158,6 @@ function ChannelThread({ logs }) {
 
 export default function ContactCommThread({
   communications,
-  copilotMode = false,
   campaign,
   prospect,
   campaignId,
@@ -244,25 +251,18 @@ export default function ContactCommThread({
         <ChannelThread logs={activeLogs} />
       </div>
 
-      {copilotMode ? (
-        <ContactCopilotComposer
-          key={campaignContactId}
-          channel={activeTab}
-          channelEnabled={enabledChannels.includes(activeTab)}
-          prospect={prospect}
-          campaign={campaign}
-          templates={templates}
-          communications={communications ?? []}
-          campaignId={campaignId}
-          campaignContactId={campaignContactId}
-          onSent={onSent}
-        />
-      ) : (
-        <p className="text-xs text-brand-stone pt-3 border-t border-brand-secondary/25 shrink-0">
-          Campaign is live — messages are sent by autopilot. Pause the campaign to
-          send manually.
-        </p>
-      )}
+      <ContactCopilotComposer
+        key={campaignContactId}
+        channel={activeTab}
+        channelEnabled={enabledChannels.includes(activeTab)}
+        prospect={prospect}
+        campaign={campaign}
+        templates={templates}
+        communications={communications ?? []}
+        campaignId={campaignId}
+        campaignContactId={campaignContactId}
+        onSent={onSent}
+      />
     </div>
   );
 }

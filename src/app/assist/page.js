@@ -7,7 +7,7 @@ import {
   isHubspotOAuthConnected,
 } from "@/lib/assist/mofuIntegration";
 import { resolveOwnerIdByEmail } from "@/lib/assist/hubspot";
-import { getDashboardData } from "@/lib/assist/insightsReader";
+import { getWorkingDealsPageData } from "@/lib/assist/insightsReader";
 import { recentAssistActions } from "@/lib/assist/logAction";
 import DashboardClient from "@/components/assist/dashboard/DashboardClient";
 import AssistNotice from "@/components/assist/dashboard/AssistNotice";
@@ -50,9 +50,9 @@ export default async function DashboardPage({ searchParams }) {
     );
   }
 
-  // "My book" (default) vs "All" portal view. ?owner=all opts out of scoping.
+  // "All deals" (default) vs "My deals". ?owner=mine scopes to the signed-in AE.
   const sp = await searchParams;
-  const requested = sp?.owner === "all" ? "all" : "mine";
+  const requested = sp?.owner === "mine" ? "mine" : "all";
 
   // Resolve the signed-in AE's hubspot_owner_id once per load. Null when the
   // owners scope isn't granted yet, the user isn't a HubSpot owner, or we're not
@@ -71,7 +71,7 @@ export default async function DashboardPage({ searchParams }) {
   const view = ownerId ? "mine" : "all";
 
   const [data, actions] = await Promise.all([
-    getDashboardData(prisma, ctx.tenantId, { ownerId }),
+    getWorkingDealsPageData(prisma, ctx.tenantId, { ownerId }),
     recentAssistActions(prisma, ctx.tenantId, 200),
   ]);
 

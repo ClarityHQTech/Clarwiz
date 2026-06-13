@@ -11,6 +11,8 @@ import {
   shrinkPromptVars,
   recomputeDeal,
   recomputeCompany,
+  resolveDealAccountIds,
+  formatRecomputeSummary,
 } from "./compute.js";
 import { extractSignalsPayload } from "./runner.js";
 import { PROMPT_VERSION } from "@/lib/assist/prompts/ontology.js";
@@ -257,10 +259,38 @@ function makeFakePrisma() {
   };
 }
 
+describe("resolveDealAccountIds", () => {
+  it("returns the deal account plus accounts for contact companies", async () => {
+    const prisma = {
+      deal: {
+        findFirst: async () => ({
+          accountId: "a1",
+          dealContacts: [
+            { contact: { businessUser: { companyId: "co2" } } },
+            { contact: { businessUser: { companyId: "co2" } } },
+          ],
+        }),
+      },
+      account: {
+        findMany: async () => [{ id: "a2" }],
+      },
+    };
+    await expect(resolveDealAccountIds(prisma, "t1", "d1")).resolves.toEqual(["a1", "a2"]);
+  });
+});
+
+describe("formatRecomputeSummary", () => {
+  it("includes company briefs when present", () => {
+    expect(
+      formatRecomputeSummary({ signals: 2, nbas: 1, insight: true, companyInsights: 1 })
+    ).toContain("1 company brief");
+  });
+});
+
 describe("recomputeDeal (fake llm + fake prisma)", () => {
-  it("writes signals, nbas, a deal insight, denormalizes score, and logs", async () => {
+  it("writes signals, nbas, a deal insight, company insight, denormalizes score, and logs", async () => {
     const prisma = makeFakePrisma();
-    const llm = queuedLlm([SIGNAL_REPLY, NBA_REPLY, COMPANY_REPLY]);
+    const llm = queuedLlm([SIGNAL_REPLY, NBA_REPLY, COMPANY_REPLY, COMPANY_REPLY]);
 
     const summary = await recomputeDeal(prisma, "t1", "d1", { llm });
 
@@ -270,9 +300,10 @@ describe("recomputeDeal (fake llm + fake prisma)", () => {
     expect(prisma.store.nbas[0]).toMatchObject({ status: "SUGGESTED", actionType: "send_collateral" });
     expect(prisma.store.dealInsights.length).toBe(1);
     expect(prisma.store.dealInsights[0]).toMatchObject({ score: 73, summary: "Mid-funnel, ROI risk", promptVersion: PROMPT_VERSION });
+    expect(prisma.store.companyInsights.length).toBe(1);
     expect(prisma.store.dealUpdates[0]).toMatchObject({ data: { score: 73 } });
     expect(prisma.store.logs.some((l) => l.action === "INSIGHT_COMPUTED")).toBe(true);
-    expect(summary).toMatchObject({ signals: 2, nbas: 2, insight: true });
+    expect(summary).toMatchObject({ signals: 2, nbas: 2, insight: true, companyInsights: 1 });
   });
 
   it("isolates a failing step (bad company JSON) without losing signals/nbas", async () => {

@@ -12,9 +12,7 @@ const ERROR_COPY = {
   sync_failed: "Sync failed. Please try again.",
 };
 
-/**
- * HubSpot sync button. POSTs /api/assist/sync, toasts counts, then refreshes.
- */
+/** HubSpot sync button. POSTs /api/assist/sync, toasts counts, then refreshes. */
 export default function SyncButton({ children = "Sync HubSpot", className = "" }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);

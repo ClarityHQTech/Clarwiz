@@ -24,10 +24,7 @@ function sanitizeMessages(messages) {
 
 /**
  * POST { messages:[{role,content}], pageContext:{entityType?, id?, name?} }
- * → { reply }. Runs the Claude (Anthropic SDK) AE-assist tool-use agent grounded
- * in the AE's CRM context — it may call read-only tools (pipeline/deal/account)
- * before answering. Logs a CHAT_QUERY action (no message text). Returns 502
- * { error:'chat_failed' } on an agent failure.
+ * → { reply }. Runs the Cockpit agent (Claude) grounded in deal CRM context.
  *
  * `agentClient` is injectable for tests; production uses the Anthropic client.
  */

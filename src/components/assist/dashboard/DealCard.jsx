@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import AssistBadge from "../ui/AssistBadge";
-import { fmtAmountShort, fmtStaleness } from "../cockpit/format";
+import { fmtAmountShort, fmtStaleness } from "../format";
 
 function scoreVariant(score) {
   if (score == null) return "ghost";
