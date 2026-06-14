@@ -69,7 +69,7 @@ export function hasOutreachToday({ campaign, campaignContact, prospect, commLogs
   for (const log of commLogs) {
     const logCcId = log.campaignContactId ?? log.prospectId;
     if (logCcId !== rowId) continue;
-    if (!["sent", "delivered", "queued"].includes(log.status)) continue;
+    if (!["sent", "delivered", "queued", "skipped"].includes(log.status)) continue;
     const at = log.deliveredAt ?? log.sentAt;
     if (!at) continue;
     const logDay = DateTime.fromJSDate(at, { zone: "utc" }).toISODate();
@@ -127,6 +127,29 @@ export async function planNextScheduledOutreach(campaignContactId, campaign) {
       nextScheduledOutreachAt: nextAt,
       status: cc.status === "PENDING" ? "IN_OUTREACH" : cc.status,
     },
+  });
+}
+
+/** Bump the next cron slot without marking today as reached (skips / schedule-only). */
+export async function advanceNextScheduledSlot(campaignContactId, campaign) {
+  const cc = await prisma.campaignContact.findUnique({
+    where: { id: campaignContactId },
+  });
+  if (!cc) return;
+
+  const nextAt = computeNextOutreachAt({
+    campaign,
+    campaignContact: cc,
+    fromDate: DateTime.now()
+      .setZone("utc")
+      .plus({ days: 1 })
+      .startOf("day")
+      .toJSDate(),
+  });
+
+  await prisma.campaignContact.update({
+    where: { id: campaignContactId },
+    data: { nextScheduledOutreachAt: nextAt },
   });
 }
 

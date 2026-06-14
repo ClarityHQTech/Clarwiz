@@ -80,6 +80,7 @@ export async function POST(request) {
 
   let html = renderRichTemplate(templateKey, tokens);
   let source = "DEMO_FILL";
+  let providerFields = {};
 
   if (mode === "ai") {
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -93,11 +94,13 @@ export async function POST(request) {
         brand,
         seller: { name: tenant?.name, company_details: tenant?.company_details },
       };
-      html = await personalizeRichHtml({
+      const personalizedRes = await personalizeRichHtml({
         html,
         context: aiContext,
         instruction: HYPER_PERSONALIZE_INSTRUCTION,
       });
+      html = personalizedRes.html;
+      providerFields = personalizedRes;
       source = "DEMO_AI_HYPER";
     } catch (err) {
       console.warn(`[MOFU] demo AI personalize failed: ${err.message}`);
@@ -163,6 +166,9 @@ export async function POST(request) {
     entityType: "collateral",
     action: "COLLATERAL_SENT",
     payload: { documentId: document.id, source, demo: true, templateKey, scenarioId: scenario.id },
+    modelUsed: providerFields.modelUsed ?? null,
+    providerUsage: providerFields.providerUsage ?? null,
+    providerCost: providerFields.providerCost ?? null,
   });
 
   return NextResponse.json({

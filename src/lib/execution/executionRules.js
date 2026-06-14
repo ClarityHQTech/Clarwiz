@@ -2,7 +2,10 @@ import {
   getLatestProspectReply,
   isReplyFollowUp,
 } from "@/lib/execution/humanizeOutboundMessage";
-import { DEFAULT_ENABLED_CHANNELS } from "@/lib/campaignChannels";
+import {
+  DEFAULT_ENABLED_CHANNELS,
+  resolveCampaignEnabledChannels,
+} from "@/lib/campaignChannels";
 
 /**
  * Runtime helpers for execution-layer constraints.
@@ -15,18 +18,46 @@ export const EXECUTION_RULES_DOC = "docs/execution-layer-rules.md";
 /** Channels the execution layer may plan, push, and track. */
 export const ACTIVE_EXECUTION_CHANNELS = ["email", "linkedin", "whatsapp"];
 
+function hasContactValue(value) {
+  return Boolean(String(value ?? "").trim());
+}
+
+/** True when the prospect has the contact detail required for a channel. */
+export function hasProspectChannelDetail(prospect, channel) {
+  if (!prospect || !channel) return false;
+  if (channel === "email") return hasContactValue(prospect.email);
+  if (channel === "linkedin") return hasContactValue(prospect.linkedinUrl);
+  if (channel === "whatsapp") return hasContactValue(prospect.whatsapp);
+  return false;
+}
+
 export function availableProspectChannels(prospect, enabledChannels = null) {
   const enabled = enabledChannels ?? DEFAULT_ENABLED_CHANNELS;
 
-  const channels = [];
-  if (prospect?.email && enabled.includes("email")) channels.push("email");
-  if (prospect?.linkedinUrl && enabled.includes("linkedin")) {
-    channels.push("linkedin");
+  return ACTIVE_EXECUTION_CHANNELS.filter(
+    (channel) =>
+      enabled.includes(channel) && hasProspectChannelDetail(prospect, channel)
+  );
+}
+
+/** Campaign-enabled channels that also have contact details on the prospect. */
+export function resolveExecutableProspectChannels(campaign, prospect) {
+  return availableProspectChannels(
+    prospect,
+    resolveCampaignEnabledChannels(campaign)
+  );
+}
+
+export function isExecutableProspectChannel(campaign, prospect, channel) {
+  return resolveExecutableProspectChannels(campaign, prospect).includes(channel);
+}
+
+export function skipReasonForUnavailableProspectChannels(campaign, prospect) {
+  const enabled = resolveCampaignEnabledChannels(campaign);
+  if (enabled.length === 0) {
+    return "No outreach channels enabled for this campaign";
   }
-  if (prospect?.whatsapp && enabled.includes("whatsapp")) {
-    channels.push("whatsapp");
-  }
-  return channels;
+  return "No contact channels available for this prospect on enabled campaign channels";
 }
 
 /**
@@ -139,38 +170,34 @@ export function enforceChannelRules(
   commHistory = [],
   enabledChannels = ACTIVE_EXECUTION_CHANNELS
 ) {
+  void commHistory;
   if (!decision || decision.skip) return decision;
-
-  let channel = decision.channel;
-  if (channel && !enabledChannels.includes(channel)) {
-    return {
-      ...decision,
-      skip: true,
-      skipReason: `Channel "${channel}" is not enabled for this campaign`,
-      channel,
-    };
-  }
 
   const allowedProspectChannels = prospectChannels.filter((ch) =>
     enabledChannels.includes(ch)
   );
 
-  if (channel === "call" || !ACTIVE_EXECUTION_CHANNELS.includes(channel)) {
-    channel = allowedProspectChannels[0] ?? null;
-  }
-  if (channel && !allowedProspectChannels.includes(channel)) {
-    channel = allowedProspectChannels[0] ?? null;
-  }
-  if (!channel) {
+  if (allowedProspectChannels.length === 0) {
     return {
       ...decision,
       skip: true,
       skipReason:
-        allowedProspectChannels.length === 0
-          ? "No enabled contact channels available for this prospect"
-          : "No supported contact channel available (email, linkedin, whatsapp only)",
+        enabledChannels.length === 0
+          ? "No outreach channels enabled for this campaign"
+          : "No contact channels available for this prospect on enabled campaign channels",
     };
   }
 
-  return { ...decision, channel };
+  let channel = decision.channel;
+  const channelIsExecutable =
+    channel &&
+    ACTIVE_EXECUTION_CHANNELS.includes(channel) &&
+    enabledChannels.includes(channel) &&
+    allowedProspectChannels.includes(channel);
+
+  if (!channelIsExecutable) {
+    channel = allowedProspectChannels[0];
+  }
+
+  return { ...decision, channel, skip: false };
 }

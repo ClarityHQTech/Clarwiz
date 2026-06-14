@@ -1,10 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { syncCampaignMetrics } from "@/lib/campaignMetrics";
 import { decideNextActionForProspect } from "@/lib/execution/decideNextAction";
-import { EXECUTION_RULES_DOC } from "@/lib/execution/executionRules";
+import {
+  EXECUTION_RULES_DOC,
+  isExecutableProspectChannel,
+  resolveExecutableProspectChannels,
+  skipReasonForUnavailableProspectChannels,
+} from "@/lib/execution/executionRules";
+import { filterTemplatesByEnabledChannels } from "@/lib/campaignChannels";
 import {
   hasOutreachToday,
   planNextScheduledOutreach,
+  advanceNextScheduledSlot,
   resolveDeliveryTime,
   resolveDeliveryTimeLocal,
   resolveTimezone,
@@ -14,6 +21,7 @@ import {
 import {
   scheduleOutreachRetry,
   storePlannedDecisionInMeta,
+  MAX_OUTREACH_RETRIES,
 } from "@/lib/execution/outreachRetry";
 import {
   pushEmailIfConnected,
@@ -84,6 +92,44 @@ function providerFields(decision) {
 
 async function createCommLog(data) {
   return prisma.communicationLog.create({ data });
+}
+
+async function advanceAutopilotSchedule(campaign, campaignContactId, useProspectSchedule) {
+  if (campaign.status === "active" && useProspectSchedule) {
+    await advanceNextScheduledSlot(campaignContactId, campaign);
+  }
+}
+
+async function recordExecutionSkip({
+  campaign,
+  flat,
+  skipReason,
+  channel,
+  stage = null,
+  triggerSignalId = null,
+  useProspectSchedule = false,
+  providerMeta = {},
+}) {
+  const skipLog = await createCommLog({
+    tenantId: campaign.tenantId,
+    campaignId: campaign.id,
+    campaignContactId: flat.id,
+    channel: channel ?? "email",
+    stage,
+    message: skipReason,
+    status: "skipped",
+    decisionReason: skipReason,
+    signalRef: triggerSignalId ?? null,
+    ...providerMeta,
+  });
+  await advanceAutopilotSchedule(campaign, flat.id, useProspectSchedule);
+  return {
+    prospectId: flat.id,
+    prospectName: flat.name,
+    skipped: true,
+    reason: skipReason,
+    commLogId: skipLog.id,
+  };
 }
 
 async function applyPushResultToCommLog(logId, pushResult) {
@@ -172,6 +218,18 @@ async function maybePushOutboundMessage({
   useProspectSchedule = false,
   forceWhatsAppFreeform = false,
 }) {
+  if (
+    !decision?.channel ||
+    !isExecutableProspectChannel(campaign, prospect, decision.channel)
+  ) {
+    return {
+      skippedSend: true,
+      reason: "channel_not_executable",
+      error: skipReasonForUnavailableProspectChannels(campaign, prospect),
+      rulesDoc: EXECUTION_RULES_DOC,
+    };
+  }
+
   if (decision.channel === "email" && useProspectSchedule) {
     try {
       const smartleadCampaignId = await ensureSmartleadCampaignForClarwiz(campaign);
@@ -333,23 +391,13 @@ export async function executeAndPushForProspect({
     logsForCampaignContact(campaign.commLogs, flat.id);
 
   if (flat.status === "QUALIFIED" || flat.qualifiedAt) {
-    const skipLog = await createCommLog({
-      tenantId: campaign.tenantId,
-      campaignId: campaign.id,
-      campaignContactId: flat.id,
-      channel: "email",
-      stage: null,
-      message: "Contact qualified — outreach stopped",
-      status: "skipped",
-      decisionReason: `Qualified (${flat.qualifiedReason ?? "unknown"})`,
+    return recordExecutionSkip({
+      campaign,
+      flat,
+      skipReason: "Contact qualified — outreach stopped",
+      channel: null,
+      useProspectSchedule,
     });
-    return {
-      prospectId: flat.id,
-      prospectName: flat.name,
-      skipped: true,
-      reason: "Contact qualified — outreach stopped",
-      commLogId: skipLog.id,
-    };
   }
 
   if (TERMINAL_CAMPAIGN_CONTACT_STATUSES.has(flat.status) && flat.status !== "QUALIFIED") {
@@ -374,12 +422,38 @@ export async function executeAndPushForProspect({
     };
   }
 
+  const executableChannels = resolveExecutableProspectChannels(campaign, flat);
+  if (executableChannels.length === 0) {
+    const skipReason = skipReasonForUnavailableProspectChannels(campaign, flat);
+    if (
+      !skipDailyLimit &&
+      campaign.status === "active" &&
+      hasOutreachToday({ campaign, prospect: flat, commLogs: liveCommHistory })
+    ) {
+      await advanceAutopilotSchedule(campaign, flat.id, useProspectSchedule);
+      return {
+        prospectId: flat.id,
+        prospectName: flat.name,
+        skipped: true,
+        reason: skipReason,
+      };
+    }
+    return recordExecutionSkip({
+      campaign,
+      flat,
+      skipReason,
+      channel: null,
+      triggerSignalId,
+      useProspectSchedule,
+    });
+  }
+
   const liveSignals = flat.signals ?? [];
 
   const decision = await decideNextActionForProspect({
     campaign,
     prospect: flat,
-    templates: campaign.templates,
+    templates: filterTemplatesByEnabledChannels(campaign.templates, campaign),
     commHistory: liveCommHistory,
     liveSignals,
     tenantIcp,
@@ -415,50 +489,45 @@ export async function executeAndPushForProspect({
     whatsappSendMode === "none" &&
     !normalizedDecision.skip
   ) {
-    const skipLog = await createCommLog({
-      tenantId: campaign.tenantId,
-      campaignId: campaign.id,
-      campaignContactId: flat.id,
+    return recordExecutionSkip({
+      campaign,
+      flat,
+      skipReason:
+        "WhatsApp customer service window is closed and no approved template is configured for this message.",
       channel: "whatsapp",
       stage: normalizedDecision.stage ?? null,
-      message:
-        "WhatsApp customer service window closed — template required for outbound",
-      status: "skipped",
-      decisionReason:
-        "WhatsApp customer service window is closed and no approved template is configured for this message.",
-      signalRef: triggerSignalId ?? null,
-      ...providerFields(normalizedDecision),
+      triggerSignalId,
+      useProspectSchedule,
+      providerMeta: providerFields(normalizedDecision),
     });
-    return {
-      prospectId: flat.id,
-      prospectName: flat.name,
-      skipped: true,
-      reason:
-        "WhatsApp customer service window is closed and no approved template is configured for this message.",
-      commLogId: skipLog.id,
-    };
   }
 
   if (normalizedDecision.skip) {
-    const skipLog = await createCommLog({
-      tenantId: campaign.tenantId,
-      campaignId: campaign.id,
-      campaignContactId: flat.id,
-      channel: normalizedDecision.channel || "email",
+    return recordExecutionSkip({
+      campaign,
+      flat,
+      skipReason: normalizedDecision.skipReason || "No action taken",
+      channel: normalizedDecision.channel,
       stage: normalizedDecision.stage ?? null,
-      message: normalizedDecision.skipReason || "No action taken",
-      status: "skipped",
-      decisionReason: normalizedDecision.skipReason,
-      signalRef: triggerSignalId ?? null,
-      ...providerFields(normalizedDecision),
+      triggerSignalId,
+      useProspectSchedule,
+      providerMeta: providerFields(normalizedDecision),
     });
-    return {
-      prospectId: flat.id,
-      prospectName: flat.name,
-      skipped: true,
-      reason: normalizedDecision.skipReason,
-      commLogId: skipLog.id,
-    };
+  }
+
+  if (
+    !isExecutableProspectChannel(campaign, flat, normalizedDecision.channel)
+  ) {
+    return recordExecutionSkip({
+      campaign,
+      flat,
+      skipReason: skipReasonForUnavailableProspectChannels(campaign, flat),
+      channel: normalizedDecision.channel,
+      stage: normalizedDecision.stage ?? null,
+      triggerSignalId,
+      useProspectSchedule,
+      providerMeta: providerFields(normalizedDecision),
+    });
   }
 
   const outbound = resolveCommLogOutboundContent({
@@ -533,6 +602,17 @@ export async function executeAndPushForProspect({
 }
 
 export async function retryCommLogPush(log) {
+  if ((log.retryCount ?? 0) >= MAX_OUTREACH_RETRIES) {
+    await prisma.communicationLog.update({
+      where: { id: log.id },
+      data: {
+        status: "failed",
+        decisionReason: `Failed after ${MAX_OUTREACH_RETRIES} retries`,
+      },
+    });
+    return { exhausted: true, retryCount: log.retryCount };
+  }
+
   const campaign = await prisma.campaign.findUnique({
     where: { id: log.campaignId },
     include: { templates: true },
@@ -595,6 +675,10 @@ export async function retryCommLogPush(log) {
     );
   }
 
+  if (!isExecutableProspectChannel(campaign, prospect, decision.channel)) {
+    throw new Error(skipReasonForUnavailableProspectChannels(campaign, prospect));
+  }
+
   const channelDelivery = await maybePushOutboundMessage({
     campaign,
     prospect,
@@ -616,12 +700,25 @@ export async function retryCommLogPush(log) {
     if (campaign.status === "active") {
       await planNextScheduledOutreach(cc.id, campaign);
     }
+  } else if (!channelDelivery?.failed) {
+    // failed pushes are already counted in applyPushResultToCommLog
+    await scheduleOutreachRetry(log.id, {
+      error:
+        channelDelivery?.error ??
+        channelDelivery?.reason ??
+        "Retry send did not complete",
+      retryCount: log.retryCount,
+    });
   }
 
   return channelDelivery;
 }
 
-export async function runScheduledOutreachForProspect(campaignId, campaignContactId) {
+export async function runScheduledOutreachForProspect(
+  campaignId,
+  campaignContactId,
+  { claimed = false } = {}
+) {
   const campaign = await loadCampaignExecutionContext(campaignId);
   if (!campaign || campaign.status !== "active") {
     return { skipped: true, reason: "Campaign not active" };
@@ -631,7 +728,11 @@ export async function runScheduledOutreachForProspect(campaignId, campaignContac
   if (!cc) return { skipped: true, reason: "Contact not found" };
 
   const now = new Date();
-  if (cc.nextScheduledOutreachAt && cc.nextScheduledOutreachAt > now) {
+  if (
+    !claimed &&
+    cc.nextScheduledOutreachAt &&
+    cc.nextScheduledOutreachAt > now
+  ) {
     return { skipped: true, reason: "Not yet scheduled" };
   }
 
@@ -642,6 +743,9 @@ export async function runScheduledOutreachForProspect(campaignId, campaignContac
   const hasInboundReply = hasWhatsAppProspectReply(freshHistory);
 
   if (!hasInboundReply && hasOutreachToday({ campaign, prospect: flat, commLogs: freshHistory })) {
+    if (cc.nextScheduledOutreachAt && cc.nextScheduledOutreachAt <= now) {
+      await advanceNextScheduledSlot(cc.id, campaign);
+    }
     return { skipped: true, reason: "Already reached today" };
   }
 

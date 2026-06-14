@@ -27,8 +27,10 @@ async function tick() {
     const data = await res.json().catch(() => ({}));
     console.log(
       `[outreach-cron] ${res.status}`,
-      data.scheduledProspects ?? 0,
+      data.sent ?? 0,
       "sent,",
+      data.dispatched ?? 0,
+      "dispatched,",
       data.retries ?? 0,
       "retries"
     );

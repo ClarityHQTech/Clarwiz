@@ -1433,6 +1433,7 @@ If a specific value is unknown, write a sensible default or a [bracket_placehold
 logos, customers, or compliance certs. Keep copy short and sharp; no fluff.`;
 
 import { getAnthropicClient, ASSIST_AGENT_MODEL } from "@/lib/anthropicClient";
+import { providerFieldsFromCompletion } from "@/lib/assist/providerMetadata";
 import { renderDocumentHtml } from "@/lib/assist/renderDocument";
 import {
   buildAssistTenantIcpContext,
@@ -1716,7 +1717,12 @@ export async function generateCollateral({
   });
 
   const parsed = parseCollateralJson(extractDoc(res));
-  return { ...parsed, model, promptVersion: COLLATERAL_PROMPT_VERSION };
+  return {
+    ...parsed,
+    model,
+    promptVersion: COLLATERAL_PROMPT_VERSION,
+    ...providerFieldsFromCompletion(res, model),
+  };
 }
 
 /**
@@ -1794,6 +1800,8 @@ export async function editCollateral({
     template: parsed.template,
     html: parsed.html,
     compliance: parsed.compliance,
+    model,
+    ...providerFieldsFromCompletion(res, model),
   };
 }
 
@@ -2482,5 +2490,6 @@ export async function personalizeTemplate({
     compliance: parsed.compliance,
     model,
     promptVersion: COLLATERAL_PERSONALIZE_VERSION,
+    ...providerFieldsFromCompletion(res, model),
   };
 }

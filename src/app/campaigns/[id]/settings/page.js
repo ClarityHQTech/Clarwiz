@@ -2,17 +2,13 @@
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import CampaignTemplatesPanel from "@/components/campaigns/CampaignTemplatesPanel";
+import OutreachScheduleEditor from "@/components/campaigns/OutreachScheduleEditor";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
 import { STATUS_STYLES, ui } from "@/lib/brandUi";
-import {
-  localTimeToUtcHHmm,
-  normalizeOutreachTimezone,
-  OUTREACH_TIMEZONES,
-  outreachTimezoneLabel,
-} from "@/lib/outreachTimezones";
+import { normalizeOutreachTimezone } from "@/lib/outreachTimezones";
 import { toast } from "sonner";
 import {
   CAMPAIGN_CHANNELS,
@@ -112,16 +108,6 @@ const Page = () => {
     setLoading(true);
     fetchCampaign();
   }, [fetchCampaign]);
-
-  const defaultSendTimeUtc = useMemo(
-    () => localTimeToUtcHHmm(defaultOutreachTimeEdit, outreachTzEdit),
-    [defaultOutreachTimeEdit, outreachTzEdit]
-  );
-
-  const outreachTimezoneName = useMemo(
-    () => outreachTimezoneLabel(outreachTzEdit),
-    [outreachTzEdit]
-  );
 
   const saveDetails = async () => {
     if (!nameEdit.trim()) {
@@ -383,46 +369,25 @@ const Page = () => {
         title="Outreach schedule"
         description="Default timezone and send time for autopilot outreach. Times are stored in UTC."
       >
-        <div className="space-y-2">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 items-end">
-            <div>
-              <FieldLabel>Outreach timezone</FieldLabel>
-              <select
-                value={outreachTzEdit}
-                onChange={(e) => setOutreachTzEdit(e.target.value)}
-                className={ui.inputSurface}
-              >
-                {OUTREACH_TIMEZONES.map((tz) => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <FieldLabel>Default send time</FieldLabel>
-              <input
-                type="time"
-                value={defaultOutreachTimeEdit}
-                onChange={(e) => setDefaultOutreachTimeEdit(e.target.value)}
-                className={ui.inputSurface}
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-1">
-              <button
-                type="button"
-                disabled={savingOutreachSchedule}
-                onClick={saveOutreachSchedule}
-                className={`w-full sm:w-auto ${ui.btnPrimary} disabled:opacity-50`}
-              >
-                {savingOutreachSchedule ? "Saving…" : "Save schedule"}
-              </button>
-            </div>
+        <div className="space-y-3">
+          <OutreachScheduleEditor
+            localTime={defaultOutreachTimeEdit}
+            timezone={outreachTzEdit}
+            onLocalTimeChange={setDefaultOutreachTimeEdit}
+            onTimezoneChange={setOutreachTzEdit}
+            timezoneLabel="Outreach timezone"
+            timeLabel="Default send time"
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={savingOutreachSchedule}
+              onClick={saveOutreachSchedule}
+              className={`${ui.btnPrimary} disabled:opacity-50`}
+            >
+              {savingOutreachSchedule ? "Saving…" : "Save schedule"}
+            </button>
           </div>
-          <p className="text-xs text-brand-stone">
-            {defaultOutreachTimeEdit} {outreachTimezoneName} · stored as{" "}
-            {defaultSendTimeUtc} UTC
-          </p>
         </div>
       </SettingsSection>
 

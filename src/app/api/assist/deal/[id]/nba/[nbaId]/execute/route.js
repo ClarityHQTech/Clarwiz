@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { runJsonPrompt } from "@/lib/assist/intelligence/runner";
 import { logAssistAction } from "@/lib/assist/logAction";
+import { mergeAssistProviderFields, providerFieldsFromTokens } from "@/lib/assist/providerMetadata";
 import {
   assembleCollateralVars,
   assembleProspectContext,
@@ -268,18 +269,20 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
 
   // Draft via LLM, isolated so a provider failure never 500s the route.
   let draft;
+  const usageCalls = [];
   try {
     const client = _anthropicClientFactory();
     const messages = buildDraftMessages(nba, { postMeeting, icpContext, bookingContext });
     const system = messages.find((m) => m.role === "system")?.content ?? "";
     const user = messages.find((m) => m.role === "user")?.content ?? "";
-    const { data } = await runJsonPrompt({
+    const { data, tokensUsed } = await runJsonPrompt({
       llm: client,
       model: DRAFT_MODEL,
       system,
       user,
       temperature: 0.5,
     });
+    usageCalls.push(providerFieldsFromTokens(DRAFT_MODEL, tokensUsed));
     draft = data
       ? {
           subject: typeof data.subject === "string" ? data.subject : null,
@@ -314,6 +317,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
   // collateral is optional. On success we append a "View / edit asset" link.
   const draftPayload = { ...draft };
   const need = neededAsset(nba);
+  let collateralProviderFields = {};
   if (need && process.env.ANTHROPIC_API_KEY) {
     try {
       const context = await assembleProspectContext(prisma, ctx.tenantId, { nbaId: nba.id });
@@ -361,11 +365,13 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
             let hyperPersonalized = false;
             if (process.env.ANTHROPIC_API_KEY) {
               try {
-                html = await personalizeRichHtml({
+                const personalizedRes = await personalizeRichHtml({
                   html,
                   context,
                   instruction: HYPER_PERSONALIZE_INSTRUCTION,
                 });
+                html = personalizedRes.html;
+                collateralProviderFields = personalizedRes;
                 hyperPersonalized = true;
               } catch (err) {
                 console.warn(`[MOFU] rich HTML hyper-personalize failed: ${err.message}`);
@@ -396,6 +402,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
                 "This collateral will be sent to the prospect. Remove any template scaffolding, " +
                 "internal AE notes, and unsupported claims. Use only facts from context; omit anything unknown.",
             });
+            collateralProviderFields = personalized;
           }
 
           stored = await storePersonalizedInstance(prisma, {
@@ -414,6 +421,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
         // FALLBACK: no template fits — generate from scratch (brand + context).
         const { vars } = await assembleCollateralVars(prisma, ctx.tenantId, { nbaId: nba.id });
         const generated = await generateCollateral({ vars });
+        collateralProviderFields = generated;
         const { document } = await storeGeneratedCollateral(prisma, {
           tenantId: ctx.tenantId,
           generated,
@@ -444,6 +452,9 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
           templateId: source === "PERSONALIZED" ? best?.id ?? null : null,
           fromNba: true,
         },
+        modelUsed: collateralProviderFields.modelUsed ?? collateralProviderFields.model ?? null,
+        providerUsage: collateralProviderFields.providerUsage ?? null,
+        providerCost: collateralProviderFields.providerCost ?? null,
       });
     } catch (err) {
       // Collateral is optional — never block the email on a generation failure.
@@ -457,6 +468,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
   });
 
   const hsObjectId = nba.deal?.hubspotDealId ?? null;
+  const draftProviderFields = mergeAssistProviderFields(usageCalls);
   await logAssistAction(prisma, {
     tenantId: ctx.tenantId,
     actorUserId: ctx.user?.id ?? null,
@@ -464,6 +476,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
     hsObjectId,
     action: "NBA_EXECUTED",
     payload: { nbaId: nba.id, title: nba.title },
+    ...draftProviderFields,
   });
   await logAssistAction(prisma, {
     tenantId: ctx.tenantId,
@@ -472,6 +485,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
     hsObjectId,
     action: "EMAIL_DRAFTED",
     payload: { nbaId: nba.id, subject: draft.subject },
+    ...draftProviderFields,
   });
 
   return NextResponse.json({ ok: true, draft: draftPayload, status: updated.status });

@@ -16,6 +16,7 @@ import { syncDealRecordings } from "@/lib/assist/hubspotRecordings.js";
 import { ensureRecordingSetupNbaForDeal } from "@/lib/assist/recordingSetupNba.js";
 import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { logAssistAction } from "@/lib/assist/logAction";
+import { mergeAssistProviderFields, providerFieldsFromTokens } from "@/lib/assist/providerMetadata";
 import { assembleDealContext, assembleCompanyContext } from "@/lib/assist/context/assembleContext.js";
 import {
   fillTemplate,
@@ -218,6 +219,7 @@ async function persistSignals(prisma, tenantId, dealId, accountId, signals) {
 
 async function extractSignalsWithLlm(client, model, vars) {
   const promptVars = shrinkPromptVars(vars);
+  const usageCalls = [];
 
   const slim = await runJsonPrompt({
     llm: client,
@@ -225,8 +227,11 @@ async function extractSignalsWithLlm(client, model, vars) {
     system: SIGNAL_SYSTEM_SLIM,
     user: fillTemplate(SIGNAL_USER_SLIM, { ...promptVars, ontology: ONTOLOGY_SLIM }),
   });
+  usageCalls.push(providerFieldsFromTokens(model, slim.tokensUsed));
   let signals = extractSignalsPayload(slim.data, slim.raw);
-  if (signals.length) return signals;
+  if (signals.length) {
+    return { signals, ...mergeAssistProviderFields(usageCalls) };
+  }
 
   const full = await runJsonPrompt({
     llm: client,
@@ -234,20 +239,24 @@ async function extractSignalsWithLlm(client, model, vars) {
     system: SIGNAL_SYSTEM,
     user: fillTemplate(SIGNAL_USER, { ...promptVars, ontology: ONTOLOGY }),
   });
+  usageCalls.push(providerFieldsFromTokens(model, full.tokensUsed));
   signals = extractSignalsPayload(full.data, full.raw);
-  if (signals.length) return signals;
+  if (signals.length) {
+    return { signals, ...mergeAssistProviderFields(usageCalls) };
+  }
 
   if (full.truncated || slim.truncated) {
     const salvaged = salvageAuraJson(full.raw || slim.raw || "");
     if (Array.isArray(salvaged?.signals) && salvaged.signals.length) {
-      return salvaged.signals;
+      return { signals: salvaged.signals, ...mergeAssistProviderFields(usageCalls) };
     }
   }
-  return [];
+  return { signals: [], ...mergeAssistProviderFields(usageCalls) };
 }
 
 async function extractInsightWithLlm(client, model, vars) {
   const promptVars = shrinkPromptVars(vars);
+  const usageCalls = [];
 
   const slim = await runJsonPrompt({
     llm: client,
@@ -255,8 +264,9 @@ async function extractInsightWithLlm(client, model, vars) {
     system: COMPANY_SYSTEM_SLIM,
     user: fillTemplate(COMPANY_USER_SLIM, { ...promptVars, ontology: ONTOLOGY_SLIM }),
   });
+  usageCalls.push(providerFieldsFromTokens(model, slim.tokensUsed));
   if (slim.data?.your_coach_speaks || slim.data?.brief_summary || slim.data?.account_score) {
-    return { data: slim.data, tokensUsed: slim.tokensUsed };
+    return { data: slim.data, ...mergeAssistProviderFields(usageCalls) };
   }
 
   const full = await runJsonPrompt({
@@ -265,13 +275,14 @@ async function extractInsightWithLlm(client, model, vars) {
     system: COMPANY_SYSTEM,
     user: fillTemplate(COMPANY_USER, { ...promptVars, ontology: ONTOLOGY }),
   });
-  if (full.data) return { data: full.data, tokensUsed: full.tokensUsed };
+  usageCalls.push(providerFieldsFromTokens(model, full.tokensUsed));
+  if (full.data) return { data: full.data, ...mergeAssistProviderFields(usageCalls) };
 
   const salvaged = salvageAuraJson(full.raw || slim.raw || "");
   if (salvaged?.your_coach_speaks || salvaged?.brief_summary || salvaged?.account_score) {
-    return { data: salvaged, tokensUsed: full.tokensUsed ?? slim.tokensUsed };
+    return { data: salvaged, ...mergeAssistProviderFields(usageCalls) };
   }
-  return { data: null, tokensUsed: full.tokensUsed ?? slim.tokensUsed };
+  return { data: null, ...mergeAssistProviderFields(usageCalls) };
 }
 
 function buildMinimalDealInsightData(tenantId, dealId, vars) {
@@ -344,11 +355,20 @@ export function buildNbaData(tenantId, dealId, nba) {
 }
 
 /** Shape a DealInsight create-payload from the parsed COMPANY (account) briefing. */
-export function buildDealInsightData(tenantId, dealId, parsed, { model, tokensUsed } = {}) {
+export function buildDealInsightData(tenantId, dealId, parsed, { model, tokensUsed, providerFields } = {}) {
   const briefing =
     parsed?.account_level_briefing && typeof parsed.account_level_briefing === "string"
       ? parsed.account_level_briefing
       : null;
+  const usage =
+    tokensUsed ??
+    (providerFields?.providerUsage
+      ? {
+          prompt_tokens: providerFields.providerUsage.prompt_tokens,
+          completion_tokens: providerFields.providerUsage.completion_tokens,
+          total_tokens: providerFields.providerUsage.total_tokens,
+        }
+      : null);
   return {
     tenantId,
     dealId,
@@ -356,9 +376,9 @@ export function buildDealInsightData(tenantId, dealId, parsed, { model, tokensUs
     briefing: parsed?.your_coach_speaks ?? briefing ?? null,
     summary: parsed?.brief_summary ?? null,
     payload: parsed ?? {},
-    model: model ?? null,
+    model: model ?? providerFields?.modelUsed ?? null,
     promptVersion: PROMPT_VERSION,
-    tokensUsed: tokensUsed ?? null,
+    tokensUsed: usage,
   };
 }
 
@@ -438,12 +458,12 @@ export async function recomputeDealInsight(prisma, tenantId, dealId, { llm, toke
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
   if (!vars) return null;
 
-  let { data, tokensUsed } = await extractInsightWithLlm(client, model, vars);
+  let { data, ...providerFields } = await extractInsightWithLlm(client, model, vars);
   let rowData;
   if (!data) {
     rowData = buildMinimalDealInsightData(tenantId, dealId, vars);
   } else {
-    rowData = buildDealInsightData(tenantId, dealId, data, { model, tokensUsed });
+    rowData = buildDealInsightData(tenantId, dealId, data, { model, providerFields });
   }
 
   const insight = await prisma.dealInsight.create({
@@ -458,7 +478,7 @@ export async function recomputeDealInsight(prisma, tenantId, dealId, { llm, toke
       /* denormalization is best-effort */
     }
   }
-  return insight;
+  return { insight, ...providerFields };
 }
 
 /**
@@ -469,13 +489,20 @@ export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, f
   const client = llm ?? getAnthropicClient();
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
-  if (!vars) return [];
+  if (!vars) return { signals: [] };
 
   const bootstrap = collectBootstrapSignals(vars);
   let signals = [];
+  let providerFields = {};
 
   if (arr(vars.engagements).length) {
-    signals = await extractSignalsWithLlm(client, model, vars);
+    const extracted = await extractSignalsWithLlm(client, model, vars);
+    signals = extracted.signals;
+    providerFields = {
+      modelUsed: extracted.modelUsed,
+      providerUsage: extracted.providerUsage,
+      providerCost: extracted.providerCost,
+    };
   }
 
   if (!signals.length) signals = bootstrap;
@@ -487,9 +514,10 @@ export async function recomputeSignals(prisma, tenantId, dealId, { llm, token, f
     }
   }
 
-  if (!signals.length) return [];
+  if (!signals.length) return { signals: [], ...providerFields };
 
-  return persistSignals(prisma, tenantId, dealId, vars._accountId ?? null, signals);
+  const created = await persistSignals(prisma, tenantId, dealId, vars._accountId ?? null, signals);
+  return { signals: created, ...providerFields };
 }
 
 /**
@@ -501,7 +529,7 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetc
   const client = llm ?? getAnthropicClient();
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleDealContext(prisma, tenantId, dealId, { token, fetchImpl });
-  if (!vars) return [];
+  if (!vars) return { nbas: [] };
 
   const storedSignals = await prisma.signal.findMany({
     where: { tenantId, dealId },
@@ -523,11 +551,12 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetc
   const promptVars = shrinkPromptVars(vars);
   const user = fillTemplate(NBA_USER, { ...promptVars, signals: topSignals, ontology: ONTOLOGY_SLIM });
   const nbaRes = await runJsonPrompt({ llm: client, model, system: NBA_SYSTEM, user });
+  const providerFields = providerFieldsFromTokens(model, nbaRes.tokensUsed);
   let actions = extractNbaPayload(nbaRes.data, nbaRes.raw);
   if (!actions.length && topSignals.length) {
     actions = DEFAULT_NBA_FALLBACKS;
   }
-  if (!actions.length) return [];
+  if (!actions.length) return { nbas: [], ...providerFields };
 
   const created = [];
   for (const nba of actions) {
@@ -540,7 +569,7 @@ export async function recomputeNbas(prisma, tenantId, dealId, { llm, token, fetc
       /* skip a malformed action, keep the rest */
     }
   }
-  return created;
+  return { nbas: created, ...providerFields };
 }
 
 /**
@@ -580,24 +609,28 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetc
     }
   }
 
+  const usageCalls = [];
+
   try {
-    const sigs = await recomputeSignals(prisma, tenantId, dealId, { llm, token, fetchImpl });
-    summary.signals = sigs.length;
+    const sigRes = await recomputeSignals(prisma, tenantId, dealId, { llm, token, fetchImpl });
+    summary.signals = sigRes.signals.length;
+    if (sigRes.providerUsage) usageCalls.push(sigRes);
   } catch (err) {
     summary.errors.push(`signals: ${err.message}`);
   }
 
   try {
-    const nbas = await recomputeNbas(prisma, tenantId, dealId, { llm, token, fetchImpl });
-    summary.nbas = nbas.length;
+    const nbaRes = await recomputeNbas(prisma, tenantId, dealId, { llm, token, fetchImpl });
+    summary.nbas = nbaRes.nbas.length;
+    if (nbaRes.providerUsage) usageCalls.push(nbaRes);
   } catch (err) {
     summary.errors.push(`nbas: ${err.message}`);
   }
 
-  let insight = null;
   try {
-    insight = await recomputeDealInsight(prisma, tenantId, dealId, { llm, token, fetchImpl });
-    summary.insight = !!insight;
+    const insightRes = await recomputeDealInsight(prisma, tenantId, dealId, { llm, token, fetchImpl });
+    summary.insight = !!insightRes?.insight;
+    if (insightRes?.providerUsage) usageCalls.push(insightRes);
   } catch (err) {
     summary.errors.push(`insight: ${err.message}`);
   }
@@ -605,23 +638,27 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetc
   const accountIds = await resolveDealAccountIds(prisma, tenantId, dealId);
   for (const accountId of accountIds) {
     try {
-      const companyInsight = await recomputeCompany(prisma, tenantId, accountId, {
+      const companyRes = await recomputeCompany(prisma, tenantId, accountId, {
         llm,
         token,
         fetchImpl,
+        skipLog: true,
       });
-      if (companyInsight) summary.companyInsights += 1;
+      if (companyRes?.insight) summary.companyInsights += 1;
+      if (companyRes?.providerUsage) usageCalls.push(companyRes);
     } catch (err) {
       summary.errors.push(`company:${accountId}: ${err.message}`);
     }
   }
 
+  const providerFields = mergeAssistProviderFields(usageCalls);
   await logAssistAction(prisma, {
     tenantId,
     entityType: "deal",
     hsObjectId,
     action: "INSIGHT_COMPUTED",
     payload: summary,
+    ...providerFields,
   });
 
   return summary;
@@ -631,7 +668,12 @@ export async function recomputeDeal(prisma, tenantId, dealId, { llm, token, fetc
  * Company-level recompute: assemble account context → COMPANY prompt → store a
  * CompanyInsight row. Logs INSIGHT_COMPUTED. Returns the CompanyInsight (or null).
  */
-export async function recomputeCompany(prisma, tenantId, accountId, { llm, token, fetchImpl } = {}) {
+export async function recomputeCompany(
+  prisma,
+  tenantId,
+  accountId,
+  { llm, token, fetchImpl, skipLog = false } = {}
+) {
   const client = llm ?? getAnthropicClient();
   const model = await resolveModel(prisma, tenantId);
   const vars = await assembleCompanyContext(prisma, tenantId, accountId, { token, fetchImpl });
@@ -639,14 +681,18 @@ export async function recomputeCompany(prisma, tenantId, accountId, { llm, token
 
   const user = fillTemplate(COMPANY_USER, { ...vars, ontology: ONTOLOGY });
   const { data, tokensUsed } = await runJsonPrompt({ llm: client, model, system: COMPANY_SYSTEM, user });
+  const providerFields = providerFieldsFromTokens(model, tokensUsed);
   if (!data) {
-    await logAssistAction(prisma, {
-      tenantId,
-      entityType: "account",
-      action: "INSIGHT_COMPUTED",
-      payload: { accountId, insight: false },
-    });
-    return null;
+    if (!skipLog) {
+      await logAssistAction(prisma, {
+        tenantId,
+        entityType: "account",
+        action: "INSIGHT_COMPUTED",
+        payload: { accountId, insight: false },
+        ...providerFields,
+      });
+    }
+    return { insight: null, ...providerFields };
   }
 
   const insight = await prisma.companyInsight.create({
@@ -660,12 +706,15 @@ export async function recomputeCompany(prisma, tenantId, accountId, { llm, token
     },
   });
 
-  await logAssistAction(prisma, {
-    tenantId,
-    entityType: "account",
-    action: "INSIGHT_COMPUTED",
-    payload: { accountId, insight: true },
-  });
+  if (!skipLog) {
+    await logAssistAction(prisma, {
+      tenantId,
+      entityType: "account",
+      action: "INSIGHT_COMPUTED",
+      payload: { accountId, insight: true },
+      ...providerFields,
+    });
+  }
 
-  return insight;
+  return { insight, ...providerFields };
 }

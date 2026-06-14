@@ -45,17 +45,19 @@ export async function POST(request, { agentClient } = {}) {
     return NextResponse.json({ error: "empty_messages" }, { status: 400 });
   }
   const pageContext = body?.pageContext ?? {};
+  if (pageContext.entityType !== "deal" || !pageContext.id) {
+    return NextResponse.json({ error: "cockpit_requires_deal" }, { status: 400 });
+  }
 
-  let reply;
+  let result;
   try {
-    const result = await runAssistAgent({
+    result = await runAssistAgent({
       prisma,
       tenantId: ctx.tenantId,
       messages,
       pageContext,
       client: agentClient,
     });
-    reply = result.reply;
   } catch (err) {
     console.warn(`[MOFU] assist agent failed: ${err.message}`);
     return NextResponse.json({ error: "chat_failed" }, { status: 502 });
@@ -70,10 +72,14 @@ export async function POST(request, { agentClient } = {}) {
     action: "CHAT_QUERY",
     payload: {
       threadId: typeof body?.threadId === "string" ? body.threadId : undefined,
-      entityType: pageContext?.entityType ?? "pipeline",
-      hsObjectId: pageContext?.id ?? undefined,
+      entityType: "deal",
+      dealId: pageContext.id,
+      iterations: result.iterations,
     },
+    modelUsed: result.modelUsed ?? null,
+    providerUsage: result.providerUsage ?? null,
+    providerCost: result.providerCost ?? null,
   });
 
-  return NextResponse.json({ reply });
+  return NextResponse.json({ reply: result.reply });
 }

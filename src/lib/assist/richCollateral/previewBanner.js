@@ -57,6 +57,15 @@ export function wrapCollateralPreviewHtml(html, { message = PREVIEW_BANNER_MESSA
   return out;
 }
 
+/** Remove preview-only banner markup before PDF export or production email attach. */
+export function stripPreviewBannerFromHtml(html) {
+  let out = String(html);
+  out = out.replace(/<style id="cw-preview-banner-style">[\s\S]*?<\/style>/gi, "");
+  out = out.replace(/<div id="cw-preview-banner"[\s\S]*?<\/div>/gi, "");
+  out = out.replace(/<style id="cw-embed-preview-style">[\s\S]*?<\/style>/gi, "");
+  return out;
+}
+
 function escapeHtml(text) {
   return String(text)
     .replace(/&/g, "&amp;")

@@ -111,6 +111,10 @@ export default function CrmEmailModal({ dealId, contacts = [], isOpen, onClose }
         toast.error("PDF renderer unavailable on server — contact your admin.");
         return;
       }
+      if (data.error === "collateral_pdf_invalid") {
+        toast.error("Collateral PDF could not be generated — try opening the asset in Collaterals first.");
+        return;
+      }
       if (!res.ok || data.ok === false) {
         toast.error(data.reason || data.error || "Send failed");
         return;

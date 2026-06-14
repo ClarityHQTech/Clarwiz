@@ -106,6 +106,9 @@ export async function POST(request, { params }) {
       if (err?.message === "chrome_not_available") {
         return NextResponse.json({ ok: false, error: "pdf_renderer_unavailable" }, { status: 503 });
       }
+      if (err?.message === "pdf_generation_invalid_output") {
+        return NextResponse.json({ ok: false, error: "collateral_pdf_invalid" }, { status: 500 });
+      }
       return NextResponse.json({ ok: false, error: "collateral_pdf_failed" }, { status: 500 });
     }
   }

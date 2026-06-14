@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import CockpitMessageContent from "./CockpitMessageContent";
 
 /**
  * Cockpit chat dock — internal AE assist for deal tasks and knowledge.
@@ -9,7 +10,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *
  * Message shape: { id, role: 'user'|'assistant', content, status?: 'pending'|'error' }
  */
-export default function ChatDock({ pageContext = { entityType: "deal" }, open, onOpenChange }) {
+export default function ChatDock({
+  pageContext = { entityType: "deal" },
+  contextReady = false,
+  open,
+  onOpenChange,
+}) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = typeof open === "boolean";
   const isOpen = isControlled ? open : internalOpen;
@@ -145,7 +151,10 @@ export default function ChatDock({ pageContext = { entityType: "deal" }, open, o
         <div className="ck-chat-header">
           <div className="ck-chat-header-main">
             <span className="ck-chat-title">Cockpit</span>
-            <span className="ck-chat-context">Context: {contextLabel}</span>
+            <span className="ck-chat-context">
+              {contextLabel}
+              {contextReady ? " · loaded" : ""}
+            </span>
           </div>
           <button
             type="button"
@@ -160,18 +169,30 @@ export default function ChatDock({ pageContext = { entityType: "deal" }, open, o
 
         <div className="ck-chat-body">
           {messages.length === 0 && (
-            <div className="ck-chat-msg ai">
-              Internal AE assist for this deal — grounded in your CRM data and Clarwiz intelligence
-              {contextLabel ? ` (${contextLabel})` : ""}. What do you need?
+            <div className="ck-chat-empty">
+              <p className="ck-chat-empty-title">Ask about this deal</p>
+              <p className="ck-chat-empty-sub">
+                Contacts, next steps, risks, outreach history — scoped to {contextLabel || "this deal"}.
+              </p>
             </div>
           )}
           {messages.map((m) => {
             const isUser = m.role === "user";
             const isError = m.status === "error";
+            const isPending = m.status === "pending";
             return (
-              <div key={m.id} style={{ display: "contents" }}>
-                <div className={`ck-chat-msg ${isUser ? "user" : "ai"}${isError ? " err" : ""}`}>
-                  {m.status === "pending" ? "Thinking…" : m.content}
+              <div key={m.id} className={`ck-chat-row ${isUser ? "user" : "ai"}`}>
+                {!isUser ? <span className="ck-chat-role">Cockpit</span> : null}
+                <div
+                  className={`ck-chat-msg ${isUser ? "user" : "ai"}${isError ? " err" : ""}${isPending ? " pending" : ""}`}
+                >
+                  {isPending ? (
+                    <span className="ck-chat-thinking">Thinking…</span>
+                  ) : isUser ? (
+                    m.content
+                  ) : (
+                    <CockpitMessageContent content={m.content} />
+                  )}
                 </div>
                 {isError && (
                   <div className="ck-chat-error">

@@ -153,6 +153,7 @@ export async function POST(request) {
 
   let html;
   let promptVersion = "collateral-create-v1";
+  let providerFields = {};
   let docData = {
     hyperPersonalized: true,
     creationInstructions: instructions,
@@ -164,7 +165,9 @@ export async function POST(request) {
     html = renderRichTemplate(richKey, tokens);
     docData.richTemplateKey = richKey;
     try {
-      html = await personalizeRichHtml({ html, context, instruction: personalizeInstruction });
+      const personalizedRes = await personalizeRichHtml({ html, context, instruction: personalizeInstruction });
+      html = personalizedRes.html;
+      providerFields = personalizedRes;
       promptVersion = customType ? "collateral-create-custom-v1" : "collateral-create-rich-v1";
     } catch (err) {
       console.warn(`[MOFU] collateral create personalize failed: ${err.message}`);
@@ -183,6 +186,7 @@ export async function POST(request) {
         instruction: personalizeInstruction,
       });
       html = personalized.html || baseHtml;
+      providerFields = personalized;
       docData = { ...docData, ...(personalized.data && typeof personalized.data === "object" ? personalized.data : {}) };
       promptVersion = "collateral-create-template-v1";
     } catch (err) {
@@ -258,6 +262,9 @@ export async function POST(request) {
       templateId,
       customType: customType || null,
     },
+    modelUsed: providerFields.modelUsed ?? providerFields.model ?? null,
+    providerUsage: providerFields.providerUsage ?? null,
+    providerCost: providerFields.providerCost ?? null,
   });
 
   const [enriched] = await enrichCreatedCollaterals(prisma, ctx.tenantId, [

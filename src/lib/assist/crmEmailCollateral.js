@@ -1,5 +1,6 @@
 import { resolveDocumentHtml } from "@/lib/assist/resolveDocumentHtml";
-import { htmlToPdfBuffer } from "@/lib/assist/htmlToPdf";
+import { htmlToPdfBuffer, isValidPdfBuffer } from "@/lib/assist/htmlToPdf";
+import { prepareHtmlForPdf } from "@/lib/assist/prepareHtmlForPdf";
 
 export function sanitizePdfFilename(title) {
   const base = String(title || "collateral")
@@ -30,10 +31,13 @@ export async function loadCollateralPdfAttachment(prisma, tenantId, collateralId
   });
   if (!document) return null;
 
-  const html = resolveDocumentHtml(document);
+  const html = prepareHtmlForPdf(resolveDocumentHtml(document));
   if (!html?.trim()) return null;
 
   const pdfBuffer = await htmlToPdfBuffer(html);
+  if (!isValidPdfBuffer(pdfBuffer)) {
+    throw new Error("pdf_generation_invalid_output");
+  }
   const title = index.title || document.title || "collateral";
 
   return {

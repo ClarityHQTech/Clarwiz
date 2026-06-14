@@ -10,11 +10,31 @@
  */
 export async function logAssistAction(
   prisma,
-  { tenantId, actorUserId = null, entityType, hsObjectId = null, action, payload = null }
+  {
+    tenantId,
+    actorUserId = null,
+    entityType,
+    hsObjectId = null,
+    action,
+    payload = null,
+    modelUsed = null,
+    providerUsage = null,
+    providerCost = null,
+  }
 ) {
   try {
     return await prisma.assistActionLog.create({
-      data: { tenantId, actorUserId, entityType, hsObjectId, action, payload },
+      data: {
+        tenantId,
+        actorUserId,
+        entityType,
+        hsObjectId,
+        action,
+        payload,
+        modelUsed,
+        providerUsage,
+        providerCost,
+      },
     });
   } catch (err) {
     console.warn(`[MOFU] action-log write failed (${action}): ${err.message}`);

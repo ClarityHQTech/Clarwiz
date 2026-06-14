@@ -255,6 +255,8 @@ function makeFakePrisma() {
       findMany: async () => store.signals.map((s, i) => ({ id: `s${i}`, ...s })),
       create: async (a) => (store.signals.push(a.data), { id: `s${store.signals.length}`, ...a.data }),
     },
+    dealGtmTask: { findMany: async () => [] },
+    dealRecording: { findMany: async () => [] },
     assistActionLog: { create: async (a) => (store.logs.push(a.data), { id: "l1" }) },
   };
 }
@@ -303,6 +305,7 @@ describe("recomputeDeal (fake llm + fake prisma)", () => {
     expect(prisma.store.companyInsights.length).toBe(1);
     expect(prisma.store.dealUpdates[0]).toMatchObject({ data: { score: 73 } });
     expect(prisma.store.logs.some((l) => l.action === "INSIGHT_COMPUTED")).toBe(true);
+    expect(prisma.store.logs.some((l) => l.providerUsage?.total_tokens > 0)).toBe(true);
     expect(summary).toMatchObject({ signals: 2, nbas: 2, insight: true, companyInsights: 1 });
   });
 
@@ -322,10 +325,10 @@ describe("recomputeCompany (fake llm + fake prisma)", () => {
   it("stores a CompanyInsight with the full payload", async () => {
     const prisma = makeFakePrisma();
     const llm = queuedLlm([COMPANY_REPLY]);
-    const insight = await recomputeCompany(prisma, "t1", "a1", { llm });
+    const result = await recomputeCompany(prisma, "t1", "a1", { llm });
     expect(prisma.store.companyInsights.length).toBe(1);
     expect(prisma.store.companyInsights[0].payload).toMatchObject({ account_score: "73" });
-    expect(insight).toBeTruthy();
+    expect(result?.insight).toBeTruthy();
   });
 });
 
@@ -417,8 +420,8 @@ describe.skipIf(!process.env.DATABASE_URL)("recomputeDeal (real prisma against c
 
   it("persists a CompanyInsight row", async () => {
     const llm = queuedLlm([COMPANY_REPLY]);
-    const insight = await recomputeCompany(prisma, tenantId, accountId, { llm });
-    expect(insight).toBeTruthy();
+    const result = await recomputeCompany(prisma, tenantId, accountId, { llm });
+    expect(result?.insight).toBeTruthy();
     const stored = await prisma.companyInsight.findFirst({ where: { accountId }, orderBy: { computedAt: "desc" } });
     expect(stored.payload.account_score).toBe("73");
     expect(stored.promptVersion).toBe(PROMPT_VERSION);

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { getDealView } from "@/lib/assist/insightsReader";
 import { logAssistAction } from "@/lib/assist/logAction";
+import { providerFieldsFromCompletion } from "@/lib/assist/providerMetadata";
 import {
   buildAssistTenantIcpContext,
   getTenantIcpContextForExecution,
@@ -117,6 +118,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
   const bookingContext = buildAssistBookingContext(mofu);
 
   let brief;
+  let providerFields = {};
   try {
     const client = _anthropicClientFactory();
     const messages = buildBriefMessages({ nba, view, icpContext, bookingContext });
@@ -131,6 +133,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
     });
     brief =
       completion.content?.find((b) => b.type === "text")?.text?.trim() || null;
+    providerFields = providerFieldsFromCompletion(completion, BRIEF_MODEL);
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: "brief_failed", reason: err?.message ?? "llm_error" },
@@ -155,6 +158,7 @@ export async function POST(request, { params }, { _anthropicClientFactory = getA
     hsObjectId: nba.deal?.hubspotDealId ?? null,
     action: "NBA_EXECUTED",
     payload: { nbaId: nba.id, kind: "pre_meeting_brief" },
+    ...providerFields,
   });
 
   return NextResponse.json({ ok: true, brief });

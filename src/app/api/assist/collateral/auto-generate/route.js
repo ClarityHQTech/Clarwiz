@@ -111,6 +111,9 @@ export async function POST(request) {
       source: "GENERATED",
       auto: true,
     },
+    modelUsed: generated.modelUsed ?? generated.model ?? null,
+    providerUsage: generated.providerUsage ?? null,
+    providerCost: generated.providerCost ?? null,
   });
 
   return NextResponse.json({ ok: true, documentId: document.id });

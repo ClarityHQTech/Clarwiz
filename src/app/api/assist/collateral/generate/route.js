@@ -118,6 +118,9 @@ export async function POST(request) {
       complianceScore: generated.compliance?.score ?? null,
       source: "GENERATED",
     },
+    modelUsed: generated.modelUsed ?? generated.model ?? null,
+    providerUsage: generated.providerUsage ?? null,
+    providerCost: generated.providerCost ?? null,
   });
 
   return NextResponse.json({

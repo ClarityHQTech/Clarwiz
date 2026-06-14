@@ -1,16 +1,8 @@
 /**
  * Pure context-builder for Cockpit (AE internal chat assist).
  *
- * `buildSnapshot(view)` compacts a deal / company / dashboard view-model (from
- * insightsReader) into a small, bounded JSON grounding object — ids, names,
- * stages, scores and the top few signals/NBAs only. No raw `payload` blobs,
- * no huge insight bodies. Safe for null/undefined views.
- *
- * `buildChatSystemPrompt({ pageContext, snapshot })` returns a system message
- * string that frames the assistant as a GTM AE copilot and embeds the snapshot
- * plus the current page context (entity type + name).
- *
- * Both functions are PURE (no I/O) so they can be unit-tested in isolation.
+ * Deal workroom mode embeds a full DB snapshot and strict scope rules so the
+ * assistant only answers about the open deal, its account, company, and contacts.
  */
 
 const MAX_SIGNALS = 5;
@@ -88,14 +80,13 @@ function topBy(list, n) {
 }
 
 /**
- * Detect which view-model shape we were handed and compact it.
- * @param {object|null|undefined} view
- * @returns {object} compact, bounded snapshot
+ * Legacy compact snapshot for non-deal contexts (kept for tests / backwards compat).
  */
 export function buildSnapshot(view) {
   if (!view) return { kind: "empty" };
 
-  // Deal Workroom view: { deal, account, company, contacts, insight, nbas, signals }
+  if (view.kind === "cockpit_deal") return view;
+
   if (view.deal && !Array.isArray(view.deals)) {
     const d = view.deal;
     return {
@@ -117,7 +108,6 @@ export function buildSnapshot(view) {
     };
   }
 
-  // Company Workroom view: { account, company, insight, signals, deals, contacts }
   if (view.account && Array.isArray(view.deals)) {
     return {
       kind: "company",
@@ -133,7 +123,6 @@ export function buildSnapshot(view) {
     };
   }
 
-  // Dashboard view: { deals, leads, accounts }
   if (Array.isArray(view.deals)) {
     return {
       kind: "dashboard",
@@ -150,12 +139,63 @@ export function buildSnapshot(view) {
 }
 
 /**
- * @param {{ pageContext?: {entityType?: string, id?: string, name?: string}, snapshot: object }} args
+ * System prompt for Cockpit on a deal workroom — scoped to one deal only.
+ */
+export function buildDealCockpitSystemPrompt({ pageContext, snapshot } = {}) {
+  const ctx = pageContext ?? {};
+  const dealId = ctx.id ?? snapshot?.scope?.dealId ?? null;
+  const dealName = ctx.name ?? ctx.label ?? snapshot?.deal?.name ?? "this deal";
+  const companyName = snapshot?.company?.name ?? snapshot?.scope?.companyName ?? null;
+  const snap = snapshot ?? { kind: "empty" };
+
+  return [
+    "You are Cockpit — Clarwiz's internal AE assist for a single open deal.",
+    "You help the account executive understand and act on THIS deal using only the internal data loaded from the database (deal fields, company/account, stakeholders, TOFU outreach history, MOFU intelligence, signals, NBAs, GTM tasks, recordings).",
+    "",
+    "STRICT SCOPE (non-negotiable):",
+    `- You are locked to deal id "${dealId}" (${dealName})${companyName ? ` at ${companyName}` : ""}.`,
+    "- Answer ONLY questions about this deal, its linked account/company, and its contacts/stakeholders.",
+    "- If the AE asks about another deal, the overall pipeline, unrelated companies, or general knowledge outside this deal graph, politely decline and remind them Cockpit is scoped to the open deal workroom.",
+    "- Never invent facts. If data is missing from the snapshot or a tool result, say so and suggest running Recompute or checking HubSpot sync.",
+    "- Contact phone, email, WhatsApp, and LinkedIn live on each object in contacts[] (also fetchable via get_contact_detail).",
+    "- For contact lookup, read contacts[] first; use get_contact_detail only when you need full threads or drawer-level detail.",
+    "- Use tools sparingly — only when the snapshot lacks what you need.",
+    "",
+    "RESPONSE FORMAT (required — keep replies scannable):",
+    "- Open with one direct sentence that answers the question. No preamble (avoid \"Great question\", \"Based on the data\", \"Looking at the snapshot\").",
+    "- Use at most 3 short sections with bold labels: **Answer**, **Details**, **Next step** (omit sections that are empty).",
+    "- Put lists on separate lines starting with \"- \" (one fact per bullet). Use **Label:** value for single fields (e.g. **Phone:** +1 555-0100).",
+    "- Keep total reply under ~120 words unless the AE asked for a full summary.",
+    "- Do not mention JSON, snapshots, tools, or internal systems unless the AE asks how you know.",
+    "- Use plain markdown only: **bold** and \"- \" bullets. No code blocks, no long paragraphs.",
+    "",
+    "Example shape:",
+    "**Answer** Jane Buyer is the main contact on this deal.",
+    "",
+    "**Details**",
+    "- **Phone:** +1 555-0100",
+    "- **Email:** jane@acme.com",
+    "- **Role:** Champion · VP Eng",
+    "",
+    "**Next step** Confirm budget on your next call.",
+    "",
+    "DEAL CONTEXT (JSON):",
+    JSON.stringify(snap),
+  ].join("\n");
+}
+
+/**
+ * @param {{ pageContext?: object, snapshot: object }} args
  * @returns {string} system prompt
  */
 export function buildChatSystemPrompt({ pageContext, snapshot } = {}) {
+  const entityType = pageContext?.entityType ?? "pipeline";
+
+  if (entityType === "deal" && pageContext?.id) {
+    return buildDealCockpitSystemPrompt({ pageContext, snapshot });
+  }
+
   const ctx = pageContext ?? {};
-  const entityType = ctx.entityType ?? "pipeline";
   const entityName = ctx.name ? clamp(ctx.name, 120) : null;
   const snap = snapshot ?? { kind: "empty" };
 
@@ -165,9 +205,7 @@ export function buildChatSystemPrompt({ pageContext, snapshot } = {}) {
 
   return [
     "You are Clarwiz AE Assist, a GTM copilot embedded in the seller's CRM workspace.",
-    "You help account executives understand and act on their deals, accounts, buying signals and next best actions.",
-    "Ground every answer in the CRM CONTEXT snapshot below. If the snapshot lacks the information, say so plainly and suggest where the AE can find it — never invent deal facts, amounts, names or signals.",
-    "Be concise, specific and action-oriented: lead with the recommendation, then the why. Use the AE's own data (stages, scores, signals, NBAs) when relevant.",
+    "Ground every answer in the CRM CONTEXT snapshot below.",
     "",
     focusLine,
     "",

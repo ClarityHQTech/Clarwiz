@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import ContactCommThread from "@/components/campaigns/ContactCommThread";
 import CampaignCommLogsDrawer from "@/components/campaigns/CampaignCommLogsDrawer";
 import AddContactModal from "@/components/campaigns/AddContactModal";
+import OutreachScheduleEditor from "@/components/campaigns/OutreachScheduleEditor";
 import ConfirmBox from "@/components/dialog/ConfirmBox";
 import {
   Drawer,
@@ -31,6 +32,7 @@ import {
 import { STATUS_STYLES, ui } from "@/lib/brandUi";
 import {
   localTimeToUtcHHmm,
+  normalizeOutreachTimezone,
   outreachTimezoneLabel,
 } from "@/lib/outreachTimezones";
 import { DEFAULT_ENABLED_CHANNELS } from "@/lib/campaignChannels";
@@ -180,6 +182,7 @@ const Page = () => {
   const [selectedProspect, setSelectedProspect] = useState(null);
   const [deleteProspectLoading, setDeleteProspectLoading] = useState(false);
   const [prospectDeliveryTime, setProspectDeliveryTime] = useState("");
+  const [prospectDeliveryTz, setProspectDeliveryTz] = useState("UTC");
   const [savingProspectTime, setSavingProspectTime] = useState(false);
   const [prospectContactForm, setProspectContactForm] = useState({
     name: "",
@@ -218,6 +221,9 @@ const Page = () => {
         campaign?.defaultOutreachTime ||
         "11:00"
     );
+    setProspectDeliveryTz(
+      normalizeOutreachTimezone(campaign?.outreachTimezone)
+    );
     setProspectContactForm({
       name: selectedProspect.name ?? "",
       company: selectedProspect.company ?? "",
@@ -228,7 +234,11 @@ const Page = () => {
       linkedinUrl: selectedProspect.linkedinUrl ?? "",
     });
     // Only re-seed the form when opening a different contact, not after each save.
-  }, [selectedProspect?.id, campaign?.defaultOutreachTime]);
+  }, [
+    selectedProspect?.id,
+    campaign?.defaultOutreachTime,
+    campaign?.outreachTimezone,
+  ]);
 
   const saveProspectContact = async () => {
     if (!selectedProspect || !id) return;
@@ -982,16 +992,18 @@ const Page = () => {
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-brand-sand/50">
-                    <label className={`block ${ui.label} mb-1 normal-case tracking-normal`}>
-                      Delivery time override ({outreachTimezoneName})
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="time"
-                        value={prospectDeliveryTime}
-                        onChange={(e) => setProspectDeliveryTime(e.target.value)}
-                        className={`flex-1 ${ui.inputSurface}`}
-                      />
+                    <p className={`${ui.label} mb-2 normal-case tracking-normal`}>
+                      Delivery time override
+                    </p>
+                    <OutreachScheduleEditor
+                      localTime={prospectDeliveryTime}
+                      timezone={prospectDeliveryTz}
+                      onLocalTimeChange={setProspectDeliveryTime}
+                      onTimezoneChange={setProspectDeliveryTz}
+                      timeLabel="Send time"
+                      timezoneLabel="Timezone"
+                    />
+                    <div className="mt-2 flex justify-end">
                       <button
                         type="button"
                         disabled={savingProspectTime}
@@ -1006,6 +1018,7 @@ const Page = () => {
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
                                   outreachDeliveryTime: prospectDeliveryTime,
+                                  outreachDeliveryTimezone: prospectDeliveryTz,
                                 }),
                               }
                             );
@@ -1024,9 +1037,9 @@ const Page = () => {
                             setSavingProspectTime(false);
                           }
                         }}
-                        className={`shrink-0 ${ui.btnSecondarySurface} disabled:opacity-50`}
+                        className={`${ui.btnSecondarySurface} disabled:opacity-50`}
                       >
-                        {savingProspectTime ? "…" : "Save"}
+                        {savingProspectTime ? "Saving…" : "Save delivery time"}
                       </button>
                     </div>
                     {selectedProspect.nextScheduledOutreachAt && (

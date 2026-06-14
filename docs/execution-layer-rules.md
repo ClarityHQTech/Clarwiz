@@ -274,7 +274,7 @@ A prospect is **qualified** when `Prospect.qualifiedAt` is set (not on every rep
 | LLM decision | `src/lib/execution/decideNextAction.js` |
 | Run loop | `src/lib/execution/runCampaignExecution.js` |
 | Schedule | `src/lib/execution/outreachSchedule.js` |
-| Cron | `src/app/api/cron/outreach/route.js` (Vercel Pro: `vercel.cron.pro.example.json` + `OUTREACH_CRON_ENABLED=true`) |
+| Cron | `src/app/api/cron/outreach/route.js` (dispatcher, Vercel Pro) + `.../worker/route.js` (one contact per invocation, parallel on Vercel) |
 | Webhooks | `src/lib/execution/webhookTracking.js`, `src/lib/integrationWebhooks.js` |
 | Retries | `src/lib/execution/outreachRetry.js` |
 | Track + rerun | `src/lib/execution/trackCampaignEngagement.js` |

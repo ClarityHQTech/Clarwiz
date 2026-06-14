@@ -367,6 +367,14 @@ ${bookingRules}
     matchedTemplate = null;
   }
 
+  if (
+    matchedTemplate &&
+    !replyFollowUp &&
+    !channels.includes(matchedTemplate.channel)
+  ) {
+    matchedTemplate = null;
+  }
+
   if (matchedTemplate && !replyFollowUp) {
     if (matchedTemplate.channel === "whatsapp") {
       message =

@@ -1,5 +1,6 @@
 import { getAnthropicClient, ANTHROPIC_MODEL_SIMPLE } from "@/lib/anthropicClient";
 import { buildRichPersonalizationContext } from "@/lib/assist/richCollateral/buildPersonalizationContext";
+import { providerFieldsFromCompletion } from "@/lib/assist/providerMetadata";
 
 const SYSTEM = `You are a B2B sales collateral copywriter.
 You receive a complete HTML document (with embedded CSS) and TENANT + PROSPECT context.
@@ -82,5 +83,8 @@ export async function personalizeRichHtml({
   if (!cleaned.includes("<html") && !cleaned.includes("<!DOCTYPE")) {
     throw new Error("ai_returned_invalid_html");
   }
-  return cleaned;
+  return {
+    html: cleaned,
+    ...providerFieldsFromCompletion(res, model),
+  };
 }

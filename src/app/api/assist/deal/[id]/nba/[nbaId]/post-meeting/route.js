@@ -68,9 +68,15 @@ export async function POST(request, { params }) {
   // Feed the notes into signal extraction. Fenced — ok if it no-ops (no key /
   // no engagements yet) or throws; the note is already on the timeline.
   let signalCount = 0;
+  let providerFields = {};
   try {
-    const created = await recomputeSignals(prisma, ctx.tenantId, dealId);
-    signalCount = Array.isArray(created) ? created.length : 0;
+    const sigRes = await recomputeSignals(prisma, ctx.tenantId, dealId);
+    signalCount = Array.isArray(sigRes.signals) ? sigRes.signals.length : 0;
+    providerFields = {
+      modelUsed: sigRes.modelUsed ?? null,
+      providerUsage: sigRes.providerUsage ?? null,
+      providerCost: sigRes.providerCost ?? null,
+    };
   } catch (err) {
     console.warn(`[MOFU] post-meeting recomputeSignals failed: ${err.message}`);
   }
@@ -82,6 +88,7 @@ export async function POST(request, { params }) {
     hsObjectId: deal.hubspotDealId,
     action: "NOTE_ADDED",
     payload: { id: noteRes.id, nbaId: nbaId ?? null, postMeeting: true, signalCount },
+    ...providerFields,
   });
 
   return NextResponse.json({ ok: true, signalCount });

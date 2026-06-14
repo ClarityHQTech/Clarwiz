@@ -5,7 +5,7 @@ import {
   getOwnedCampaignDetail,
 } from "@/lib/campaignDetail";
 import { computeNextOutreachAt } from "@/lib/execution/outreachSchedule";
-import { localTimeToUtcHHmm } from "@/lib/outreachTimezones";
+import { localTimeToUtcHHmm, isAllowedOutreachTimezone, normalizeOutreachTimezone } from "@/lib/outreachTimezones";
 import {
   enrollContactInCampaign,
   flattenCampaignContact,
@@ -123,9 +123,22 @@ export async function patchCampaignContact(
         { status: 400 }
       );
     }
-    data.outreachDeliveryTime = t
-      ? localTimeToUtcHHmm(t, campaign.outreachTimezone ?? "UTC")
-      : null;
+    const tzSource =
+      body.outreachDeliveryTimezone !== undefined
+        ? body.outreachDeliveryTimezone
+        : campaign.outreachTimezone ?? "UTC";
+    if (
+      body.outreachDeliveryTimezone !== undefined &&
+      !isAllowedOutreachTimezone(body.outreachDeliveryTimezone)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid outreach delivery timezone" },
+        { status: 400 }
+      );
+    }
+    const tz = normalizeOutreachTimezone(tzSource);
+    data.outreachDeliveryTime = t ? localTimeToUtcHHmm(t, tz) : null;
+    data.lastOutreachDate = null;
   }
 
   if (body.status !== undefined) {

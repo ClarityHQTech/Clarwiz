@@ -111,6 +111,9 @@ export async function POST(request, { params }) {
       complianceScore: edited.compliance?.score ?? null,
       versionCount: versions.length,
     },
+    modelUsed: edited.modelUsed ?? edited.model ?? null,
+    providerUsage: edited.providerUsage ?? null,
+    providerCost: edited.providerCost ?? null,
   });
 
   return NextResponse.json({

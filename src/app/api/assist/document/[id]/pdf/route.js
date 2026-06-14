@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { resolveDocumentHtml } from "@/lib/assist/resolveDocumentHtml";
 import { htmlToPdfBuffer } from "@/lib/assist/htmlToPdf";
+import { prepareHtmlForPdf } from "@/lib/assist/prepareHtmlForPdf";
 import { sanitizePdfFilename } from "@/lib/assist/crmEmailCollateral";
 
 /** GET — download a tenant Document as PDF (used by CRM email collateral links). */
@@ -21,7 +22,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "document_not_found" }, { status: 404 });
   }
 
-  const html = resolveDocumentHtml(document);
+  const html = prepareHtmlForPdf(resolveDocumentHtml(document));
   if (!html?.trim()) {
     return NextResponse.json({ error: "empty_document" }, { status: 400 });
   }
