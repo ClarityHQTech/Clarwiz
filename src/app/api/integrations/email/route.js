@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
-import {
-  getDecryptedSmartleadAccountId,
-  getEmailIntegration,
-} from "@/lib/emailIntegration";
+import { getEmailIntegration } from "@/lib/emailIntegration";
 import { deleteEmailAccount } from "@/lib/smartleadApi";
+import { decryptSmartleadAccountId } from "@/lib/encryptSecret";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request) {
@@ -26,16 +24,22 @@ export async function DELETE() {
 
   const record = await prisma.emailIntegration.findUnique({
     where: { tenantId: ctx.tenantId },
+    include: { inboxes: true },
   });
 
-  if (record?.encryptedSmartleadAccountId && record.mode === "smartlead_inbox") {
+  if (!record) {
+    return NextResponse.json({ success: true });
+  }
+
+  for (const inbox of record.inboxes) {
+    if (!inbox.encryptedSmartleadAccountId) continue;
     try {
-      const accountId = await getDecryptedSmartleadAccountId(ctx.tenantId);
+      const accountId = decryptSmartleadAccountId(inbox.encryptedSmartleadAccountId);
       if (accountId) {
         await deleteEmailAccount(accountId);
       }
     } catch {
-      // Still remove local record if Smartlead delete fails
+      // Still remove local records if Smartlead delete fails
     }
   }
 

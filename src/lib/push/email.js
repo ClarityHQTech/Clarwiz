@@ -61,8 +61,7 @@ export async function pushEmailIfConnected({
   const integration = await getEmailIntegration(campaign.tenantId);
   const canSend =
     integration?.mode === "smartlead_inbox" &&
-    integration?.status === "connected" &&
-    integration?.hasSmartleadAccount;
+    (integration?.inboxCount > 0 || integration?.hasSmartleadAccount);
 
   if (!canSend) {
     return buildSkippedPush("smartlead_not_connected", "smartlead");

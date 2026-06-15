@@ -43,9 +43,11 @@ export function getEmailDisplayStatus(integration) {
   if (!integration) return "not_configured";
   if (
     integration.mode === "smartlead_inbox" &&
-    integration.status === "connected"
+    (integration.status === "connected" || integration.inboxCount > 0)
   ) {
-    return "connected";
+    const connectedCount =
+      integration.inboxes?.filter((inbox) => inbox.status === "connected").length ?? 0;
+    if (connectedCount > 0) return "connected";
   }
   if (integration.status === "failed") return "failed";
   if (integration.hasSmartleadAccount || integration.status === "pending")

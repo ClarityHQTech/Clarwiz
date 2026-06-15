@@ -125,6 +125,12 @@ function getIntegrationSubtitle(id, linkedin, email, whatsapp, calendly, hubspot
   if (id === "gmail" && gmail?.connected) {
     return gmail.email;
   }
+  if (id === "email" && email?.inboxCount > 0) {
+    if (email.inboxCount === 1) {
+      return `${email.fromName ? `${email.fromName} · ` : ""}${email.fromEmail}`;
+    }
+    return `${email.inboxCount} inboxes connected`;
+  }
   if (id === "email" && email?.fromEmail) {
     return `${email.fromName ? `${email.fromName} · ` : ""}${email.fromEmail}`;
   }

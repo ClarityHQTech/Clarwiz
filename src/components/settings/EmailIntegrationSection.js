@@ -102,6 +102,68 @@ function CollapsibleDnsRecords({ records, sendingDomain, defaultOpen = false }) 
   );
 }
 
+function ConnectedInboxCard({ inbox, onDisconnect, disconnectingId }) {
+  return (
+    <div className="rounded-lg border border-brand-secondary/30 bg-brand-surface p-4 space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <IntegrationStatusBadge status={inbox.status} />
+            <span className="text-sm font-medium text-brand-ink">
+              {inbox.fromName} · {inbox.fromEmail}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-brand-steel">
+            Smartlead rotates sends across all linked inboxes for a campaign.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onDisconnect(inbox.id)}
+          disabled={disconnectingId === inbox.id}
+          className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+        >
+          {disconnectingId === inbox.id ? "Removing…" : "Remove"}
+        </button>
+      </div>
+      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div>
+          <dt className="text-xs text-brand-steel">SMTP</dt>
+          <dd
+            className={`mt-0.5 font-medium ${
+              inbox.isSmtpSuccess ? "text-brand-ink" : "text-red-600"
+            }`}
+          >
+            {inbox.isSmtpSuccess ? "OK" : "Failed"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-brand-steel">IMAP</dt>
+          <dd
+            className={`mt-0.5 font-medium ${
+              inbox.isImapSuccess ? "text-brand-ink" : "text-red-600"
+            }`}
+          >
+            {inbox.isImapSuccess ? "OK" : "Failed"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-brand-steel">Warmup</dt>
+          <dd className="mt-0.5 font-medium text-brand-ink">
+            {inbox.warmupStatus || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-brand-steel">Reputation</dt>
+          <dd className="mt-0.5 font-medium text-brand-ink">
+            {inbox.warmupReputation || "—"}
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function MaildosoPlaceholder() {
   return (
     <div className="rounded-lg border border-dashed border-brand-secondary/30 bg-brand-bg/50 p-4">
@@ -121,7 +183,8 @@ export default function EmailIntegrationSection({
 }) {
   const [mode, setMode] = useState("smartlead");
   const [connecting, setConnecting] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectingId, setDisconnectingId] = useState(null);
+  const [disconnectingAll, setDisconnectingAll] = useState(false);
 
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
@@ -135,6 +198,8 @@ export default function EmailIntegrationSection({
   const [previewDnsRecords, setPreviewDnsRecords] = useState(null);
   const [previewSendingDomain, setPreviewSendingDomain] = useState(null);
 
+  const connectedInboxes = integration?.inboxes ?? [];
+  const hasInboxes = connectedInboxes.length > 0;
   const dnsRecords = integration?.dnsRecords ?? previewDnsRecords;
   const sendingDomain = integration?.sendingDomain ?? previewSendingDomain;
 
@@ -174,6 +239,8 @@ export default function EmailIntegrationSection({
       if (!res.ok) throw new Error(data.error || "Connection failed");
 
       setPassword("");
+      setFromEmail("");
+      setFromName("");
       if (data.warnings?.length) {
         data.warnings.forEach((w) => toast.warning(w));
       } else {
@@ -190,6 +257,23 @@ export default function EmailIntegrationSection({
     }
   };
 
+  const handleDisconnectInbox = async (inboxId) => {
+    setDisconnectingId(inboxId);
+    try {
+      const res = await fetch(`/api/integrations/email/smartlead/inboxes/${inboxId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to remove inbox");
+      toast.success("Inbox removed");
+      onRefresh?.(true);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDisconnectingId(null);
+    }
+  };
+
   const handleSaveTracking = async () => {
     setSavingTracking(true);
     try {
@@ -200,6 +284,9 @@ export default function EmailIntegrationSection({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save tracking domain");
+      if (data.warnings?.length) {
+        data.warnings.forEach((w) => toast.warning(w));
+      }
       toast.success("Tracking domain updated");
       onRefresh?.(true);
     } catch (err) {
@@ -209,8 +296,8 @@ export default function EmailIntegrationSection({
     }
   };
 
-  const handleDisconnect = async () => {
-    setDisconnecting(true);
+  const handleDisconnectAll = async () => {
+    setDisconnectingAll(true);
     try {
       const res = await fetch("/api/integrations/email", { method: "DELETE" });
       if (!res.ok) {
@@ -220,12 +307,12 @@ export default function EmailIntegrationSection({
       setPassword("");
       setPreviewDnsRecords(null);
       setPreviewSendingDomain(null);
-      toast.success("Email integration removed");
+      toast.success("All Smartlead inboxes removed");
       onRefresh?.();
     } catch (err) {
       toast.error(err.message);
     } finally {
-      setDisconnecting(false);
+      setDisconnectingAll(false);
     }
   };
 
@@ -252,11 +339,6 @@ export default function EmailIntegrationSection({
     return <p className="text-sm text-brand-stone">Loading email configuration…</p>;
   }
 
-  const isConnected =
-    integration?.mode === "smartlead_inbox" && integration?.status === "connected";
-  const hasSmartlead =
-    integration?.mode === "smartlead_inbox" && integration?.hasSmartleadAccount;
-
   const effectiveTrackingDraft =
     trackingDraft || integration?.customTrackingDomain || "";
 
@@ -272,7 +354,7 @@ export default function EmailIntegrationSection({
               : "bg-brand-bg text-brand-stone hover:bg-brand-secondary/20"
           }`}
         >
-          Connect inbox + Smartlead
+          Connect inboxes + Smartlead
         </button>
         <button
           type="button"
@@ -289,52 +371,31 @@ export default function EmailIntegrationSection({
 
       {mode === "maildoso" ? <MaildosoPlaceholder /> : null}
 
-      {mode === "smartlead" && (isConnected || hasSmartlead) ? (
+      {mode === "smartlead" && hasInboxes ? (
         <>
-          <section className="rounded-lg border border-brand-secondary/30 bg-brand-bg/50 p-4 space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
-              Connected inbox
-            </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <IntegrationStatusBadge status={integration.status} />
-              <span className="text-sm text-brand-stone">
-                {integration.fromName} · {integration.fromEmail}
-              </span>
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
+                Connected inboxes ({connectedInboxes.length})
+              </h3>
+              <button
+                type="button"
+                onClick={() => onRefresh?.(true)}
+                className="text-sm text-brand-terracotta hover:underline"
+              >
+                Refresh status
+              </button>
             </div>
-            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-              <div>
-                <dt className="text-xs text-brand-steel">SMTP</dt>
-                <dd
-                  className={`mt-0.5 font-medium ${
-                    integration.isSmtpSuccess ? "text-brand-ink" : "text-red-600"
-                  }`}
-                >
-                  {integration.isSmtpSuccess ? "OK" : "Failed"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-brand-steel">IMAP</dt>
-                <dd
-                  className={`mt-0.5 font-medium ${
-                    integration.isImapSuccess ? "text-brand-ink" : "text-red-600"
-                  }`}
-                >
-                  {integration.isImapSuccess ? "OK" : "Failed"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-brand-steel">Warmup</dt>
-                <dd className="mt-0.5 font-medium text-brand-ink">
-                  {integration.warmupStatus || "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-brand-steel">Reputation</dt>
-                <dd className="mt-0.5 font-medium text-brand-ink">
-                  {integration.warmupReputation || "—"}
-                </dd>
-              </div>
-            </dl>
+            <div className="space-y-3">
+              {connectedInboxes.map((inbox) => (
+                <ConnectedInboxCard
+                  key={inbox.id}
+                  inbox={inbox}
+                  onDisconnect={handleDisconnectInbox}
+                  disconnectingId={disconnectingId}
+                />
+              ))}
+            </div>
           </section>
 
           <section className="space-y-3">
@@ -372,29 +433,28 @@ export default function EmailIntegrationSection({
           <div className="flex flex-wrap gap-3 pt-1">
             <button
               type="button"
-              onClick={() => onRefresh?.(true)}
-              className="text-sm text-brand-terracotta hover:underline"
-            >
-              Refresh status
-            </button>
-            <button
-              type="button"
-              onClick={handleDisconnect}
-              disabled={disconnecting}
+              onClick={handleDisconnectAll}
+              disabled={disconnectingAll}
               className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
             >
-              {disconnecting ? "Disconnecting…" : "Disconnect inbox"}
+              {disconnectingAll ? "Disconnecting…" : "Disconnect all inboxes"}
             </button>
           </div>
         </>
       ) : null}
 
-      {mode === "smartlead" && !isConnected && !hasSmartlead ? (
-        <>
-          <p className="text-sm text-brand-stone leading-relaxed">
-            Connect your sending inbox to Smartlead for warmup, outreach, and open/reply tracking.
-            Uses your workspace Smartlead API key — credentials are sent only to Smartlead.
-          </p>
+      {mode === "smartlead" ? (
+        <section className="space-y-4">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-brand-steel">
+              {hasInboxes ? "Add another inbox" : "Connect your first inbox"}
+            </h3>
+            <p className="mt-1 text-sm text-brand-stone leading-relaxed">
+              Connect multiple sending inboxes to Smartlead. Campaign outreach rotates across
+              linked inboxes automatically — you choose which inboxes each campaign uses in
+              campaign settings.
+            </p>
+          </div>
 
           <form onSubmit={handleConnect} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -474,17 +534,19 @@ export default function EmailIntegrationSection({
                   </div>
                 </>
               ) : null}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-brand-stone mb-1">
-                  Tracking domain (optional)
-                </label>
-                <input
-                  value={customTrackingDomain}
-                  onChange={(e) => setCustomTrackingDomain(e.target.value)}
-                  placeholder="track.yourdomain.com"
-                  className={ui.inputSurface}
-                />
-              </div>
+              {!hasInboxes ? (
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-brand-stone mb-1">
+                    Tracking domain (optional)
+                  </label>
+                  <input
+                    value={customTrackingDomain}
+                    onChange={(e) => setCustomTrackingDomain(e.target.value)}
+                    placeholder="track.yourdomain.com"
+                    className={ui.inputSurface}
+                  />
+                </div>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -493,7 +555,7 @@ export default function EmailIntegrationSection({
                 disabled={connecting}
                 className="rounded-md bg-brand-dark px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-ink disabled:opacity-50"
               >
-                {connecting ? "Connecting…" : "Connect via Smartlead"}
+                {connecting ? "Connecting…" : hasInboxes ? "Add inbox" : "Connect via Smartlead"}
               </button>
               <button
                 type="button"
@@ -505,14 +567,14 @@ export default function EmailIntegrationSection({
             </div>
           </form>
 
-          {dnsRecords?.length && !integration?.hasSmartleadAccount ? (
+          {dnsRecords?.length && !hasInboxes ? (
             <CollapsibleDnsRecords
               records={dnsRecords}
               sendingDomain={sendingDomain}
               defaultOpen
             />
           ) : null}
-        </>
+        </section>
       ) : null}
     </div>
   );

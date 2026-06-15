@@ -320,11 +320,11 @@ model LinkedInIntegration {
 }
 
 model EmailIntegration {
-  id                          String    @id @default(cuid())
-  tenantId                    String    @unique
-  tenant                      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  mode                        String    @default("smartlead_inbox")
-  status                      String    @default("pending")
+  id                          String           @id @default(cuid())
+  tenantId                    String           @unique
+  tenant                      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mode                        String           @default("smartlead_inbox")
+  status                      String           @default("pending")
   fromEmail                   String?
   fromName                    String?
   sendingDomain               String?
@@ -333,12 +333,36 @@ model EmailIntegration {
   customTrackingDomain        String?
   isSmtpSuccess               Boolean?
   isImapSuccess               Boolean?
-  warmupEnabled               Boolean   @default(true)
+  warmupEnabled               Boolean          @default(true)
   warmupStatus                String?
   warmupReputation            String?
   connectedAt                 DateTime?
-  createdAt                   DateTime  @default(now())
-  updatedAt                   DateTime  @updatedAt
+  createdAt                   DateTime         @default(now())
+  updatedAt                   DateTime         @updatedAt
+  inboxes                     SmartleadInbox[]
+}
+
+model SmartleadInbox {
+  id                          String           @id @default(cuid())
+  emailIntegrationId          String
+  emailIntegration            EmailIntegration @relation(fields: [emailIntegrationId], references: [id], onDelete: Cascade)
+  fromEmail                   String
+  fromName                    String?
+  sendingDomain               String?
+  providerType                String?
+  encryptedSmartleadAccountId String
+  isSmtpSuccess               Boolean?
+  isImapSuccess               Boolean?
+  warmupEnabled               Boolean          @default(true)
+  warmupStatus                String?
+  warmupReputation            String?
+  status                      String           @default("pending")
+  connectedAt                 DateTime?
+  createdAt                   DateTime         @default(now())
+  updatedAt                   DateTime         @updatedAt
+
+  @@unique([emailIntegrationId, fromEmail])
+  @@index([emailIntegrationId])
 }
 
 model CalendlyIntegration {
@@ -393,6 +417,7 @@ model Campaign {
   qualifiedLeads      Int                     @default(0)
   calendlyBookingUrl  String?
   smartleadCampaignId Int?
+  smartleadInboxIds   String[]                @default([])
   outreachTimezone    String                  @default("UTC")
   defaultOutreachTime String                  @default("11:00")
   enabledChannels     String[]                @default(["email", "linkedin", "whatsapp"])

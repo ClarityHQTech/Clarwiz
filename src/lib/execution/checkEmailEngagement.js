@@ -5,7 +5,6 @@ import {
   fetchSmartleadEngagementForProspect,
   resolveSmartleadDeliveryStatus,
 } from "@/lib/smartleadOutreach";
-import { getDecryptedSmartleadAccountId } from "@/lib/emailIntegration";
 import { runExecutionForCampaign } from "@/lib/execution/runCampaignExecution";
 import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 
@@ -67,11 +66,9 @@ export async function checkEmailEngagementForProspect({
     campaign.smartleadCampaignId &&
     prospect.email
   ) {
-    const emailAccountId = await getDecryptedSmartleadAccountId(tenantId);
     const resolved = await resolveSmartleadDeliveryStatus({
       smartleadCampaignId: campaign.smartleadCampaignId,
       leadEmail: prospect.email,
-      emailAccountId: emailAccountId ? Number(emailAccountId) : undefined,
       waitMs: 0,
     });
 

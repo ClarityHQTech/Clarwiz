@@ -73,6 +73,9 @@ const Page = () => {
   ]);
   const [savingChannels, setSavingChannels] = useState(false);
 
+  const [smartleadInboxIdsEdit, setSmartleadInboxIdsEdit] = useState([]);
+  const [savingSmartleadInboxes, setSavingSmartleadInboxes] = useState(false);
+
   const fetchCampaign = useCallback(async () => {
     if (!id) return;
     try {
@@ -96,6 +99,7 @@ const Page = () => {
           ? data.enabledChannels
           : [...DEFAULT_ENABLED_CHANNELS]
       );
+      setSmartleadInboxIdsEdit(data.smartleadInboxIds ?? []);
     } catch (err) {
       toast.error(err.message);
       setCampaign(null);
@@ -215,6 +219,59 @@ const Page = () => {
       }
       return [...prev, channel];
     });
+  };
+
+  const connectedSmartleadInboxes =
+    campaign?.availableSmartleadInboxes?.filter((inbox) => inbox.status === "connected") ?? [];
+  const emailChannelEnabled = enabledChannelsEdit.includes("email");
+  const allSmartleadInboxIds = connectedSmartleadInboxes.map((inbox) => inbox.id);
+  const effectiveSmartleadInboxIds =
+    smartleadInboxIdsEdit.length > 0 ? smartleadInboxIdsEdit : allSmartleadInboxIds;
+
+  const toggleSmartleadInbox = (inboxId) => {
+    setSmartleadInboxIdsEdit((prev) => {
+      const effective = prev.length > 0 ? prev : allSmartleadInboxIds;
+      if (effective.includes(inboxId)) {
+        const next = effective.filter((id) => id !== inboxId);
+        return next;
+      }
+      return [...effective, inboxId];
+    });
+  };
+
+  const saveSmartleadInboxes = async () => {
+    if (!allSmartleadInboxIds.length) {
+      toast.error("Connect at least one Smartlead inbox first");
+      return;
+    }
+
+    const effective =
+      smartleadInboxIdsEdit.length > 0 ? smartleadInboxIdsEdit : allSmartleadInboxIds;
+    if (!effective.length) {
+      toast.error("Select at least one inbox for this campaign");
+      return;
+    }
+
+    const payload =
+      effective.length === allSmartleadInboxIds.length ? [] : effective;
+
+    setSavingSmartleadInboxes(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ smartleadInboxIds: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      setCampaign(data);
+      setSmartleadInboxIdsEdit(data.smartleadInboxIds ?? []);
+      toast.success("Smartlead inboxes saved");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingSmartleadInboxes(false);
+    }
   };
 
   if (loading) {
@@ -364,6 +421,77 @@ const Page = () => {
           </button>
         </div>
       </SettingsSection>
+
+      {emailChannelEnabled ? (
+        <SettingsSection
+          title="Smartlead sending inboxes"
+          description="Choose which connected inboxes this campaign uses. Smartlead rotates sends across the selected inboxes. Leave all unchecked to use every connected inbox."
+        >
+          {connectedSmartleadInboxes.length === 0 ? (
+            <div className={ui.alertWarn}>
+              Connect Smartlead inboxes in{" "}
+              <Link href="/integrations" className="font-medium underline text-brand-ink">
+                Integrations
+              </Link>{" "}
+              before email outreach can run.
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {connectedSmartleadInboxes.map((inbox) => {
+                  const checked = effectiveSmartleadInboxIds.includes(inbox.id);
+                  return (
+                    <label
+                      key={inbox.id}
+                      className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+                        checked
+                          ? "border-brand-sage bg-brand-sage/15 text-brand-ink"
+                          : "border-brand-secondary/40 bg-brand-surface text-brand-stone"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleSmartleadInbox(inbox.id)}
+                        className="mt-0.5 rounded border-brand-secondary/50 text-brand-dark focus:ring-brand-sage/40"
+                      />
+                      <span className="min-w-0">
+                        <span className="font-medium text-brand-ink">
+                          {inbox.fromName ? `${inbox.fromName} · ` : ""}
+                          {inbox.fromEmail}
+                        </span>
+                        <span className="block text-xs text-brand-steel mt-0.5">
+                          SMTP {inbox.isSmtpSuccess ? "OK" : "failed"} · IMAP{" "}
+                          {inbox.isImapSuccess ? "OK" : "failed"}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-brand-stone">
+                Active for this campaign:{" "}
+                {effectiveSmartleadInboxIds.length
+                  ? connectedSmartleadInboxes
+                      .filter((inbox) => effectiveSmartleadInboxIds.includes(inbox.id))
+                      .map((inbox) => inbox.fromEmail)
+                      .join(", ")
+                  : "None"}
+              </p>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  disabled={savingSmartleadInboxes || connectedSmartleadInboxes.length === 0}
+                  onClick={saveSmartleadInboxes}
+                  className={`${ui.btnPrimary} disabled:opacity-50`}
+                >
+                  {savingSmartleadInboxes ? "Saving…" : "Save inboxes"}
+                </button>
+              </div>
+            </>
+          )}
+        </SettingsSection>
+      ) : null}
 
       <SettingsSection
         title="Outreach schedule"

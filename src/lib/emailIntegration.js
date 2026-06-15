@@ -34,27 +34,71 @@ export const PROVIDER_PRESETS = {
   },
 };
 
+const emailIntegrationInclude = { inboxes: { orderBy: { createdAt: "asc" } } };
+
+function deriveIntegrationStatus(inboxes = []) {
+  if (!inboxes.length) return "not_configured";
+  if (inboxes.some((inbox) => inbox.status === "connected")) return "connected";
+  if (inboxes.some((inbox) => inbox.status === "failed")) return "failed";
+  return "pending";
+}
+
+export function serializeSmartleadInbox(inbox) {
+  if (!inbox) return null;
+  const sendingDomain =
+    inbox.sendingDomain || extractDomainFromEmail(inbox.fromEmail);
+  return {
+    id: inbox.id,
+    fromEmail: inbox.fromEmail,
+    fromName: inbox.fromName,
+    sendingDomain,
+    providerType: inbox.providerType,
+    isSmtpSuccess: inbox.isSmtpSuccess,
+    isImapSuccess: inbox.isImapSuccess,
+    warmupEnabled: inbox.warmupEnabled,
+    warmupStatus: inbox.warmupStatus,
+    warmupReputation: inbox.warmupReputation,
+    status: inbox.status,
+    connectedAt: inbox.connectedAt?.toISOString() ?? null,
+    updatedAt: inbox.updatedAt.toISOString(),
+    hasSmartleadAccount: Boolean(inbox.encryptedSmartleadAccountId),
+  };
+}
+
 export function serializeEmailIntegration(record, { dnsRecords } = {}) {
   if (!record) return null;
+
+  const inboxes = (record.inboxes ?? []).map((inbox) =>
+    serializeSmartleadInbox(inbox)
+  );
+  const primaryInbox =
+    inboxes.find((inbox) => inbox.status === "connected") ?? inboxes[0] ?? null;
   const sendingDomain =
-    record.sendingDomain || extractDomainFromEmail(record.fromEmail);
+    primaryInbox?.sendingDomain ||
+    record.sendingDomain ||
+    extractDomainFromEmail(record.fromEmail);
+  const status = deriveIntegrationStatus(record.inboxes ?? []);
+
   return {
     id: record.id,
     mode: record.mode,
-    status: record.status,
-    fromEmail: record.fromEmail,
-    fromName: record.fromName,
+    status,
+    fromEmail: primaryInbox?.fromEmail ?? record.fromEmail,
+    fromName: primaryInbox?.fromName ?? record.fromName,
     sendingDomain,
-    providerType: record.providerType,
+    providerType: primaryInbox?.providerType ?? record.providerType,
     customTrackingDomain: record.customTrackingDomain,
-    isSmtpSuccess: record.isSmtpSuccess,
-    isImapSuccess: record.isImapSuccess,
-    warmupEnabled: record.warmupEnabled,
-    warmupStatus: record.warmupStatus,
-    warmupReputation: record.warmupReputation,
-    connectedAt: record.connectedAt?.toISOString() ?? null,
+    isSmtpSuccess: primaryInbox?.isSmtpSuccess ?? record.isSmtpSuccess,
+    isImapSuccess: primaryInbox?.isImapSuccess ?? record.isImapSuccess,
+    warmupEnabled: primaryInbox?.warmupEnabled ?? record.warmupEnabled,
+    warmupStatus: primaryInbox?.warmupStatus ?? record.warmupStatus,
+    warmupReputation:
+      primaryInbox?.warmupReputation ?? record.warmupReputation,
+    connectedAt: primaryInbox?.connectedAt ?? record.connectedAt?.toISOString?.() ?? null,
     updatedAt: record.updatedAt.toISOString(),
-    hasSmartleadAccount: Boolean(record.encryptedSmartleadAccountId),
+    hasSmartleadAccount: inboxes.some((inbox) => inbox.hasSmartleadAccount),
+    inboxCount: inboxes.length,
+    inboxes,
     dnsRecords:
       dnsRecords ??
       buildDnsRecords({
@@ -64,21 +108,49 @@ export function serializeEmailIntegration(record, { dnsRecords } = {}) {
   };
 }
 
-export async function getEmailIntegration(tenantId, { refresh = false } = {}) {
-  const record = await prisma.emailIntegration.findUnique({
+async function loadEmailIntegrationRecord(tenantId) {
+  return prisma.emailIntegration.findUnique({
     where: { tenantId },
+    include: emailIntegrationInclude,
   });
+}
+
+export async function getEmailIntegration(tenantId, { refresh = false } = {}) {
+  let record = await loadEmailIntegrationRecord(tenantId);
   if (!record) return null;
 
-  if (refresh && record.encryptedSmartleadAccountId && record.mode === "smartlead_inbox") {
+  if (refresh && record.mode === "smartlead_inbox" && record.inboxes.length) {
     try {
-      const accountId = decryptSmartleadAccountId(record.encryptedSmartleadAccountId);
-      const remote = await getEmailAccount(accountId);
-      const updated = await prisma.emailIntegration.update({
+      const refreshedInboxes = await Promise.all(
+        record.inboxes.map(async (inbox) => {
+          if (!inbox.encryptedSmartleadAccountId) return inbox;
+          const accountId = decryptSmartleadAccountId(
+            inbox.encryptedSmartleadAccountId
+          );
+          const remote = await getEmailAccount(accountId);
+          return prisma.smartleadInbox.update({
+            where: { id: inbox.id },
+            data: mapSmartleadAccountToInboxDb(remote, inbox),
+          });
+        })
+      );
+
+      const connectedCount = refreshedInboxes.filter(
+        (inbox) => inbox.status === "connected"
+      ).length;
+
+      record = await prisma.emailIntegration.update({
         where: { tenantId },
-        data: mapSmartleadAccountToDb(remote, record),
+        data: {
+          status:
+            connectedCount > 0
+              ? "connected"
+              : refreshedInboxes.some((inbox) => inbox.status === "failed")
+                ? "failed"
+                : record.status,
+        },
+        include: emailIntegrationInclude,
       });
-      return serializeEmailIntegration(updated);
     } catch {
       // Return cached row if Smartlead is unreachable
     }
@@ -87,7 +159,7 @@ export async function getEmailIntegration(tenantId, { refresh = false } = {}) {
   return serializeEmailIntegration(record);
 }
 
-function mapSmartleadAccountToDb(account, existing) {
+function mapSmartleadAccountToInboxDb(account, existing) {
   const warmup = account?.warmup_details;
   const smtpOk = account?.is_smtp_success ?? account?.isSmtpSuccess;
   const imapOk = account?.is_imap_success ?? account?.isImapSuccess;
@@ -99,17 +171,30 @@ function mapSmartleadAccountToDb(account, existing) {
     sendingDomain:
       extractDomainFromEmail(account?.from_email) ?? existing.sendingDomain,
     providerType: account?.type ?? existing.providerType,
-    customTrackingDomain:
-      account?.custom_tracking_domain ??
-      account?.custom_tracking_url ??
-      existing.customTrackingDomain,
     isSmtpSuccess: smtpOk ?? null,
     isImapSuccess: imapOk ?? null,
     warmupStatus: warmup?.status ?? existing.warmupStatus,
     warmupReputation: warmup?.warmup_reputation ?? existing.warmupReputation,
-    status: connected ? "connected" : smtpOk === false || imapOk === false ? "failed" : existing.status,
+    status: connected
+      ? "connected"
+      : smtpOk === false || imapOk === false
+        ? "failed"
+        : existing.status,
     connectedAt: connected ? existing.connectedAt ?? new Date() : existing.connectedAt,
   };
+}
+
+async function ensureEmailIntegrationParent(tenantId) {
+  return prisma.emailIntegration.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      mode: "smartlead_inbox",
+      status: "pending",
+    },
+    update: {},
+    include: emailIntegrationInclude,
+  });
 }
 
 export async function upsertSmartleadInbox(tenantId, smartleadResponse, form) {
@@ -131,56 +216,129 @@ export async function upsertSmartleadInbox(tenantId, smartleadResponse, form) {
     );
   }
 
-  const fromEmail = data?.from_email ?? form.fromEmail;
+  const fromEmail = (data?.from_email ?? form.fromEmail)?.trim().toLowerCase();
   const sendingDomain = extractDomainFromEmail(fromEmail);
   const smtpOk = data?.is_smtp_success ?? data?.isSmtpSuccess;
   const imapOk = data?.is_imap_success ?? data?.isImapSuccess;
   const warmup = data?.warmup_details;
   const connected = smtpOk !== false && imapOk !== false;
 
-  return prisma.emailIntegration.upsert({
-    where: { tenantId },
+  const parent = await ensureEmailIntegrationParent(tenantId);
+
+  const inbox = await prisma.smartleadInbox.upsert({
+    where: {
+      emailIntegrationId_fromEmail: {
+        emailIntegrationId: parent.id,
+        fromEmail,
+      },
+    },
     create: {
-      tenantId,
-      mode: "smartlead_inbox",
-      status: connected ? "connected" : "failed",
+      emailIntegrationId: parent.id,
       fromEmail,
       fromName: form.fromName,
       sendingDomain,
       providerType: form.providerType,
       encryptedSmartleadAccountId: encryptSmartleadAccountId(accountId),
-      customTrackingDomain: form.customTrackingDomain || null,
       isSmtpSuccess: smtpOk ?? null,
       isImapSuccess: imapOk ?? null,
       warmupEnabled: form.warmupEnabled ?? true,
       warmupStatus: warmup?.status ?? null,
       warmupReputation: warmup?.warmup_reputation ?? null,
+      status: connected ? "connected" : "failed",
       connectedAt: connected ? new Date() : null,
     },
     update: {
-      mode: "smartlead_inbox",
-      status: connected ? "connected" : "failed",
-      fromEmail,
       fromName: form.fromName,
       sendingDomain,
       providerType: form.providerType,
       encryptedSmartleadAccountId: encryptSmartleadAccountId(accountId),
-      customTrackingDomain: form.customTrackingDomain || null,
       isSmtpSuccess: smtpOk ?? null,
       isImapSuccess: imapOk ?? null,
       warmupEnabled: form.warmupEnabled ?? true,
       warmupStatus: warmup?.status ?? null,
       warmupReputation: warmup?.warmup_reputation ?? null,
+      status: connected ? "connected" : "failed",
       connectedAt: connected ? new Date() : null,
     },
   });
+
+  const allInboxes = await prisma.smartleadInbox.findMany({
+    where: { emailIntegrationId: parent.id },
+    orderBy: { createdAt: "asc" },
+  });
+  const primaryInbox =
+    allInboxes.find((item) => item.status === "connected") ?? inbox;
+
+  const record = await prisma.emailIntegration.update({
+    where: { id: parent.id },
+    data: {
+      mode: "smartlead_inbox",
+      status: deriveIntegrationStatus(allInboxes),
+      fromEmail: primaryInbox.fromEmail,
+      fromName: primaryInbox.fromName,
+      sendingDomain: primaryInbox.sendingDomain,
+      providerType: primaryInbox.providerType,
+      encryptedSmartleadAccountId: primaryInbox.encryptedSmartleadAccountId,
+      isSmtpSuccess: primaryInbox.isSmtpSuccess,
+      isImapSuccess: primaryInbox.isImapSuccess,
+      warmupEnabled: primaryInbox.warmupEnabled,
+      warmupStatus: primaryInbox.warmupStatus,
+      warmupReputation: primaryInbox.warmupReputation,
+      connectedAt: primaryInbox.connectedAt,
+      customTrackingDomain:
+        form.customTrackingDomain || parent.customTrackingDomain,
+    },
+    include: emailIntegrationInclude,
+  });
+
+  return record;
 }
 
+export async function getConnectedSmartleadInboxes(tenantId) {
+  const record = await loadEmailIntegrationRecord(tenantId);
+  if (!record) return [];
+  return record.inboxes.filter(
+    (inbox) =>
+      inbox.status === "connected" && Boolean(inbox.encryptedSmartleadAccountId)
+  );
+}
+
+export async function getDecryptedSmartleadAccountIds(tenantId, inboxIds = []) {
+  const inboxes = await getConnectedSmartleadInboxes(tenantId);
+  if (!inboxes.length) return [];
+
+  const selected = Array.isArray(inboxIds) ? inboxIds.filter(Boolean) : [];
+  const filtered =
+    selected.length > 0
+      ? inboxes.filter((inbox) => selected.includes(inbox.id))
+      : inboxes;
+
+  return filtered.map((inbox) =>
+    Number(decryptSmartleadAccountId(inbox.encryptedSmartleadAccountId))
+  );
+}
+
+/** @deprecated Use getDecryptedSmartleadAccountIds — returns first connected inbox id. */
 export async function getDecryptedSmartleadAccountId(tenantId) {
-  const record = await prisma.emailIntegration.findUnique({
-    where: { tenantId },
-    select: { encryptedSmartleadAccountId: true },
-  });
-  if (!record?.encryptedSmartleadAccountId) return null;
-  return decryptSmartleadAccountId(record.encryptedSmartleadAccountId);
+  const ids = await getDecryptedSmartleadAccountIds(tenantId);
+  return ids[0] ?? null;
+}
+
+export async function resolveCampaignSmartleadAccountIds(campaign, tenantId) {
+  const accountIds = await getDecryptedSmartleadAccountIds(
+    tenantId,
+    campaign.smartleadInboxIds
+  );
+  if (!accountIds.length) {
+    throw new Error(
+      "Connect at least one Smartlead inbox in Integrations before sending email outreach."
+    );
+  }
+  return accountIds;
+}
+
+export async function getSmartleadInboxForTenant(tenantId, inboxId) {
+  const record = await loadEmailIntegrationRecord(tenantId);
+  if (!record) return null;
+  return record.inboxes.find((inbox) => inbox.id === inboxId) ?? null;
 }

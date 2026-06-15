@@ -9,6 +9,7 @@ import {
   serializeCommLogDetail,
 } from "@/lib/campaignMetrics";
 import { getCalendlyIntegration } from "@/lib/calendlyIntegration";
+import { getEmailIntegration } from "@/lib/emailIntegration";
 import { CAMPAIGN_CONTACT_STATUS_LABELS } from "@/lib/campaignContactStatus";
 import { CONTACT_PERSONA_LABELS } from "@/lib/contactPersona";
 import { flattenCampaignContact } from "@/lib/resolveBusinessUser";
@@ -46,7 +47,7 @@ export const campaignDetailInclude = {
   commLogs: { orderBy: { sentAt: "desc" }, take: 200 },
 };
 
-export async function serializeCampaignDetail(campaign, { calendlyConnected = null } = {}) {
+export async function serializeCampaignDetail(campaign, { calendlyConnected = null, availableSmartleadInboxes = [] } = {}) {
   const campaignContacts = campaign.campaignContacts ?? [];
   const prospectCount = campaignContacts.length;
   const qualifiedCount = campaignContacts.filter(
@@ -131,6 +132,8 @@ export async function serializeCampaignDetail(campaign, { calendlyConnected = nu
       outreachTimezone
     ),
     enabledChannels,
+    smartleadInboxIds: campaign.smartleadInboxIds ?? [],
+    availableSmartleadInboxes,
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString(),
     metrics: {
@@ -279,7 +282,9 @@ export async function fetchSerializedCampaign(id, tenantId) {
   }
 
   const calendly = await getCalendlyIntegration(tenantId);
+  const emailIntegration = await getEmailIntegration(tenantId);
   return serializeCampaignDetail(campaign, {
     calendlyConnected: calendly?.status === "connected",
+    availableSmartleadInboxes: emailIntegration?.inboxes ?? [],
   });
 }

@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { resolveApiAuth } from "@/lib/apiAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
-  getDecryptedSmartleadAccountId,
+  getConnectedSmartleadInboxes,
   serializeEmailIntegration,
 } from "@/lib/emailIntegration";
 import { buildDnsRecords } from "@/lib/emailDnsRecords";
 import { updateEmailAccount } from "@/lib/smartleadApi";
+import { decryptSmartleadAccountId } from "@/lib/encryptSecret";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request) {
@@ -16,9 +17,14 @@ export async function POST(request) {
 
   const record = await prisma.emailIntegration.findUnique({
     where: { tenantId: ctx.tenantId },
+    include: { inboxes: true },
   });
 
-  if (!record?.encryptedSmartleadAccountId) {
+  const inboxes = record?.inboxes?.length
+    ? record.inboxes
+    : await getConnectedSmartleadInboxes(ctx.tenantId);
+
+  if (!inboxes.length) {
     return NextResponse.json(
       { error: "Connect a Smartlead inbox first" },
       { status: 404 }
@@ -40,23 +46,21 @@ export async function POST(request) {
     );
   }
 
-  let accountId;
-  try {
-    accountId = await getDecryptedSmartleadAccountId(ctx.tenantId);
-  } catch {
-    return NextResponse.json(
-      { error: "Could not read stored Smartlead account" },
-      { status: 500 }
-    );
+  const updateErrors = [];
+  for (const inbox of inboxes) {
+    try {
+      const accountId = decryptSmartleadAccountId(inbox.encryptedSmartleadAccountId);
+      await updateEmailAccount(accountId, {
+        custom_tracking_url: customTrackingDomain,
+      });
+    } catch (err) {
+      updateErrors.push(`${inbox.fromEmail}: ${err.message}`);
+    }
   }
 
-  try {
-    await updateEmailAccount(accountId, {
-      custom_tracking_url: customTrackingDomain,
-    });
-  } catch (err) {
+  if (updateErrors.length === inboxes.length) {
     return NextResponse.json(
-      { error: err.message || "Failed to update tracking domain in Smartlead" },
+      { error: updateErrors[0] || "Failed to update tracking domain in Smartlead" },
       { status: 422 }
     );
   }
@@ -64,6 +68,7 @@ export async function POST(request) {
   const updated = await prisma.emailIntegration.update({
     where: { tenantId: ctx.tenantId },
     data: { customTrackingDomain },
+    include: { inboxes: { orderBy: { createdAt: "asc" } } },
   });
 
   const dnsRecords = buildDnsRecords({
@@ -73,5 +78,6 @@ export async function POST(request) {
 
   return NextResponse.json({
     integration: serializeEmailIntegration(updated, { dnsRecords }),
+    warnings: updateErrors.length ? updateErrors : undefined,
   });
 }

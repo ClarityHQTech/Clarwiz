@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { syncCampaignContactStatus } from "@/lib/syncCampaignContactStatus";
 import {
-  getDecryptedSmartleadAccountId,
+  getConnectedSmartleadInboxes,
+  getDecryptedSmartleadAccountIds,
   getEmailIntegration,
+  resolveCampaignSmartleadAccountIds,
 } from "@/lib/emailIntegration";
 import {
   buildProspectSmartleadSchedule,
@@ -206,23 +208,30 @@ export function buildDeliveryMeta(message) {
   };
 }
 
-export async function requireConnectedEmailIntegration(tenantId) {
+export async function requireConnectedEmailIntegration(tenantId, campaign = null) {
   const integration = await getEmailIntegration(tenantId);
+  const connectedInboxes = await getConnectedSmartleadInboxes(tenantId);
   if (
     !integration ||
     integration.mode !== "smartlead_inbox" ||
-    integration.status !== "connected" ||
-    !integration.hasSmartleadAccount
+    !connectedInboxes.length
   ) {
     throw new Error(
       "Connect a Smartlead inbox in Integrations before sending email outreach."
     );
   }
-  const emailAccountId = await getDecryptedSmartleadAccountId(tenantId);
-  if (!emailAccountId) {
-    throw new Error("Smartlead email account is missing — reconnect in Integrations.");
+
+  const emailAccountIds = campaign
+    ? await resolveCampaignSmartleadAccountIds(campaign, tenantId)
+    : await getDecryptedSmartleadAccountIds(tenantId);
+
+  if (!emailAccountIds.length) {
+    throw new Error(
+      "Select at least one connected Smartlead inbox for this campaign."
+    );
   }
-  return { integration, emailAccountId: Number(emailAccountId) };
+
+  return { integration, emailAccountIds };
 }
 
 async function verifySmartleadCampaignExists(smartleadCampaignId) {
@@ -236,8 +245,9 @@ async function verifySmartleadCampaignExists(smartleadCampaignId) {
 }
 
 export async function ensureSmartleadCampaignForClarwiz(campaign) {
-  const { emailAccountId } = await requireConnectedEmailIntegration(
-    campaign.tenantId
+  const { emailAccountIds } = await requireConnectedEmailIntegration(
+    campaign.tenantId,
+    campaign
   );
 
   let smartleadCampaignId = campaign.smartleadCampaignId
@@ -256,39 +266,39 @@ export async function ensureSmartleadCampaignForClarwiz(campaign) {
     }
   }
 
-  if (smartleadCampaignId) {
-    return smartleadCampaignId;
-  }
-
-  const created = await createCampaign({
-    name: `Clarwiz — ${campaign.name}`.slice(0, 120),
-  });
-  smartleadCampaignId = Number(extractCampaignId(created));
   if (!smartleadCampaignId) {
-    throw new Error("Smartlead did not return a campaign id");
+    const created = await createCampaign({
+      name: `Clarwiz — ${campaign.name}`.slice(0, 120),
+    });
+    smartleadCampaignId = Number(extractCampaignId(created));
+    if (!smartleadCampaignId) {
+      throw new Error("Smartlead did not return a campaign id");
+    }
+
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { smartleadCampaignId },
+    });
+
+    campaign.smartleadCampaignId = smartleadCampaignId;
+
+    await applyImmediateTestSchedule(smartleadCampaignId);
+    await ensureCampaignSequenceTemplate(smartleadCampaignId);
+    await updateCampaignSettings(smartleadCampaignId, {
+      track_settings: [],
+    });
+    await setCampaignStatus(smartleadCampaignId, "START");
   }
 
-  await linkCampaignEmailAccounts(smartleadCampaignId, [emailAccountId]);
-  await applyImmediateTestSchedule(smartleadCampaignId);
-  await ensureCampaignSequenceTemplate(smartleadCampaignId);
-  await updateCampaignSettings(smartleadCampaignId, {
-    track_settings: [],
-  });
-  await setCampaignStatus(smartleadCampaignId, "START");
+  // Keep linked inboxes in sync — Smartlead rotates sends across all linked accounts.
+  await linkCampaignEmailAccounts(smartleadCampaignId, emailAccountIds);
 
-  await prisma.campaign.update({
-    where: { id: campaign.id },
-    data: { smartleadCampaignId },
-  });
-
-  campaign.smartleadCampaignId = smartleadCampaignId;
   return smartleadCampaignId;
 }
 
 export async function resolveSmartleadDeliveryStatus({
   smartleadCampaignId,
   leadEmail,
-  emailAccountId,
   waitMs = 0,
 }) {
   const deadline = Date.now() + waitMs;
@@ -301,7 +311,6 @@ export async function resolveSmartleadDeliveryStatus({
       getCampaignAnalytics(smartleadCampaignId).catch(() => null),
       findSentMessageForLeadEmail({
         leadEmail,
-        emailAccountId,
         smartleadCampaignId,
       }).catch(() => null),
     ]);
@@ -408,8 +417,9 @@ export async function sendPlannedEmailViaSmartlead({
   commHistory = [],
   useProspectSchedule = false,
 }) {
-  const { emailAccountId } = await requireConnectedEmailIntegration(
-    campaign.tenantId
+  const { emailAccountIds } = await requireConnectedEmailIntegration(
+    campaign.tenantId,
+    campaign
   );
 
   if (!prospect.email?.trim()) {
@@ -494,13 +504,12 @@ export async function sendPlannedEmailViaSmartlead({
   const resolved = await resolveSmartleadDeliveryStatus({
     smartleadCampaignId,
     leadEmail: toEmail,
-    emailAccountId,
     waitMs: SMARTLEAD_WAIT_MS,
   });
 
   const deliveryMeta = {
     smartleadCampaignId,
-    emailAccountId,
+    emailAccountIds,
     sendMode: "campaign_lead",
     smartleadLeadId: leadIdFromMap,
     smartleadCampaignUrl: smartleadCampaignUrl(smartleadCampaignId),
@@ -518,7 +527,6 @@ export async function sendPlannedEmailViaSmartlead({
 
 async function querySentEngagement({
   prospectEmail,
-  emailAccountId,
   smartleadCampaignId,
   emailStatus,
   engagementHint,
@@ -530,9 +538,6 @@ async function querySentEngagement({
       limit: 20,
       filters: {
         search: prospectEmail?.trim().slice(0, 30),
-        ...(emailAccountId != null
-          ? { emailAccountId: Number(emailAccountId) }
-          : {}),
         ...(smartleadCampaignId != null
           ? { campaignId: Number(smartleadCampaignId) }
           : {}),
@@ -557,7 +562,7 @@ export async function fetchSmartleadEngagementForProspect({
   prospectEmail,
   smartleadCampaignId,
 }) {
-  const { emailAccountId } = await requireConnectedEmailIntegration(tenantId);
+  await requireConnectedEmailIntegration(tenantId);
   const search = prospectEmail?.trim().slice(0, 30);
   if (!search) return null;
 
@@ -568,9 +573,6 @@ export async function fetchSmartleadEngagementForProspect({
       limit: 20,
       filters: {
         search,
-        ...(emailAccountId != null
-          ? { emailAccountId: Number(emailAccountId) }
-          : {}),
         ...(smartleadCampaignId != null
           ? { campaignId: Number(smartleadCampaignId) }
           : {}),
@@ -596,7 +598,6 @@ export async function fetchSmartleadEngagementForProspect({
 
   const replyFromSent = await querySentEngagement({
     prospectEmail,
-    emailAccountId,
     smartleadCampaignId,
     emailStatus: "Replied",
     engagementHint: "Replied",
@@ -607,7 +608,6 @@ export async function fetchSmartleadEngagementForProspect({
   // Opens / clicks — must query sent mailbox with emailStatus (not on default row shape)
   const openFromSent = await querySentEngagement({
     prospectEmail,
-    emailAccountId,
     smartleadCampaignId,
     emailStatus: ["Opened", "Clicked"],
     engagementHint: "Opened",
@@ -618,7 +618,6 @@ export async function fetchSmartleadEngagementForProspect({
   // Fallback: row may include last_reply_time without Replied filter
   let message = await findSentMessageForLeadEmail({
     leadEmail: prospectEmail,
-    emailAccountId,
     smartleadCampaignId,
   });
 

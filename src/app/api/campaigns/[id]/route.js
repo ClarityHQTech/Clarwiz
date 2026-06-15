@@ -14,6 +14,11 @@ import {
   normalizeOutreachTimezone,
 } from "@/lib/outreachTimezones";
 import { normalizeEnabledChannels } from "@/lib/campaignChannels";
+import {
+  getConnectedSmartleadInboxes,
+  resolveCampaignSmartleadAccountIds,
+} from "@/lib/emailIntegration";
+import { linkCampaignEmailAccounts } from "@/lib/smartleadApi";
 
 export async function GET(_request, { params }) {
   const auth = await resolveApiAuth({ permission: PERMISSIONS.CAMPAIGN_MANAGE });
@@ -204,6 +209,44 @@ export async function PATCH(request, { params }) {
       where: { id: campaign.id },
       data: { enabledChannels },
     });
+
+    return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
+  }
+
+  if (body.smartleadInboxIds !== undefined) {
+    const requestedIds = Array.isArray(body.smartleadInboxIds)
+      ? body.smartleadInboxIds.filter(Boolean)
+      : [];
+    const connected = await getConnectedSmartleadInboxes(ctx.tenantId);
+    const validIds = new Set(connected.map((inbox) => inbox.id));
+    const smartleadInboxIds = requestedIds.filter((inboxId) => validIds.has(inboxId));
+
+    if (requestedIds.length > 0 && smartleadInboxIds.length === 0) {
+      return NextResponse.json(
+        { error: "Selected Smartlead inboxes are not connected for this workspace" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { smartleadInboxIds },
+    });
+
+    if (campaign.smartleadCampaignId) {
+      try {
+        const accountIds = await resolveCampaignSmartleadAccountIds(
+          { ...campaign, smartleadInboxIds },
+          ctx.tenantId
+        );
+        await linkCampaignEmailAccounts(
+          Number(campaign.smartleadCampaignId),
+          accountIds
+        );
+      } catch (err) {
+        console.warn("[campaign] Smartlead inbox sync failed:", err.message);
+      }
+    }
 
     return NextResponse.json(await fetchSerializedCampaign(params.id, ctx.tenantId));
   }
